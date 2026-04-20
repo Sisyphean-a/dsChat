@@ -85,7 +85,7 @@ export async function streamChatCompletion(
     for (const event of consumed.events) {
       const next = appendDelta(content, event, onDelta)
       if (next.done) {
-        return next.content
+        return finalizeStreamContent(next.content)
       }
 
       content = next.content
@@ -97,7 +97,7 @@ export async function streamChatCompletion(
     content = appendDelta(content, trailingEvent, onDelta).content
   }
 
-  return content
+  return finalizeStreamContent(content)
 }
 
 function extractEventPayload(frame: string): string {
@@ -133,6 +133,14 @@ function appendDelta(
     content: `${content}${delta}`,
     done: false,
   }
+}
+
+function finalizeStreamContent(content: string): string {
+  if (!content.trim()) {
+    throw new Error('DeepSeek 未返回可用内容。')
+  }
+
+  return content
 }
 
 function createChatUrl(baseUrl: string): string {

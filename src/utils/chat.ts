@@ -33,6 +33,12 @@ export function buildConversationDoc(
   }
 }
 
+export function cloneMessages(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((message) => ({
+    ...message,
+  }))
+}
+
 export function sortConversations(conversations: ConversationDoc[]): ConversationDoc[] {
   return [...conversations].sort((left, right) => right.updatedAt - left.updatedAt)
 }

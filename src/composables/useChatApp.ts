@@ -15,7 +15,13 @@ import {
   saveSettings,
 } from '../services/utools'
 import type { ChatMessage, ConversationDoc, SessionDoc, SettingsForm } from '../types/chat'
-import { buildConversationDoc, createConversationId, createMessageId, sortConversations } from '../utils/chat'
+import {
+  buildConversationDoc,
+  cloneMessages,
+  createConversationId,
+  createMessageId,
+  sortConversations,
+} from '../utils/chat'
 import { shouldResetConversation } from '../utils/session'
 
 export function useChatApp() {
@@ -71,7 +77,9 @@ export function useChatApp() {
     isSavingSettings.value = true
 
     try {
-      await saveSettings(settings.value)
+      const normalizedSettings = normalizeSettings(settings.value)
+      settings.value = normalizedSettings
+      await saveSettings(normalizedSettings)
       isSettingsOpen.value = false
       lastError.value = null
     } finally {
@@ -92,7 +100,7 @@ export function useChatApp() {
     }
 
     activeConversationId.value = id
-    messages.value = structuredClone(target.messages)
+    messages.value = cloneMessages(target.messages)
   }
 
   async function sendMessage(): Promise<void> {
@@ -101,8 +109,10 @@ export function useChatApp() {
       return
     }
 
-    if (!settings.value.apiKey.trim()) {
-      lastError.value = '请先在设置面板中填写 DeepSeek API Key。'
+    const normalizedSettings = normalizeSettings(settings.value)
+    const settingsError = getSendSettingsError(normalizedSettings)
+    if (settingsError) {
+      lastError.value = settingsError
       openSettings()
       return
     }
@@ -122,7 +132,7 @@ export function useChatApp() {
     await persistConversation()
 
     try {
-      await streamChatCompletion(messages.value.slice(0, -1), settings.value, (chunk) => {
+      await streamChatCompletion(messages.value.slice(0, -1), normalizedSettings, (chunk) => {
         mutateAssistantMessage(assistantMessage.id, (message) => {
           message.content += chunk
         })
@@ -174,7 +184,7 @@ export function useChatApp() {
     }
 
     activeConversationId.value = target.id
-    messages.value = structuredClone(target.messages)
+    messages.value = cloneMessages(target.messages)
   }
 
   function registerLifecycleHooks(): void {
@@ -203,7 +213,7 @@ export function useChatApp() {
       (conversation) => conversation.id === activeConversationId.value,
     )
     const saved = await saveConversation(
-      buildConversationDoc(activeConversationId.value, structuredClone(messages.value), existing),
+      buildConversationDoc(activeConversationId.value, cloneMessages(messages.value), existing),
     )
 
     conversations.value = sortConversations([
@@ -243,6 +253,30 @@ export function useChatApp() {
       mutate(next)
       return next
     })
+  }
+
+  function getSendSettingsError(currentSettings: SettingsForm): string | null {
+    if (!currentSettings.apiKey.trim()) {
+      return '请先在设置面板中填写 DeepSeek API Key。'
+    }
+
+    if (!currentSettings.baseUrl.trim()) {
+      return '请先在设置面板中填写 DeepSeek Base URL。'
+    }
+
+    if (!currentSettings.model.trim()) {
+      return '请先在设置面板中选择 DeepSeek 模型。'
+    }
+
+    return null
+  }
+
+  function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
+    return {
+      apiKey: currentSettings.apiKey.trim(),
+      baseUrl: currentSettings.baseUrl.trim(),
+      model: currentSettings.model.trim(),
+    }
   }
 
   return {

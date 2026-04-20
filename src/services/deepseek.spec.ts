@@ -65,4 +65,30 @@ describe('streamChatCompletion', () => {
     expect(content).toBe('尾')
     expect(deltas).toEqual(['尾'])
   })
+
+  it('throws when the stream finishes without any content delta', async () => {
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        controller.close()
+      },
+    })
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        body: stream,
+      }),
+    )
+
+    await expect(
+      streamChatCompletion(
+        [{ id: '1', role: 'user', content: 'test', createdAt: 0, status: 'done' }],
+        { apiKey: 'sk-test', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat' },
+        vi.fn(),
+      ),
+    ).rejects.toThrow('DeepSeek 未返回可用内容。')
+  })
 })
