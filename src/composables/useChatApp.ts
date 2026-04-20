@@ -85,6 +85,8 @@ export function useChatApp() {
       await saveSettings(normalizedSettings)
       isSettingsOpen.value = false
       lastError.value = null
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : '设置保存失败。'
     } finally {
       isSavingSettings.value = false
     }

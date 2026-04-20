@@ -83,6 +83,20 @@ describe('useChatApp', () => {
     })
   })
 
+  it('exposes a visible error when saving settings fails', async () => {
+    vi.mocked(saveSettings).mockRejectedValueOnce(new Error('设置保存失败。'))
+
+    const app = useChatApp()
+    await app.initialize()
+    app.openSettings()
+
+    await expect(app.saveSettings()).resolves.toBeUndefined()
+
+    expect(app.isSavingSettings.value).toBe(false)
+    expect(app.isSettingsOpen.value).toBe(true)
+    expect(app.lastError.value).toBe('设置保存失败。')
+  })
+
   it('blocks sending when base url is blank', async () => {
     vi.mocked(loadSettings).mockResolvedValue({
       apiKey: 'sk-test',
