@@ -2,7 +2,6 @@ import { computed, ref } from 'vue'
 import {
   CHAT_IDLE_RESET_MS,
   MODEL_OPTIONS,
-  PLACEHOLDER_MESSAGES,
   SESSION_DOC_ID,
 } from '../constants/app'
 import { streamChatCompletion } from '../services/deepseek'
@@ -38,7 +37,7 @@ export function useChatApp() {
   async function initialize(): Promise<void> {
     settings.value = await loadSettings()
     conversations.value = await loadConversations()
-    messages.value = conversations.value.length ? [] : structuredClone(PLACEHOLDER_MESSAGES)
+    messages.value = []
 
     if (isBrowserMode.value) {
       environmentNotice.value = '当前为浏览器预览模式：界面可用，但只有在 uTools 中才会使用本地数据库持久化。'
