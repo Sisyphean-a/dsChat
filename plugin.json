@@ -1,0 +1,22 @@
+{
+  "main": "dist/index.html",
+  "logo": "logo.svg",
+  "development": {
+    "main": "http://127.0.0.1:5173/index.html"
+  },
+  "pluginSetting": {
+    "height": 720,
+    "single": true
+  },
+  "features": [
+    {
+      "code": "ds-chat",
+      "explain": "DeepSeek 本地对话插件",
+      "cmds": [
+        "dschat",
+        "对话助手",
+        "deepseek 对话"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "logo": "logo.svg",
+  "pluginSetting": {
+    "height": 720,
+    "single": true
+  },
+  "features": [
+    {
+      "code": "ds-chat",
+      "explain": "DeepSeek 本地对话插件",
+      "cmds": [
+        "dschat",
+        "对话助手",
+        "deepseek 对话"
+      ]
+    }
+  ],
+  "main": "index.html"
+}
