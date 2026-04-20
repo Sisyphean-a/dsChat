@@ -34,21 +34,25 @@ function formatTime(timestamp: number): string {
 <template>
   <aside :class="panelClass">
     <div class="sidebar-header">
-      <button class="sidebar-toggle" type="button" @click="emit('toggle')">
-        {{ collapsed ? '展开' : '收起' }}
-      </button>
-      <button
-        v-if="!collapsed"
-        class="primary-button"
-        type="button"
-        :disabled="props.disabled"
-        @click="emit('newConversation')"
-      >
-        新对话
+      <button class="icon-button" type="button" @click="emit('toggle')" title="切换侧边栏">
+        <svg v-if="collapsed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
       </button>
     </div>
 
     <template v-if="!collapsed">
+      <div class="sidebar-action">
+        <button
+          class="primary-button"
+          type="button"
+          :disabled="props.disabled"
+          @click="emit('newConversation')"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          新对话
+        </button>
+      </div>
+
       <div class="sidebar-body">
         <div v-if="conversations.length" class="history-list">
           <button
@@ -60,21 +64,14 @@ function formatTime(timestamp: number): string {
             :disabled="props.disabled"
             @click="emit('selectConversation', conversation.id)"
           >
-            <strong>{{ conversation.title }}</strong>
-            <span>{{ formatTime(conversation.updatedAt) }}</span>
+            <span class="item-title">{{ conversation.title }}</span>
+            <span class="item-time">{{ formatTime(conversation.updatedAt) }}</span>
           </button>
         </div>
 
         <div v-else class="history-empty">
-          <p>历史记录会显示在这里。</p>
-          <p>发送第一条消息后，会自动创建会话。</p>
+          <p>暂无对话记录</p>
         </div>
-      </div>
-
-      <div class="sidebar-footer">
-        <button class="ghost-wide" type="button" @click="emit('openSettings')">
-          打开设置
-        </button>
       </div>
     </template>
   </aside>
@@ -82,125 +79,123 @@ function formatTime(timestamp: number): string {
 
 <style scoped>
 .sidebar-panel {
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 28px;
-  background: rgba(25, 43, 46, 0.95);
-  color: #f6f3ea;
-  box-shadow: 0 18px 40px rgba(37, 48, 54, 0.16);
+  height: 100vh;
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  transition: width 200ms ease;
 }
 
 .sidebar-panel.is-collapsed {
-  width: 92px;
-}
-
-.sidebar-header,
-.sidebar-footer {
-  display: flex;
-  gap: 10px;
+  width: 52px;
 }
 
 .sidebar-header {
-  justify-content: space-between;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  flex-shrink: 0;
+}
+
+.icon-button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: background 150ms;
+}
+
+.icon-button:hover {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+.sidebar-action {
+  padding: 0 12px 16px;
+  flex-shrink: 0;
+}
+
+.primary-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-hover);
+  color: var(--text);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 150ms;
+}
+
+.primary-button:hover {
+  background: var(--bg-active);
 }
 
 .sidebar-body {
-  min-height: 0;
   flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 16px;
 }
 
 .history-list {
-  height: 100%;
-  overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.history-item,
-.sidebar-toggle,
-.primary-button,
-.ghost-wide {
-  border-radius: 14px;
-  transition:
-    transform 160ms ease,
-    background 160ms ease;
-}
-
-.history-item,
-.sidebar-toggle,
-.ghost-wide {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  color: inherit;
+  gap: 2px;
 }
 
 .history-item {
   width: 100%;
-  padding: 14px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   text-align: left;
+  border-radius: var(--radius-md);
+  transition: background 150ms;
 }
 
-.history-item strong {
-  font-size: 0.96rem;
-  font-weight: 600;
-}
-
-.history-item span,
-.history-empty {
-  color: rgba(246, 243, 234, 0.68);
-  font-size: 0.84rem;
+.history-item:hover {
+  background: var(--bg-hover);
 }
 
 .history-item.active {
-  background: rgba(18, 95, 88, 0.46);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: var(--bg-active);
 }
 
-.sidebar-toggle,
-.ghost-wide {
-  padding: 12px 14px;
+.item-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
 }
 
-.primary-button {
-  padding: 12px 16px;
-  background: #f2ebdd;
-  color: #203035;
+.item-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
-.ghost-wide {
-  width: 100%;
-}
-
-.history-item:hover,
-.sidebar-toggle:hover,
-.primary-button:hover,
-.ghost-wide:hover {
-  transform: translateY(-1px);
+.history-empty {
+  padding: 32px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .history-item:disabled,
 .primary-button:disabled {
   cursor: not-allowed;
-  opacity: 0.58;
-  transform: none;
-}
-
-.history-empty {
-  padding: 18px 6px;
-  line-height: 1.7;
-}
-
-@media (max-width: 1024px) {
-  .sidebar-panel,
-  .sidebar-panel.is-collapsed {
-    width: 100%;
-  }
+  opacity: 0.5;
 }
 </style>

@@ -25,7 +25,7 @@ describe('prepare-offline-package', () => {
       JSON.stringify(
         {
           main: 'dist/index.html',
-          logo: 'logo.svg',
+          logo: 'logo.png',
           development: {
             main: 'http://127.0.0.1:5173/index.html',
           },
@@ -41,7 +41,7 @@ describe('prepare-offline-package', () => {
         2,
       ),
     )
-    writeFileSync(join(fixtureDir, 'logo.svg'), '<svg />')
+    writeFileSync(join(fixtureDir, 'logo.png'), 'fake-png-content')
 
     const result = spawnSync(process.execPath, [scriptPath], {
       cwd: fixtureDir,
@@ -51,14 +51,14 @@ describe('prepare-offline-package', () => {
     expect(result.status).toBe(0)
     expect(existsSync(join(fixtureDir, 'package', 'plugin.json'))).toBe(true)
     expect(readFileSync(join(fixtureDir, 'package', 'index.html'), 'utf8')).toContain('dsChat')
-    expect(readFileSync(join(fixtureDir, 'package', 'logo.svg'), 'utf8')).toContain('<svg')
+    expect(readFileSync(join(fixtureDir, 'package', 'logo.png'), 'utf8')).toContain('fake-png-content')
 
     const manifest = JSON.parse(
       readFileSync(join(fixtureDir, 'package', 'plugin.json'), 'utf8'),
     ) as Record<string, unknown>
 
     expect(manifest.main).toBe('index.html')
-    expect(manifest.logo).toBe('logo.svg')
+    expect(manifest.logo).toBe('logo.png')
     expect(manifest.development).toBeUndefined()
   })
 })

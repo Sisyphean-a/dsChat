@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 
 const BUILD_DIR = 'dist'
 const ENTRY_FILE = 'index.html'
-const LOGO_FILE = 'logo.svg'
+const LOGO_FILE = 'logo.png'
 const MANIFEST_FILE = 'plugin.json'
 const PACKAGE_DIR = 'package'
 
@@ -19,7 +19,7 @@ function main() {
 
   ensurePathExists(buildEntryPath, '缺少 dist/index.html，请先执行 npm run build。')
   ensurePathExists(manifestPath, '缺少根目录 plugin.json，无法生成离线打包清单。')
-  ensurePathExists(logoPath, '缺少根目录 logo.svg，无法生成离线打包目录。')
+  ensurePathExists(logoPath, '缺少根目录 logo.png，无法生成离线打包目录。')
   resetPackageDir(rootDir, packageDir)
 
   cpSync(buildDir, packageDir, { recursive: true })
