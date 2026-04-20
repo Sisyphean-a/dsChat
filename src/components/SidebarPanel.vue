@@ -6,6 +6,7 @@ const props = defineProps<{
   activeConversationId: string | null
   collapsed: boolean
   conversations: ConversationDoc[]
+  disabled: boolean
 }>()
 
 const emit = defineEmits<{
@@ -36,7 +37,13 @@ function formatTime(timestamp: number): string {
       <button class="sidebar-toggle" type="button" @click="emit('toggle')">
         {{ collapsed ? '展开' : '收起' }}
       </button>
-      <button v-if="!collapsed" class="primary-button" type="button" @click="emit('newConversation')">
+      <button
+        v-if="!collapsed"
+        class="primary-button"
+        type="button"
+        :disabled="props.disabled"
+        @click="emit('newConversation')"
+      >
         新对话
       </button>
     </div>
@@ -50,6 +57,7 @@ function formatTime(timestamp: number): string {
             class="history-item"
             :class="{ active: conversation.id === activeConversationId }"
             type="button"
+            :disabled="props.disabled"
             @click="emit('selectConversation', conversation.id)"
           >
             <strong>{{ conversation.title }}</strong>
@@ -175,6 +183,13 @@ function formatTime(timestamp: number): string {
 .primary-button:hover,
 .ghost-wide:hover {
   transform: translateY(-1px);
+}
+
+.history-item:disabled,
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
 }
 
 .history-empty {

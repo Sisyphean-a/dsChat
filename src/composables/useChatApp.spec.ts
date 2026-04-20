@@ -19,16 +19,18 @@ vi.mock('../services/utools', () => ({
 }))
 
 import { streamChatCompletion } from '../services/deepseek'
-import { loadSettings, saveSettings } from '../services/utools'
+import { loadConversations, loadSettings, saveConversation, saveSettings } from '../services/utools'
 import { useChatApp } from './useChatApp'
 
 describe('useChatApp', () => {
   beforeEach(() => {
+    vi.mocked(loadConversations).mockResolvedValue([])
     vi.mocked(loadSettings).mockResolvedValue({
       apiKey: '',
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-chat',
     })
+    vi.mocked(saveConversation).mockImplementation(async (conversation) => conversation)
     vi.mocked(streamChatCompletion).mockReset()
   })
 
@@ -142,5 +144,77 @@ describe('useChatApp', () => {
     expect(app.isSettingsOpen.value).toBe(true)
     expect(app.messages.value).toEqual([])
     expect(streamChatCompletion).not.toHaveBeenCalled()
+  })
+
+  it('releases sending state and exposes the error when the first conversation save fails', async () => {
+    vi.mocked(loadSettings).mockResolvedValue({
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat',
+    })
+    vi.mocked(saveConversation).mockRejectedValueOnce(new Error('uTools 数据库存储失败。'))
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '你好'
+
+    await app.sendMessage()
+
+    expect(app.isSending.value).toBe(false)
+    expect(app.lastError.value).toBe('uTools 数据库存储失败。')
+    expect(app.messages.value).toHaveLength(2)
+    expect(app.messages.value[1]?.status).toBe('error')
+    expect(app.messages.value[1]?.content).toBe('请求失败：uTools 数据库存储失败。')
+  })
+
+  it('keeps the active conversation locked while a reply is streaming', async () => {
+    vi.mocked(loadSettings).mockResolvedValue({
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat',
+    })
+    vi.mocked(loadConversations).mockResolvedValue([
+      {
+        _id: 'conversation/existing',
+        type: 'conversation',
+        id: 'existing',
+        title: '已有会话',
+        createdAt: 1,
+        updatedAt: 1,
+        messages: [
+          { id: 'm-existing', role: 'user', content: '旧消息', createdAt: 1, status: 'done' },
+        ],
+      },
+    ])
+
+    let resolveReply: (value: string) => void = () => {
+      throw new Error('流式回调未建立。')
+    }
+    vi.mocked(streamChatCompletion).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveReply = resolve
+        }),
+    )
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '新问题'
+
+    const sendPromise = app.sendMessage()
+    await vi.waitFor(() => {
+      expect(streamChatCompletion).toHaveBeenCalledTimes(1)
+    })
+    const lockedConversationId = app.activeConversationId.value
+    const lockedMessages = app.messages.value.map((message) => message.id)
+
+    app.selectConversation('existing')
+    app.startFreshConversation()
+
+    expect(app.activeConversationId.value).toBe(lockedConversationId)
+    expect(app.messages.value.map((message) => message.id)).toEqual(lockedMessages)
+
+    resolveReply('流式回复')
+    await sendPromise
   })
 })

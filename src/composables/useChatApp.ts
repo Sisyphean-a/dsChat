@@ -24,6 +24,8 @@ import {
 } from '../utils/chat'
 import { shouldResetConversation } from '../utils/session'
 
+type SendFailureStage = 'initial-persist' | 'stream' | 'final-persist'
+
 export function useChatApp() {
   const settings = ref<SettingsForm>({ apiKey: '', baseUrl: '', model: '' })
   const conversations = ref<ConversationDoc[]>([])
@@ -88,12 +90,20 @@ export function useChatApp() {
   }
 
   function startFreshConversation(): void {
+    if (isSending.value) {
+      return
+    }
+
     activeConversationId.value = null
     messages.value = []
     lastError.value = null
   }
 
   function selectConversation(id: string): void {
+    if (isSending.value) {
+      return
+    }
+
     const target = conversations.value.find((conversation) => conversation.id === id)
     if (!target) {
       return
@@ -129,9 +139,12 @@ export function useChatApp() {
     const userMessage = createMessage('user', content)
     const assistantMessage = createMessage('assistant', '')
     messages.value = [...messages.value, userMessage, assistantMessage]
-    await persistConversation()
+    let failureStage: SendFailureStage = 'initial-persist'
 
     try {
+      await persistConversation()
+      failureStage = 'stream'
+
       await streamChatCompletion(messages.value.slice(0, -1), normalizedSettings, (chunk) => {
         mutateAssistantMessage(assistantMessage.id, (message) => {
           message.content += chunk
@@ -142,15 +155,10 @@ export function useChatApp() {
         message.status = 'done'
       })
 
+      failureStage = 'final-persist'
       await persistConversation()
     } catch (error) {
-      const message = error instanceof Error ? error.message : '请求失败'
-      mutateAssistantMessage(assistantMessage.id, (draft) => {
-        draft.content = draft.content || `请求失败：${message}`
-        draft.status = 'error'
-      })
-      lastError.value = message
-      await persistConversation()
+      await handleSendFailure(error, assistantMessage.id, failureStage === 'stream')
     } finally {
       isSending.value = false
     }
@@ -253,6 +261,23 @@ export function useChatApp() {
       mutate(next)
       return next
     })
+  }
+
+  async function handleSendFailure(
+    error: unknown,
+    assistantMessageId: string,
+    shouldPersistFailureState: boolean,
+  ): Promise<void> {
+    const message = error instanceof Error ? error.message : '请求失败'
+    mutateAssistantMessage(assistantMessageId, (draft) => {
+      draft.content = draft.content || `请求失败：${message}`
+      draft.status = 'error'
+    })
+    lastError.value = message
+
+    if (shouldPersistFailureState) {
+      await persistConversation()
+    }
   }
 
   function getSendSettingsError(currentSettings: SettingsForm): string | null {

@@ -45,6 +45,7 @@ onMounted(() => {
         :active-conversation-id="app.activeConversationId.value"
         :collapsed="app.isSidebarCollapsed.value"
         :conversations="app.conversations.value"
+        :disabled="app.isSending.value"
         @new-conversation="app.startFreshConversation"
         @open-settings="app.openSettings"
         @select-conversation="app.selectConversation"
