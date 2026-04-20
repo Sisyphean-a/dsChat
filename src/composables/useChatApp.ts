@@ -1,4 +1,6 @@
 import { computed, ref } from 'vue'
+import { createChatMessage, updateMessageById } from './chatAppMessages'
+import { getSendSettingsError, normalizeSettings } from './chatAppSettings'
 import {
   CHAT_IDLE_RESET_MS,
   MODEL_OPTIONS,
@@ -19,7 +21,6 @@ import {
   buildConversationDoc,
   cloneMessages,
   createConversationId,
-  createMessageId,
   sortConversations,
 } from '../utils/chat'
 import { shouldResetConversation } from '../utils/session'
@@ -136,8 +137,8 @@ export function useChatApp() {
     lastError.value = null
     isSending.value = true
 
-    const userMessage = createMessage('user', content)
-    const assistantMessage = createMessage('assistant', '')
+    const userMessage = createChatMessage('user', content)
+    const assistantMessage = createChatMessage('assistant', '')
     messages.value = [...messages.value, userMessage, assistantMessage]
     let failureStage: SendFailureStage = 'initial-persist'
 
@@ -146,12 +147,12 @@ export function useChatApp() {
       failureStage = 'stream'
 
       await streamChatCompletion(messages.value.slice(0, -1), normalizedSettings, (chunk) => {
-        mutateAssistantMessage(assistantMessage.id, (message) => {
+        messages.value = updateMessageById(messages.value, assistantMessage.id, (message) => {
           message.content += chunk
         })
       })
 
-      mutateAssistantMessage(assistantMessage.id, (message) => {
+      messages.value = updateMessageById(messages.value, assistantMessage.id, (message) => {
         message.status = 'done'
       })
 
@@ -241,35 +242,13 @@ export function useChatApp() {
     await saveSession(session)
   }
 
-  function createMessage(role: ChatMessage['role'], content: string): ChatMessage {
-    return {
-      id: createMessageId(),
-      role,
-      content,
-      createdAt: Date.now(),
-      status: role === 'assistant' && !content ? 'streaming' : 'done',
-    }
-  }
-
-  function mutateAssistantMessage(id: string, mutate: (message: ChatMessage) => void): void {
-    messages.value = messages.value.map((message) => {
-      if (message.id !== id) {
-        return message
-      }
-
-      const next = { ...message }
-      mutate(next)
-      return next
-    })
-  }
-
   async function handleSendFailure(
     error: unknown,
     assistantMessageId: string,
     shouldPersistFailureState: boolean,
   ): Promise<void> {
     const message = error instanceof Error ? error.message : '请求失败'
-    mutateAssistantMessage(assistantMessageId, (draft) => {
+    messages.value = updateMessageById(messages.value, assistantMessageId, (draft) => {
       draft.content = draft.content || `请求失败：${message}`
       draft.status = 'error'
     })
@@ -277,30 +256,6 @@ export function useChatApp() {
 
     if (shouldPersistFailureState) {
       await persistConversation()
-    }
-  }
-
-  function getSendSettingsError(currentSettings: SettingsForm): string | null {
-    if (!currentSettings.apiKey.trim()) {
-      return '请先在设置面板中填写 DeepSeek API Key。'
-    }
-
-    if (!currentSettings.baseUrl.trim()) {
-      return '请先在设置面板中填写 DeepSeek Base URL。'
-    }
-
-    if (!currentSettings.model.trim()) {
-      return '请先在设置面板中选择 DeepSeek 模型。'
-    }
-
-    return null
-  }
-
-  function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
-    return {
-      apiKey: currentSettings.apiKey.trim(),
-      baseUrl: currentSettings.baseUrl.trim(),
-      model: currentSettings.model.trim(),
     }
   }
 
