@@ -86,7 +86,7 @@ export function useChatApp() {
       isSettingsOpen.value = false
       lastError.value = null
     } catch (error) {
-      lastError.value = error instanceof Error ? error.message : '设置保存失败。'
+      lastError.value = getErrorMessage(error, '设置保存失败。')
     } finally {
       isSavingSettings.value = false
     }
@@ -249,7 +249,7 @@ export function useChatApp() {
     assistantMessageId: string,
     shouldPersistFailureState: boolean,
   ): Promise<void> {
-    const message = error instanceof Error ? error.message : '请求失败'
+    const message = getErrorMessage(error, '请求失败')
     messages.value = updateMessageById(messages.value, assistantMessageId, (draft) => {
       draft.content = draft.content || `请求失败：${message}`
       draft.status = 'error'
@@ -257,8 +257,17 @@ export function useChatApp() {
     lastError.value = message
 
     if (shouldPersistFailureState) {
-      await persistConversation()
+      try {
+        await persistConversation()
+      } catch (persistError) {
+        const persistMessage = getErrorMessage(persistError, '会话记录写入失败。')
+        lastError.value = `请求失败后写入会话记录失败：${persistMessage}`
+      }
     }
+  }
+
+  function getErrorMessage(error: unknown, fallback: string): string {
+    return error instanceof Error ? error.message : fallback
   }
 
   return {

@@ -181,6 +181,30 @@ describe('useChatApp', () => {
     expect(app.messages.value[1]?.content).toBe('请求失败：uTools 数据库存储失败。')
   })
 
+  it('keeps sendMessage resolved and exposes persistence failure when saving the error state fails', async () => {
+    vi.mocked(loadSettings).mockResolvedValue({
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat',
+    })
+    vi.mocked(streamChatCompletion).mockRejectedValueOnce(new Error('流式响应中断。'))
+    vi.mocked(saveConversation)
+      .mockImplementationOnce(async (conversation) => conversation)
+      .mockRejectedValueOnce(new Error('uTools 数据库存储失败。'))
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '你好'
+
+    await expect(app.sendMessage()).resolves.toBeUndefined()
+
+    expect(app.isSending.value).toBe(false)
+    expect(app.lastError.value).toBe('请求失败后写入会话记录失败：uTools 数据库存储失败。')
+    expect(app.messages.value).toHaveLength(2)
+    expect(app.messages.value[1]?.status).toBe('error')
+    expect(app.messages.value[1]?.content).toBe('请求失败：流式响应中断。')
+  })
+
   it('keeps the active conversation locked while a reply is streaming', async () => {
     vi.mocked(loadSettings).mockResolvedValue({
       apiKey: 'sk-test',
