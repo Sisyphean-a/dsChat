@@ -1,11 +1,12 @@
 # dsChat
 
-基于 Vue 3 + Vite 的 uTools 本地 AI 对话插件，面向 DeepSeek API，支持：
+基于 Vue 3 + Vite 的 uTools 本地 AI 对话插件，现已支持多提供商接入，默认仍为 DeepSeek。当前支持：
 
 - 侧边栏历史会话与新对话切换
-- API Key / Base URL / 模型配置持久化
+- DeepSeek / OpenAI / Claude / MiniMax 独立配置持久化
+- 当前 provider 模型快速切换
 - uTools 生命周期驱动的 1 分钟会话恢复
-- DeepSeek SSE 流式输出
+- 多提供商 SSE/兼容流式输出
 - Markdown 渲染与 `highlight.js` 代码高亮
 
 ## 开发

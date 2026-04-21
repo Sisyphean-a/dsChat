@@ -1,11 +1,11 @@
-import type { ChatMessage, SettingsForm } from '../types/chat'
-import { requestChatCompletion } from './deepseek'
+import type { ActiveProviderSettings, ChatMessage } from '../types/chat'
+import { requestChatCompletion } from './chatCompletion'
 
 const TITLE_PROMPT_PREFIX = '请用六到十二个字总结以下内容的意图作为极简标题，不要带标点：\n'
 const TITLE_SANITIZE_PATTERN = /[。！？”“"']/g
 
 export async function requestConversationTitle(
-  settings: SettingsForm,
+  settings: ActiveProviderSettings,
   firstMessageContent: string,
 ): Promise<string> {
   const messages: ChatMessage[] = [{

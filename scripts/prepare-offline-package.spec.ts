@@ -33,7 +33,7 @@ describe('prepare-offline-package', () => {
             {
               code: 'ds-chat',
               cmds: ['dschat'],
-              explain: 'DeepSeek 本地对话插件',
+              explain: '多提供商 AI 对话插件',
             },
           ],
         },

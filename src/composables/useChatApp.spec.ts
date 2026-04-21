@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildDefaultSettings } from '../constants/providers'
+import type { ProviderId, ProviderSettings, SettingsForm } from '../types/chat'
 
-vi.mock('../services/deepseek', () => ({
+vi.mock('../services/chatCompletion', () => ({
   streamChatCompletion: vi.fn(),
 }))
 
@@ -13,19 +15,13 @@ vi.mock('../services/utools', () => ({
   hasUtools: vi.fn(() => false),
   loadConversations: vi.fn().mockResolvedValue([]),
   loadSession: vi.fn().mockResolvedValue(null),
-  loadSettings: vi.fn().mockResolvedValue({
-    apiKey: '',
-    baseUrl: 'https://api.deepseek.com',
-    model: 'deepseek-chat',
-    temperature: 1,
-    theme: 'light',
-  }),
+  loadSettings: vi.fn().mockResolvedValue(createSettings()),
   saveConversation: vi.fn(async (conversation) => conversation),
   saveSession: vi.fn().mockResolvedValue(undefined),
   saveSettings: vi.fn(),
 }))
 
-import { streamChatCompletion } from '../services/deepseek'
+import { streamChatCompletion } from '../services/chatCompletion'
 import { requestConversationTitle } from '../services/conversationTitle'
 import {
   deleteConversation,
@@ -43,13 +39,7 @@ describe('useChatApp', () => {
     vi.mocked(hasUtools).mockReturnValue(false)
     vi.mocked(loadConversations).mockResolvedValue([])
     vi.mocked(loadSession).mockResolvedValue(null)
-    vi.mocked(loadSettings).mockResolvedValue({
-      apiKey: '',
-      baseUrl: 'https://api.deepseek.com',
-      model: 'deepseek-chat',
-      temperature: 1,
-      theme: 'light',
-    })
+    vi.mocked(loadSettings).mockResolvedValue(createSettings())
     vi.mocked(deleteConversation).mockResolvedValue(undefined)
     vi.mocked(requestConversationTitle).mockResolvedValue('自动标题')
     vi.mocked(saveConversation).mockImplementation(async (conversation) => conversation)
@@ -65,13 +55,7 @@ describe('useChatApp', () => {
   })
 
   it('persists a valid message flow without crashing', async () => {
-    vi.mocked(loadSettings).mockResolvedValue({
-      apiKey: 'sk-test',
-      baseUrl: 'https://api.deepseek.com',
-      model: 'deepseek-chat',
-      temperature: 1,
-      theme: 'light',
-    })
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({ apiKey: 'sk-test' }))
     vi.mocked(streamChatCompletion).mockImplementation(async (_messages, _settings, onDelta) => {
       onDelta({ content: '你好，我在。' })
       return '你好，我在。'
@@ -91,13 +75,10 @@ describe('useChatApp', () => {
   })
 
   it('stores reasoning content when the model streams thinking output', async () => {
-    vi.mocked(loadSettings).mockResolvedValue({
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
       apiKey: 'sk-test',
-      baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-reasoner',
-      temperature: 1,
-      theme: 'light',
-    })
+    }))
     vi.mocked(streamChatCompletion).mockImplementation(async (_messages, _settings, onDelta) => {
       onDelta({ reasoningContent: '先思考' })
       onDelta({ content: '再回答' })
@@ -117,13 +98,7 @@ describe('useChatApp', () => {
 
   it('starts title generation before the streaming reply finishes', async () => {
     vi.mocked(hasUtools).mockReturnValue(true)
-    vi.mocked(loadSettings).mockResolvedValue({
-      apiKey: 'sk-test',
-      baseUrl: 'https://api.deepseek.com',
-      model: 'deepseek-chat',
-      temperature: 1,
-      theme: 'light',
-    })
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({ apiKey: 'sk-test' }))
 
     let resolveReply: (value: string) => void = () => {
       throw new Error('流式回调未建立。')
@@ -144,11 +119,11 @@ describe('useChatApp', () => {
     await vi.waitFor(() => {
       expect(requestConversationTitle).toHaveBeenCalledWith(
         {
+          provider: 'deepseek',
           apiKey: 'sk-test',
           baseUrl: 'https://api.deepseek.com',
           model: 'deepseek-chat',
           temperature: 1,
-          theme: 'light',
         },
         '给这段对话起标题',
       )
@@ -164,21 +139,39 @@ describe('useChatApp', () => {
     const app = useChatApp()
     await app.initialize()
 
-    app.updateSettingsField('apiKey', '  sk-test  ')
-    app.updateSettingsField('baseUrl', '  https://api.deepseek.com/  ')
-    app.updateSettingsField('model', '  deepseek-chat  ')
-    app.updateSettingsField('temperature', 1.36)
-    app.updateSettingsField('theme', 'dark')
+    app.updateActiveProviderField('apiKey', '  sk-test  ')
+    app.updateActiveProviderField('baseUrl', '  https://api.deepseek.com/  ')
+    app.updateActiveProviderField('model', '  deepseek-chat  ')
+    app.updateActiveProviderField('temperature', 1.36)
+    app.updateTheme('dark')
 
     await app.saveSettings()
 
-    expect(saveSettings).toHaveBeenCalledWith({
-      apiKey: 'sk-test',
-      baseUrl: 'https://api.deepseek.com/',
-      model: 'deepseek-chat',
-      temperature: 1.4,
+    expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({
+      activeProvider: 'deepseek',
       theme: 'dark',
-    })
+      providers: expect.objectContaining({
+        deepseek: {
+          apiKey: 'sk-test',
+          baseUrl: 'https://api.deepseek.com/',
+          model: 'deepseek-chat',
+          temperature: 1.4,
+        },
+      }),
+    }))
+  })
+
+  it('keeps provider-specific settings isolated when switching providers', async () => {
+    const app = useChatApp()
+    await app.initialize()
+
+    app.updateActiveProviderField('apiKey', 'sk-deepseek')
+    app.selectActiveProvider('openai')
+    app.updateActiveProviderField('apiKey', 'sk-openai')
+
+    expect(app.settings.value.providers.deepseek.apiKey).toBe('sk-deepseek')
+    expect(app.settings.value.providers.openai.apiKey).toBe('sk-openai')
+    expect(app.settings.value.activeProvider).toBe('openai')
   })
 
   it('exposes a visible error when saving settings fails', async () => {
@@ -196,13 +189,10 @@ describe('useChatApp', () => {
   })
 
   it('blocks sending when base url is blank', async () => {
-    vi.mocked(loadSettings).mockResolvedValue({
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
       apiKey: 'sk-test',
       baseUrl: '   ',
-      model: 'deepseek-chat',
-      temperature: 1,
-      theme: 'light',
-    })
+    }))
 
     const app = useChatApp()
     await app.initialize()
@@ -217,13 +207,12 @@ describe('useChatApp', () => {
   })
 
   it('normalizes settings before sending the request', async () => {
-    vi.mocked(loadSettings).mockResolvedValue({
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
       apiKey: '  sk-test  ',
       baseUrl: '  https://api.deepseek.com/  ',
       model: '  deepseek-chat  ',
       temperature: 1.3,
-      theme: 'light',
-    })
+    }))
     vi.mocked(streamChatCompletion).mockResolvedValue('你好')
 
     const app = useChatApp()
@@ -235,11 +224,11 @@ describe('useChatApp', () => {
     expect(streamChatCompletion).toHaveBeenCalledWith(
       expect.any(Array),
       {
+        provider: 'deepseek',
         apiKey: 'sk-test',
         baseUrl: 'https://api.deepseek.com/',
         model: 'deepseek-chat',
         temperature: 1.3,
-        theme: 'light',
       },
       expect.any(Function),
       expect.any(AbortSignal),
@@ -247,13 +236,10 @@ describe('useChatApp', () => {
   })
 
   it('blocks sending when model is blank', async () => {
-    vi.mocked(loadSettings).mockResolvedValue({
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
       apiKey: 'sk-test',
-      baseUrl: 'https://api.deepseek.com',
       model: '   ',
-      temperature: 1,
-      theme: 'light',
-    })
+    }))
 
     const app = useChatApp()
     await app.initialize()
@@ -268,13 +254,7 @@ describe('useChatApp', () => {
   })
 
   it('releases sending state and exposes the error when the first conversation save fails', async () => {
-    vi.mocked(loadSettings).mockResolvedValue({
-      apiKey: 'sk-test',
-      baseUrl: 'https://api.deepseek.com',
-      model: 'deepseek-chat',
-      temperature: 1,
-      theme: 'light',
-    })
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({ apiKey: 'sk-test' }))
     vi.mocked(saveConversation).mockRejectedValueOnce(new Error('uTools 数据库存储失败。'))
 
     const app = useChatApp()
@@ -291,13 +271,7 @@ describe('useChatApp', () => {
   })
 
   it('keeps sendMessage resolved and exposes persistence failure when saving the error state fails', async () => {
-    vi.mocked(loadSettings).mockResolvedValue({
-      apiKey: 'sk-test',
-      baseUrl: 'https://api.deepseek.com',
-      model: 'deepseek-chat',
-      temperature: 1,
-      theme: 'light',
-    })
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({ apiKey: 'sk-test' }))
     vi.mocked(streamChatCompletion).mockRejectedValueOnce(new Error('流式响应中断。'))
     vi.mocked(saveConversation)
       .mockImplementationOnce(async (conversation) => conversation)
@@ -317,13 +291,7 @@ describe('useChatApp', () => {
   })
 
   it('keeps the active conversation locked while a reply is streaming', async () => {
-    vi.mocked(loadSettings).mockResolvedValue({
-      apiKey: 'sk-test',
-      baseUrl: 'https://api.deepseek.com',
-      model: 'deepseek-chat',
-      temperature: 1,
-      theme: 'light',
-    })
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({ apiKey: 'sk-test' }))
     vi.mocked(loadConversations).mockResolvedValue([
       {
         _id: 'conversation/existing',
@@ -356,6 +324,7 @@ describe('useChatApp', () => {
     await vi.waitFor(() => {
       expect(streamChatCompletion).toHaveBeenCalledTimes(1)
     })
+
     const lockedConversationId = app.activeConversationId.value
     const lockedMessages = app.messages.value.map((message) => message.id)
 
@@ -431,13 +400,7 @@ describe('useChatApp', () => {
   })
 
   it('stops the current response without surfacing an error', async () => {
-    vi.mocked(loadSettings).mockResolvedValue({
-      apiKey: 'sk-test',
-      baseUrl: 'https://api.deepseek.com',
-      model: 'deepseek-chat',
-      temperature: 1,
-      theme: 'light',
-    })
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({ apiKey: 'sk-test' }))
 
     let rejectReply: (reason?: unknown) => void = () => {
       throw new Error('流式回调未建立。')
@@ -467,3 +430,16 @@ describe('useChatApp', () => {
     expect(app.messages.value[1]?.status).toBe('interrupted')
   })
 })
+
+function createSettings(
+  overrides: Partial<ProviderSettings> = {},
+  activeProvider: ProviderId = 'deepseek',
+): SettingsForm {
+  const settings = buildDefaultSettings()
+  settings.activeProvider = activeProvider
+  settings.providers[activeProvider] = {
+    ...settings.providers[activeProvider],
+    ...overrides,
+  }
+  return settings
+}

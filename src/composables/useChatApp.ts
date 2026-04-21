@@ -1,17 +1,44 @@
 import { computed, ref } from 'vue'
-import { createChatMessage, finalizeStreamingMessages, updateMessageById } from './chatAppMessages'
-import { getSendSettingsError, normalizeSettings } from './chatAppSettings'
-import { CHAT_IDLE_RESET_MS, DEFAULT_SETTINGS, INTERRUPTED_RESPONSE_MESSAGE, MODEL_OPTIONS, SESSION_DOC_ID, STOPPED_RESPONSE_MESSAGE } from '../constants/app'
-import { streamChatCompletion } from '../services/deepseek'
+import { getProviderDefinition, getProviderModelOptions } from '../constants/providers'
+import {
+  CHAT_IDLE_RESET_MS,
+  DEFAULT_SETTINGS,
+  INTERRUPTED_RESPONSE_MESSAGE,
+  SESSION_DOC_ID,
+  STOPPED_RESPONSE_MESSAGE,
+} from '../constants/app'
 import { requestConversationTitle } from '../services/conversationTitle'
+import { streamChatCompletion } from '../services/chatCompletion'
 import { applyTheme } from '../services/theme'
-import { deleteConversation as deleteConversationDoc, hasUtools, loadConversations, loadSession, loadSettings, saveConversation, saveSession, saveSettings } from '../services/utools'
-import type { ChatMessage, ConversationDoc, SessionDoc, SettingsForm } from '../types/chat'
-import { buildConversationDoc, cloneMessages, createConversationId, sortConversations } from '../utils/chat'
+import {
+  deleteConversation as deleteConversationDoc,
+  hasUtools,
+  loadConversations,
+  loadSession,
+  loadSettings,
+  saveConversation,
+  saveSession,
+  saveSettings,
+} from '../services/utools'
+import type {
+  ActiveProviderSettings,
+  ChatMessage,
+  ConversationDoc,
+  ProviderId,
+  ProviderSettings,
+  SessionDoc,
+  SettingsForm,
+  ThemeMode,
+} from '../types/chat'
 import { shouldResetConversation } from '../utils/session'
+import { buildConversationDoc, cloneMessages, createConversationId, sortConversations } from '../utils/chat'
+import { createChatMessage, finalizeStreamingMessages, updateMessageById } from './chatAppMessages'
+import { getActiveProviderSettings, getSendSettingsError, normalizeSettings } from './chatAppSettings'
+
 type SendFailureStage = 'initial-persist' | 'stream' | 'final-persist'
+
 export function useChatApp() {
-  const settings = ref<SettingsForm>({ ...DEFAULT_SETTINGS })
+  const settings = ref<SettingsForm>(structuredClone(DEFAULT_SETTINGS))
   const conversations = ref<ConversationDoc[]>([])
   const activeConversationId = ref<string | null>(null)
   const messages = ref<ChatMessage[]>([])
@@ -22,38 +49,82 @@ export function useChatApp() {
   const isSavingSettings = ref(false)
   const lastError = ref<string | null>(null)
   const environmentNotice = ref<string | null>(null)
-  const modelOptions = MODEL_OPTIONS
   const isBrowserMode = computed(() => !hasUtools())
+  const activeProviderMeta = computed(() => getProviderDefinition(settings.value.activeProvider))
+  const activeProviderSettings = computed(() => settings.value.providers[settings.value.activeProvider])
+  const modelOptions = computed(() => getProviderModelOptions(settings.value.activeProvider))
+
   let activeAbortController: AbortController | null = null
   let lifecycleRegistered = false
+
   async function initialize(): Promise<void> {
     settings.value = await loadSettings()
     applyTheme(settings.value.theme)
     conversations.value = await loadConversations()
     messages.value = []
     isSending.value = false
+
     if (isBrowserMode.value) {
       environmentNotice.value = '当前为浏览器预览模式：界面可用，但只有在 uTools 中才会使用本地数据库持久化。'
       return
     }
+
     registerLifecycleHooks()
     await restoreSession()
   }
-  function openSettings(): void { isSettingsOpen.value = true }
-  function closeSettings(): void { isSettingsOpen.value = false }
-  function toggleSidebar(): void { isSidebarCollapsed.value = !isSidebarCollapsed.value }
-  function updateSettingsField(field: keyof SettingsForm, value: SettingsForm[keyof SettingsForm]): void {
-    const nextSettings = {
+
+  function openSettings(): void {
+    isSettingsOpen.value = true
+  }
+
+  function closeSettings(): void {
+    isSettingsOpen.value = false
+  }
+
+  function toggleSidebar(): void {
+    isSidebarCollapsed.value = !isSidebarCollapsed.value
+  }
+
+  function selectActiveProvider(provider: ProviderId): void {
+    settings.value = {
       ...settings.value,
-      [field]: value,
-    }
-    settings.value = nextSettings
-    if (field === 'theme') {
-      applyTheme(normalizeSettings(nextSettings).theme)
+      activeProvider: provider,
     }
   }
+
+  function updateActiveProviderField(
+    field: keyof ProviderSettings,
+    value: ProviderSettings[keyof ProviderSettings],
+  ): void {
+    const provider = settings.value.activeProvider
+    settings.value = {
+      ...settings.value,
+      providers: {
+        ...settings.value.providers,
+        [provider]: {
+          ...settings.value.providers[provider],
+          [field]: value,
+        },
+      },
+    }
+  }
+
+  function selectActiveModel(model: string): void {
+    updateActiveProviderField('model', model)
+  }
+
+  function updateTheme(theme: ThemeMode): void {
+    const nextSettings = {
+      ...settings.value,
+      theme,
+    }
+    settings.value = nextSettings
+    applyTheme(normalizeSettings(nextSettings).theme)
+  }
+
   async function saveSettingsAction(): Promise<void> {
     isSavingSettings.value = true
+
     try {
       const normalizedSettings = normalizeSettings(settings.value)
       settings.value = normalizedSettings
@@ -67,70 +138,111 @@ export function useChatApp() {
       isSavingSettings.value = false
     }
   }
+
   function startFreshConversation(): void {
-    if (isSending.value) return
+    if (isSending.value) {
+      return
+    }
+
     activeConversationId.value = null
     messages.value = []
     lastError.value = null
   }
+
   function selectConversation(id: string): void {
-    if (isSending.value) return
+    if (isSending.value) {
+      return
+    }
+
     const target = conversations.value.find((conversation) => conversation.id === id)
-    if (!target) return
+    if (!target) {
+      return
+    }
+
     void activateConversation(target)
   }
+
   async function deleteConversation(id: string): Promise<void> {
-    if (isSending.value) return
+    if (isSending.value) {
+      return
+    }
+
     const target = conversations.value.find((conversation) => conversation.id === id)
-    if (!target) return
+    if (!target) {
+      return
+    }
+
     await deleteConversationDoc(target)
     conversations.value = conversations.value.filter((conversation) => conversation.id !== id)
-    if (activeConversationId.value !== id) return
+
+    if (activeConversationId.value !== id) {
+      return
+    }
+
     activeConversationId.value = null
     messages.value = []
     await persistSession(null)
   }
+
   async function sendMessage(): Promise<void> {
     const content = draftMessage.value.trim()
-    if (!content || isSending.value) return
+    if (!content || isSending.value) {
+      return
+    }
+
     const normalizedSettings = normalizeSettings(settings.value)
+    const activeSettings = getActiveProviderSettings(normalizedSettings)
     const settingsError = getSendSettingsError(normalizedSettings)
     if (settingsError) {
       lastError.value = settingsError
       openSettings()
       return
     }
+
     const isNewConversation = !activeConversationId.value
     if (!activeConversationId.value) {
       activeConversationId.value = createConversationId()
       messages.value = []
     }
+
     const currentConversationId = activeConversationId.value as string
     draftMessage.value = ''
     lastError.value = null
     isSending.value = true
+
     const abortController = new AbortController()
     activeAbortController = abortController
+
     const userMessage = createChatMessage('user', content)
     const assistantMessage = createChatMessage('assistant', '')
     messages.value = [...messages.value, userMessage, assistantMessage]
+
     let failureStage: SendFailureStage = 'initial-persist'
+
     try {
       await persistConversation()
       if (isNewConversation) {
-        generateConversationTitle(currentConversationId, content, normalizedSettings).catch(console.error)
+        generateConversationTitle(currentConversationId, content, activeSettings).catch(console.error)
       }
+
       failureStage = 'stream'
-      await streamChatCompletion(messages.value.slice(0, -1), normalizedSettings, (delta) => {
-        messages.value = updateMessageById(messages.value, assistantMessage.id, (message) => {
-          if (delta.reasoningContent) {
-            message.reasoningContent = `${message.reasoningContent ?? ''}${delta.reasoningContent}`
-          }
-          if (delta.content) {
-            message.content += delta.content
-          }
-        })
-      }, abortController.signal)
+      await streamChatCompletion(
+        messages.value.slice(0, -1),
+        activeSettings,
+        (delta) => {
+          messages.value = updateMessageById(messages.value, assistantMessage.id, (message) => {
+            if (delta.reasoningContent) {
+              message.reasoningContent = `${message.reasoningContent ?? ''}${delta.reasoningContent}`
+            }
+
+            if (delta.content) {
+              message.content += delta.content
+            }
+          })
+        },
+        abortController.signal,
+      )
+
       messages.value = updateMessageById(messages.value, assistantMessage.id, (message) => {
         message.status = 'done'
       })
@@ -141,31 +253,48 @@ export function useChatApp() {
         await handleInterruptedReply(assistantMessage.id)
         return
       }
+
       await handleSendFailure(error, assistantMessage.id, failureStage === 'stream')
     } finally {
       isSending.value = false
       activeAbortController = null
     }
   }
+
   async function restoreSession(): Promise<void> {
     const session = await loadSession()
-    if (!session) return
+    if (!session) {
+      return
+    }
+
     if (shouldResetConversation(session.lastOutAt, Date.now(), CHAT_IDLE_RESET_MS)) {
       startFreshConversation()
       await persistSession(null)
       return
     }
-    if (!session.currentConversationId) return
+
+    if (!session.currentConversationId) {
+      return
+    }
+
     const target = conversations.value.find((conversation) => conversation.id === session.currentConversationId)
-    if (!target) return
+    if (!target) {
+      return
+    }
+
     await activateConversation(target)
   }
+
   function registerLifecycleHooks(): void {
-    if (lifecycleRegistered) return
+    if (lifecycleRegistered) {
+      return
+    }
+
     lifecycleRegistered = true
     window.utools?.onPluginEnter(async () => {
       await restoreSession()
     })
+
     window.utools?.onPluginOut(async () => {
       await interruptActiveSend(INTERRUPTED_RESPONSE_MESSAGE)
       const session: SessionDoc = {
@@ -177,30 +306,42 @@ export function useChatApp() {
       await saveSession(session)
     })
   }
+
   async function activateConversation(conversation: ConversationDoc): Promise<void> {
     activeConversationId.value = conversation.id
     const restored = finalizeStreamingMessages(conversation.messages, INTERRUPTED_RESPONSE_MESSAGE)
     messages.value = cloneMessages(restored.messages)
-    if (!restored.changed) return
+
+    if (!restored.changed) {
+      return
+    }
+
     try {
       await persistConversation()
     } catch (error) {
       lastError.value = getErrorMessage(error, '会话记录修复失败。')
     }
   }
+
   async function persistConversation(): Promise<void> {
     if (!activeConversationId.value || !messages.value.length) {
       await persistSession(activeConversationId.value)
       return
     }
+
     const existing = conversations.value.find((conversation) => conversation.id === activeConversationId.value)
-    const saved = await saveConversation(buildConversationDoc(activeConversationId.value, cloneMessages(messages.value), existing))
+    const saved = await saveConversation(
+      buildConversationDoc(activeConversationId.value, cloneMessages(messages.value), existing),
+    )
+
     conversations.value = sortConversations([
       saved,
       ...conversations.value.filter((conversation) => conversation.id !== saved.id),
     ])
+
     await persistSession(saved.id)
   }
+
   async function persistSession(conversationId: string | null): Promise<void> {
     const session: SessionDoc = {
       _id: SESSION_DOC_ID,
@@ -208,29 +349,44 @@ export function useChatApp() {
       currentConversationId: conversationId,
       lastOutAt: null,
     }
+
     await saveSession(session)
   }
+
   async function interruptActiveSend(fallback = INTERRUPTED_RESPONSE_MESSAGE): Promise<void> {
-    if (!isSending.value) return
+    if (!isSending.value) {
+      return
+    }
+
     const restored = finalizeStreamingMessages(messages.value, fallback)
     messages.value = restored.messages
     activeAbortController?.abort()
-    if (!restored.changed) return
+
+    if (!restored.changed) {
+      return
+    }
+
     try {
       await persistConversation()
     } catch (error) {
       lastError.value = getErrorMessage(error, '会话记录写入失败。')
     }
   }
+
   async function handleInterruptedReply(assistantMessageId: string): Promise<void> {
     const target = messages.value.find((message) => message.id === assistantMessageId)
-    if (!target || target.status === 'interrupted') return
+    if (!target || target.status === 'interrupted') {
+      return
+    }
+
     messages.value = updateMessageById(messages.value, assistantMessageId, (draft) => {
       draft.content = draft.content.trim() ? draft.content : INTERRUPTED_RESPONSE_MESSAGE
       draft.status = 'interrupted'
     })
+
     await persistConversation()
   }
+
   async function handleSendFailure(
     error: unknown,
     assistantMessageId: string,
@@ -242,38 +398,51 @@ export function useChatApp() {
       draft.status = 'error'
     })
     lastError.value = message
-    if (shouldPersistFailureState) {
-      try {
-        await persistConversation()
-      } catch (persistError) {
-        const persistMessage = getErrorMessage(persistError, '会话记录写入失败。')
-        lastError.value = `请求失败后写入会话记录失败：${persistMessage}`
-      }
+
+    if (!shouldPersistFailureState) {
+      return
+    }
+
+    try {
+      await persistConversation()
+    } catch (persistError) {
+      const persistMessage = getErrorMessage(persistError, '会话记录写入失败。')
+      lastError.value = `请求失败后写入会话记录失败：${persistMessage}`
     }
   }
-  function getErrorMessage(error: unknown, fallback: string): string { return error instanceof Error ? error.message : fallback }
-  function isAbortError(error: unknown): boolean { return typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError' }
+
   async function generateConversationTitle(
     conversationId: string,
     firstMessageContent: string,
-    settingsSnapshot: SettingsForm,
+    settingsSnapshot: ActiveProviderSettings,
   ): Promise<void> {
     try {
-      if (isBrowserMode.value) return
-      const newTitle = await requestConversationTitle(settingsSnapshot, firstMessageContent)
-      const idx = conversations.value.findIndex(c => c.id === conversationId)
-      if (idx !== -1) {
-        conversations.value[idx].title = newTitle
-        await saveConversation(conversations.value[idx])
-        conversations.value = [...conversations.value]
+      if (isBrowserMode.value) {
+        return
       }
+
+      const newTitle = await requestConversationTitle(settingsSnapshot, firstMessageContent)
+      const index = conversations.value.findIndex((conversation) => conversation.id === conversationId)
+      if (index === -1) {
+        return
+      }
+
+      conversations.value[index].title = newTitle
+      await saveConversation(conversations.value[index])
+      conversations.value = [...conversations.value]
     } catch (error) {
       console.warn('Failed to generate automatic title:', error)
     }
   }
-  async function stopGenerating(): Promise<void> { await interruptActiveSend(STOPPED_RESPONSE_MESSAGE) }
+
+  async function stopGenerating(): Promise<void> {
+    await interruptActiveSend(STOPPED_RESPONSE_MESSAGE)
+  }
+
   return {
     activeConversationId,
+    activeProviderMeta,
+    activeProviderSettings,
     closeSettings,
     conversations,
     deleteConversation,
@@ -290,12 +459,26 @@ export function useChatApp() {
     modelOptions,
     openSettings,
     saveSettings: saveSettingsAction,
+    selectActiveModel,
+    selectActiveProvider,
     selectConversation,
     sendMessage,
     settings,
     stopGenerating,
     startFreshConversation,
     toggleSidebar,
-    updateSettingsField,
+    updateActiveProviderField,
+    updateTheme,
   }
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
+
+function isAbortError(error: unknown): boolean {
+  return typeof error === 'object'
+    && error !== null
+    && 'name' in error
+    && error.name === 'AbortError'
 }

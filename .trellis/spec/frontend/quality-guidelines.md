@@ -62,6 +62,24 @@ Instead:
 
 - release auto-follow for the current streaming message when user scroll intent is detected
 
+### Don't: Add non-functional copy to compact tool windows
+
+Problem:
+
+- settings panels become taller and harder to scan
+- useful controls are pushed below the fold
+
+Why it is bad:
+
+- this project runs inside a small utility window
+- explanatory copy competes with the primary task of editing values quickly
+
+Instead:
+
+- keep labels short
+- use one-line notices only for actual state or risk
+- remove repeated descriptions that do not change the next user action
+
 ---
 
 ## Required Patterns
@@ -109,5 +127,6 @@ Minimum required automated coverage for the chat flow:
 - Does a later save accidentally recompute metadata from transient UI state?
 - Does streaming behavior expose a visible stop or interrupted outcome?
 - Does compact UI stay compact, or did helper copy/padding inflate the layout?
+- Does every visible sentence earn its space, or is it just repeating labels and values?
 - Does a new async task need to run in parallel rather than after the entire flow?
 - If theme-aware styling changed, are colors driven by shared variables rather than file-specific hardcoded values?

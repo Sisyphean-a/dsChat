@@ -7,11 +7,14 @@
   "features": [
     {
       "code": "ds-chat",
-      "explain": "DeepSeek 本地对话插件",
+      "explain": "多提供商 AI 对话插件",
       "cmds": [
         "dschat",
         "对话助手",
-        "deepseek 对话"
+        "deepseek 对话",
+        "chatgpt 对话",
+        "claude 对话",
+        "minimax 对话"
       ]
     }
   ],

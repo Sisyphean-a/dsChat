@@ -164,7 +164,7 @@ For this frontend, server state is request-driven rather than cached by a query 
 
 Rules:
 
-1. `src/services/deepseek.ts` owns request payloads and SSE parsing
+1. `src/services/chatCompletion.ts` owns request payloads and SSE parsing
 2. `useChatApp()` owns orchestration and view-model state
 3. Components consume already-shaped message state
 

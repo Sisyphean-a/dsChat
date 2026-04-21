@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { getProviderDefinition, getProviderDefinitions } from '../constants/providers'
 import { modelSupportsTemperature } from '../composables/chatAppSettings'
-import type { SettingsForm, ThemeMode } from '../types/chat'
+import type { ProviderId, ProviderSettings, SettingsForm, ThemeMode } from '../types/chat'
 
 const props = defineProps<{
   isBrowserMode: boolean
@@ -13,16 +14,27 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   save: []
-  updateField: [field: keyof SettingsForm, value: string | number]
+  selectProvider: [provider: ProviderId]
+  updateProviderField: [field: keyof ProviderSettings, value: string | number]
+  updateTheme: [theme: ThemeMode]
 }>()
 
+const providerOptions = getProviderDefinitions()
 const themeCards: Array<{ label: string; summary: string; value: ThemeMode }> = [
-  { label: '浅色', summary: '延续当前简洁亮色风格', value: 'light' },
-  { label: '夜色', summary: '夜间使用更柔和', value: 'dark' },
+  { label: '浅色', summary: '', value: 'light' },
+  { label: '夜色', summary: '', value: 'dark' },
 ]
 
-const temperatureActive = computed(() => modelSupportsTemperature(props.settings.model))
-const temperatureLabel = computed(() => props.settings.temperature.toFixed(1))
+const activeProviderMeta = computed(() => getProviderDefinition(props.settings.activeProvider))
+const activeProviderSettings = computed(() => props.settings.providers[props.settings.activeProvider])
+const temperatureActive = computed(() => {
+  return modelSupportsTemperature(props.settings.activeProvider, activeProviderSettings.value.model)
+})
+const temperatureLabel = computed(() => activeProviderSettings.value.temperature.toFixed(1))
+
+function providerStatus(provider: ProviderId): string {
+  return props.settings.providers[provider].apiKey.trim() ? '已配' : '未配'
+}
 </script>
 
 <template>
@@ -30,92 +42,137 @@ const temperatureLabel = computed(() => props.settings.temperature.toFixed(1))
     <div v-if="props.open" class="settings-overlay" @click.self="emit('close')">
       <section class="settings-panel">
         <div class="settings-header">
-          <div>
-            <h2>设置</h2>
-            <p>控制接口、主题与采样参数。</p>
-          </div>
-          <button class="close-button" type="button" @click="emit('close')">
-            关闭
-          </button>
+          <h2>模型设置</h2>
+          <button class="close-button" type="button" @click="emit('close')">关闭</button>
         </div>
 
         <p v-if="props.isBrowserMode" class="hint">
-          当前不在 uTools 环境，保存后仅在本次页面生命周期内可见。
+          浏览器预览模式，不持久化。
         </p>
 
-        <label class="field">
-          <span>API Key</span>
-          <input
-            :value="props.settings.apiKey"
-            placeholder="sk-..."
-            type="password"
-            @input="emit('updateField', 'apiKey', ($event.target as HTMLInputElement).value)"
-          />
-        </label>
-
-        <label class="field">
-          <span>Base URL</span>
-          <input
-            :value="props.settings.baseUrl"
-            placeholder="https://api.deepseek.com"
-            type="text"
-            @input="emit('updateField', 'baseUrl', ($event.target as HTMLInputElement).value)"
-          />
-        </label>
-
-        <section class="panel-block">
-          <div class="block-header">
-            <span>主题</span>
-            <small>即时预览</small>
-          </div>
-          <div class="theme-grid">
+        <div class="settings-body">
+          <aside class="provider-rail">
             <button
-              v-for="theme in themeCards"
-              :key="theme.value"
-              class="theme-card"
-              :class="{ active: props.settings.theme === theme.value }"
+              v-for="provider in providerOptions"
+              :key="provider.id"
+              class="provider-card"
+              :class="{ active: provider.id === props.settings.activeProvider }"
               type="button"
-              @click="emit('updateField', 'theme', theme.value)"
+              @click="emit('selectProvider', provider.id)"
             >
-              <strong>{{ theme.label }}</strong>
-              <span>{{ theme.summary }}</span>
+              <div class="provider-top">
+                <strong>{{ provider.label }}</strong>
+                <span>{{ providerStatus(provider.id) }}</span>
+              </div>
             </button>
-          </div>
-        </section>
+          </aside>
 
-        <section class="panel-block">
-          <div class="block-header">
-            <span>Temperature</span>
-            <strong>{{ temperatureLabel }}</strong>
-          </div>
-          <p v-if="!temperatureActive" class="hint subtle">
-            当前模型为 `deepseek-reasoner`。DeepSeek 官方文档说明：`temperature` 可以传入，但不会生效。
-          </p>
-          <div class="temperature-row" :class="{ inactive: !temperatureActive }">
-            <input
-              class="temperature-slider"
-              :value="props.settings.temperature"
-              max="2"
-              min="0"
-              step="0.1"
-              type="range"
-              @input="emit('updateField', 'temperature', Number(($event.target as HTMLInputElement).value))"
-            />
-            <input
-              class="temperature-input"
-              :value="temperatureLabel"
-              max="2"
-              min="0"
-              step="0.1"
-              type="number"
-              @input="emit('updateField', 'temperature', Number(($event.target as HTMLInputElement).value))"
-            />
-          </div>
-        </section>
+          <div class="config-stage">
+            <section class="panel-block">
+              <div class="block-header">
+                <span>{{ activeProviderMeta.label }}</span>
+                <small>{{ activeProviderSettings.baseUrl }}</small>
+              </div>
+              <div class="model-grid">
+                <button
+                  v-for="model in activeProviderMeta.models"
+                  :key="model.value"
+                  class="model-card"
+                  :class="{ active: model.value === activeProviderSettings.model }"
+                  type="button"
+                  @click="emit('updateProviderField', 'model', model.value)"
+                >
+                  <strong>{{ model.shortLabel }}</strong>
+                </button>
+              </div>
+            </section>
 
-        <button class="save-button" type="button" :disabled="props.saving" @click="emit('save')">
-          {{ props.saving ? '保存中...' : '保存设置' }}
-        </button>
+            <div class="field-grid">
+              <label class="field">
+                <span>模型 ID</span>
+                <input
+                  :value="activeProviderSettings.model"
+                  type="text"
+                  @input="emit('updateProviderField', 'model', ($event.target as HTMLInputElement).value)"
+                />
+              </label>
+
+              <label class="field">
+                <span>Base URL</span>
+                <input
+                  :value="activeProviderSettings.baseUrl"
+                  :placeholder="activeProviderMeta.baseUrlPlaceholder"
+                  type="text"
+                  @input="emit('updateProviderField', 'baseUrl', ($event.target as HTMLInputElement).value)"
+                />
+              </label>
+            </div>
+
+            <label class="field">
+              <span>API Key</span>
+              <input
+                :value="activeProviderSettings.apiKey"
+                :placeholder="activeProviderMeta.apiKeyPlaceholder"
+                type="password"
+                @input="emit('updateProviderField', 'apiKey', ($event.target as HTMLInputElement).value)"
+              />
+            </label>
+
+            <section class="panel-block">
+              <div class="block-header">
+                <span>Temperature</span>
+                <strong>{{ temperatureLabel }}</strong>
+              </div>
+              <p v-if="!temperatureActive" class="hint subtle">
+                当前模型忽略 temperature。
+              </p>
+              <div class="temperature-row" :class="{ inactive: !temperatureActive }">
+                <input
+                  class="temperature-slider"
+                  :value="activeProviderSettings.temperature"
+                  :max="activeProviderMeta.temperature.max"
+                  :min="activeProviderMeta.temperature.min"
+                  step="0.1"
+                  type="range"
+                  @input="emit('updateProviderField', 'temperature', Number(($event.target as HTMLInputElement).value))"
+                />
+                <input
+                  class="temperature-input"
+                  :value="temperatureLabel"
+                  :max="activeProviderMeta.temperature.max"
+                  :min="activeProviderMeta.temperature.min"
+                  step="0.1"
+                  type="number"
+                  @input="emit('updateProviderField', 'temperature', Number(($event.target as HTMLInputElement).value))"
+                />
+              </div>
+            </section>
+
+            <section class="panel-block">
+              <div class="block-header">
+                <span>主题</span>
+              </div>
+              <div class="theme-grid">
+                <button
+                  v-for="theme in themeCards"
+                  :key="theme.value"
+                  class="theme-card"
+                  :class="{ active: props.settings.theme === theme.value }"
+                  type="button"
+                  @click="emit('updateTheme', theme.value)"
+                >
+                  <strong>{{ theme.label }}</strong>
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="footer-actions">
+          <button class="save-button" type="button" :disabled="props.saving" @click="emit('save')">
+            {{ props.saving ? '保存中...' : '保存' }}
+          </button>
+        </div>
       </section>
     </div>
   </transition>
@@ -154,42 +211,41 @@ const temperatureLabel = computed(() => props.settings.temperature.toFixed(1))
 }
 
 .settings-panel {
-  width: min(560px, 100%);
+  width: min(720px, 100%);
+  max-height: min(760px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 24px;
+  gap: 12px;
+  padding: 16px;
   border-radius: 16px;
   background: var(--bg);
   border: 1px solid var(--border);
   box-shadow: var(--panel-shadow);
 }
 
-.settings-header {
+.settings-header,
+.provider-top,
+.block-header,
+.footer-actions {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 10px;
 }
 
-.settings-header h2,
-.settings-header p {
+.settings-header h2 {
   margin: 0;
-}
-
-.settings-header p {
-  margin-top: 4px;
-  color: var(--text-muted);
-  font-size: 0.85rem;
 }
 
 .hint {
   margin: 0;
-  padding: 12px 14px;
-  border-radius: 14px;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+.hint {
   background: var(--accent-soft);
   color: var(--accent-strong);
-  font-size: 0.85rem;
-  line-height: 1.6;
+  font-size: 0.78rem;
 }
 
 .hint.subtle {
@@ -197,17 +253,100 @@ const temperatureLabel = computed(() => props.settings.temperature.toFixed(1))
   color: var(--text-muted);
 }
 
+.settings-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  gap: 10px;
+}
+
+.provider-rail,
+.config-stage {
+  min-height: 0;
+  overflow: auto;
+}
+
+.provider-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.provider-card,
+.model-card,
+.theme-card,
+.save-button,
+.close-button {
+  transition: background 150ms, border-color 150ms, transform 150ms, opacity 150ms, box-shadow 150ms;
+}
+
+.provider-card,
+.model-card,
+.theme-card {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  text-align: left;
+}
+
+.provider-card.active,
+.provider-card:hover,
+.model-card.active,
+.model-card:hover,
+.theme-card.active,
+.theme-card:hover {
+  border-color: rgba(16, 163, 127, 0.28);
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(16, 163, 127, 0.08);
+}
+
+.provider-top span {
+  font-size: 0.7rem;
+  color: var(--accent-strong);
+}
+
+.config-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 2px;
+}
+
+.block-header strong,
+.block-header span,
+.model-card strong {
+  color: var(--text);
+}
+
+.block-header small {
+  max-width: 48%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+.panel-block,
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+}
+
+.field span {
   color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 .field input,
 .temperature-input {
-  padding: 10px 14px;
-  border-radius: var(--radius-md, 8px);
+  padding: 8px 10px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
@@ -220,63 +359,31 @@ const temperatureLabel = computed(() => props.settings.temperature.toFixed(1))
   outline: none;
 }
 
-.panel-block {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.block-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  color: var(--text-muted);
-}
-
-.block-header strong,
-.block-header span {
-  color: var(--text);
-}
-
-.theme-grid {
+.field-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
+.model-grid,
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.model-card,
 .theme-card {
-  padding: 14px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--bg-soft);
-  text-align: left;
-  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
-}
-
-.theme-card strong {
-  color: var(--text);
-}
-
-.theme-card span {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-}
-
-.theme-card:hover,
-.theme-card.active {
-  transform: translateY(-1px);
-  border-color: rgba(16, 163, 127, 0.28);
-  background: var(--bg-hover);
-  box-shadow: 0 8px 18px rgba(16, 163, 127, 0.08);
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
 }
 
 .temperature-row {
   display: grid;
-  grid-template-columns: 1fr 92px;
-  gap: 10px;
+  grid-template-columns: 1fr 96px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -291,21 +398,23 @@ const temperatureLabel = computed(() => props.settings.temperature.toFixed(1))
 
 .save-button,
 .close-button {
-  padding: 10px 16px;
-  border-radius: var(--radius-md, 8px);
-  font-size: 0.95rem;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.88rem;
   font-weight: 500;
-  transition: background 150ms, opacity 150ms, transform 150ms;
 }
 
 .save-button {
   background: var(--accent);
   color: #fff;
-  border: none;
 }
 
-.save-button:hover:not(:disabled) {
-  opacity: 0.92;
+.footer-actions {
+  justify-content: flex-end;
+}
+
+.save-button:hover:not(:disabled),
+.close-button:hover {
   transform: translateY(-1px);
 }
 
@@ -315,7 +424,6 @@ const temperatureLabel = computed(() => props.settings.temperature.toFixed(1))
 }
 
 .close-button {
-  background: transparent;
   color: var(--text-muted);
 }
 
@@ -324,10 +432,22 @@ const temperatureLabel = computed(() => props.settings.temperature.toFixed(1))
   color: var(--text);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 780px) {
+  .settings-body,
+  .field-grid,
+  .model-grid,
   .theme-grid,
   .temperature-row {
     grid-template-columns: 1fr;
+  }
+
+  .settings-body {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-rail {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

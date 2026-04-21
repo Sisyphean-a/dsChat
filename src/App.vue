@@ -63,7 +63,7 @@ async function scrollToBottom(force = false): Promise<void> {
 }
 
 function handleModelSelect(model: string): void {
-  app.updateSettingsField('model', model)
+  app.selectActiveModel(model)
   void app.saveSettings()
 }
 
@@ -142,7 +142,7 @@ watch(messageScrollKey, () => {
 
       <section v-else class="empty-state">
         <div class="empty-content">
-          <h2>向 DeepSeek 发起本地对话</h2>
+          <h2>向 {{ app.activeProviderMeta.value.label }} 发起对话</h2>
           <p>
             会话记录自动展示在左栏。<br />
             关闭插件后 1 分钟内重新打开，将恢复当前对话。
@@ -161,8 +161,9 @@ watch(messageScrollKey, () => {
           <template #actions>
             <ModelPicker
               :disabled="app.isSending.value"
-              :model-value="app.settings.value.model"
-              :options="app.modelOptions"
+              :model-value="app.activeProviderSettings.value.model"
+              :options="app.modelOptions.value"
+              :provider-label="app.activeProviderMeta.value.shortLabel"
               @select="handleModelSelect"
             />
           </template>
@@ -177,7 +178,9 @@ watch(messageScrollKey, () => {
       :settings="app.settings.value"
       @close="app.closeSettings"
       @save="app.saveSettings"
-      @update-field="app.updateSettingsField"
+      @select-provider="app.selectActiveProvider"
+      @update-provider-field="app.updateActiveProviderField"
+      @update-theme="app.updateTheme"
     />
   </div>
 </template>

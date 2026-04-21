@@ -4,35 +4,42 @@ import {
   SESSION_DOC_ID,
   SETTINGS_DOC_ID,
 } from '../constants/app'
+import { isProviderId } from '../constants/providers'
+import { normalizeSettings } from '../composables/chatAppSettings'
 import type {
   BaseDoc,
   ConversationDoc,
+  ProviderSettingsMap,
   SessionDoc,
   SettingsDoc,
   SettingsForm,
+  ThemeMode,
 } from '../types/chat'
 import type { DbResult, UtoolsApi } from '../types/utools'
 import { sortConversations } from '../utils/chat'
 
 const memoryStore = new Map<string, BaseDoc>()
 
+interface LegacySettingsDoc extends BaseDoc {
+  type: 'settings'
+  apiKey?: string
+  baseUrl?: string
+  model?: string
+  temperature?: number
+  theme?: ThemeMode
+}
+
 export function hasUtools(): boolean {
   return typeof window !== 'undefined' && typeof window.utools !== 'undefined'
 }
 
 export async function loadSettings(): Promise<SettingsForm> {
-  const doc = (await getDoc(SETTINGS_DOC_ID)) as SettingsDoc | null
+  const doc = (await getDoc(SETTINGS_DOC_ID)) as SettingsDoc | LegacySettingsDoc | null
   if (!doc) {
-    return { ...DEFAULT_SETTINGS }
+    return structuredClone(DEFAULT_SETTINGS)
   }
 
-  return {
-    apiKey: doc.apiKey,
-    baseUrl: doc.baseUrl,
-    model: doc.model,
-    temperature: typeof doc.temperature === 'number' ? doc.temperature : DEFAULT_SETTINGS.temperature,
-    theme: doc.theme ?? DEFAULT_SETTINGS.theme,
-  }
+  return normalizeSettings(migrateSettingsDoc(doc))
 }
 
 export async function saveSettings(settings: SettingsForm): Promise<void> {
@@ -156,4 +163,42 @@ function getUtoolsApi(): UtoolsApi {
   }
 
   return window.utools
+}
+
+function migrateSettingsDoc(doc: SettingsDoc | LegacySettingsDoc): SettingsForm {
+  if (isSettingsDoc(doc)) {
+    return {
+      activeProvider: doc.activeProvider,
+      providers: doc.providers,
+      theme: doc.theme,
+    }
+  }
+
+  const legacyProviderSettings = {
+    ...DEFAULT_SETTINGS.providers.deepseek,
+    apiKey: doc.apiKey ?? DEFAULT_SETTINGS.providers.deepseek.apiKey,
+    baseUrl: doc.baseUrl ?? DEFAULT_SETTINGS.providers.deepseek.baseUrl,
+    model: doc.model ?? DEFAULT_SETTINGS.providers.deepseek.model,
+    temperature: typeof doc.temperature === 'number'
+      ? doc.temperature
+      : DEFAULT_SETTINGS.providers.deepseek.temperature,
+  }
+
+  return {
+    activeProvider: 'deepseek',
+    providers: {
+      ...DEFAULT_SETTINGS.providers,
+      deepseek: legacyProviderSettings,
+    },
+    theme: doc.theme ?? DEFAULT_SETTINGS.theme,
+  }
+}
+
+function isSettingsDoc(doc: SettingsDoc | LegacySettingsDoc): doc is SettingsDoc {
+  return isProviderId(String((doc as SettingsDoc).activeProvider))
+    && isProviderMap((doc as SettingsDoc).providers)
+}
+
+function isProviderMap(value: unknown): value is ProviderSettingsMap {
+  return typeof value === 'object' && value !== null
 }

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import type { ProviderModelOption } from '../constants/providers'
 
 const props = defineProps<{
   disabled: boolean
   modelValue: string
-  options: string[]
+  options: ProviderModelOption[]
+  providerLabel: string
 }>()
 
 const emit = defineEmits<{
@@ -14,21 +16,21 @@ const emit = defineEmits<{
 const rootRef = ref<HTMLElement | null>(null)
 const isOpen = ref(false)
 
-const optionMeta: Record<string, { label: string }> = {
-  'deepseek-chat': {
-    label: 'Chat',
-  },
-  'deepseek-reasoner': {
-    label: 'Reasoner',
-  },
-}
-
-const currentMeta = computed(() => optionMeta[props.modelValue] ?? {
-  label: props.modelValue,
+const currentMeta = computed(() => {
+  return props.options.find((option) => option.value === props.modelValue) ?? {
+    description: props.modelValue,
+    label: props.modelValue,
+    shortLabel: props.modelValue,
+    supportsTemperature: true,
+    value: props.modelValue,
+  }
 })
 
 function togglePanel(): void {
-  if (props.disabled) return
+  if (props.disabled) {
+    return
+  }
+
   isOpen.value = !isOpen.value
 }
 
@@ -38,8 +40,10 @@ function selectModel(model: string): void {
 }
 
 function closeOnOutside(event: MouseEvent): void {
-  if (!rootRef.value) return
-  if (rootRef.value.contains(event.target as Node)) return
+  if (!rootRef.value || rootRef.value.contains(event.target as Node)) {
+    return
+  }
+
   isOpen.value = false
 }
 
@@ -53,9 +57,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="rootRef" class="model-picker" :class="{ open: isOpen, disabled: props.disabled }">
+  <div ref="rootRef" class="model-picker" :class="{ disabled: props.disabled, open: isOpen }">
     <button class="picker-trigger" type="button" :disabled="props.disabled" @click="togglePanel">
-      <span class="picker-copy">{{ currentMeta.label }}</span>
+      <span class="provider-badge">{{ props.providerLabel }}</span>
+      <span class="picker-copy">{{ currentMeta.shortLabel }}</span>
       <svg class="picker-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="6 9 12 15 18 9"></polyline>
       </svg>
@@ -65,13 +70,13 @@ onBeforeUnmount(() => {
       <div v-if="isOpen" class="picker-panel">
         <button
           v-for="option in props.options"
-          :key="option"
+          :key="option.value"
           class="picker-option"
-          :class="{ active: option === props.modelValue }"
+          :class="{ active: option.value === props.modelValue }"
           type="button"
-          @click="selectModel(option)"
+          @click="selectModel(option.value)"
         >
-          <span>{{ optionMeta[option]?.label ?? option }}</span>
+          <span>{{ option.label }}</span>
         </button>
       </div>
     </transition>
@@ -92,16 +97,16 @@ onBeforeUnmount(() => {
 
 .model-picker {
   position: relative;
-  width: 116px;
+  width: 188px;
 }
 
 .picker-trigger {
   width: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  height: 28px;
+  gap: 8px;
+  height: 30px;
   padding: 0 9px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -119,27 +124,28 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 18px rgba(16, 163, 127, 0.08);
 }
 
+.provider-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+
 .picker-copy {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--text);
-}
-
-.picker-option span {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.picker-option small {
-  margin-top: 2px;
-  font-size: 0.72rem;
-  color: var(--text-muted);
 }
 
 .picker-arrow {
-  flex-shrink: 0;
   color: var(--text-muted);
   transition: transform 160ms ease;
 }
@@ -151,24 +157,35 @@ onBeforeUnmount(() => {
 .picker-panel {
   position: absolute;
   left: 0;
-  right: -18px;
+  right: -26px;
   bottom: calc(100% + 8px);
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 5px;
+  padding: 6px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--bg);
   box-shadow: var(--panel-shadow);
   z-index: 20;
 }
 
 .picker-option {
-  padding: 7px 9px;
-  border-radius: 8px;
+  padding: 8px 9px;
+  border-radius: 9px;
   text-align: left;
   transition: background 150ms ease, transform 150ms ease;
+}
+
+.picker-option span,
+.picker-option small {
+  display: block;
+}
+
+.picker-option span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .picker-option:hover,
@@ -180,5 +197,11 @@ onBeforeUnmount(() => {
 .disabled .picker-trigger {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .model-picker {
+    width: 170px;
+  }
 }
 </style>

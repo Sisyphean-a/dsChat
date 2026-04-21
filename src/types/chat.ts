@@ -1,6 +1,7 @@
 export type ChatRole = 'user' | 'assistant' | 'system'
 export type MessageStatus = 'done' | 'streaming' | 'error' | 'interrupted'
 export type ThemeMode = 'light' | 'dark'
+export type ProviderId = 'deepseek' | 'openai' | 'claude' | 'minimax'
 
 export interface ChatMessage {
   id: string
@@ -16,12 +17,19 @@ export interface BaseDoc {
   _rev?: string
 }
 
-export interface SettingsDoc extends BaseDoc {
-  type: 'settings'
+export interface ProviderSettings {
   apiKey: string
   baseUrl: string
   model: string
   temperature: number
+}
+
+export type ProviderSettingsMap = Record<ProviderId, ProviderSettings>
+
+export interface SettingsDoc extends BaseDoc {
+  type: 'settings'
+  activeProvider: ProviderId
+  providers: ProviderSettingsMap
   theme: ThemeMode
 }
 
@@ -41,9 +49,11 @@ export interface ConversationDoc extends BaseDoc {
 }
 
 export interface SettingsForm {
-  apiKey: string
-  baseUrl: string
-  model: string
-  temperature: number
+  activeProvider: ProviderId
+  providers: ProviderSettingsMap
   theme: ThemeMode
+}
+
+export interface ActiveProviderSettings extends ProviderSettings {
+  provider: ProviderId
 }

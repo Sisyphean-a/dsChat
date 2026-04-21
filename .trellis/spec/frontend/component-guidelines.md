@@ -89,6 +89,27 @@ Wrong:
 - descriptive marketing-style text in the compact toolbar
 - controls that increase the composer height substantially
 
+## Convention: Utility Windows Prefer Labels Over Explanations
+
+For small tool windows such as settings panels:
+
+1. default to label-only UI
+2. do not add descriptive paragraphs unless the user explicitly asks for explanation
+3. every line of copy must justify the vertical space it consumes
+4. status copy should be compressed to short tags like `已配` / `未配`, not sentences
+
+Good:
+
+- provider list shows only name + short state
+- model presets show only model name
+- browser-mode notice stays one line
+
+Wrong:
+
+- “what this provider is” paragraphs repeated inside cards
+- “接入说明 / 备注 / 即时预览” style helper copy that does not unblock action
+- summary cards that restate editable field values below them
+
 ---
 
 ## Convention: Streaming UI Must Be Interruptible
