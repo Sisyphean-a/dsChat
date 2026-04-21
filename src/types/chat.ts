@@ -1,5 +1,6 @@
 export type ChatRole = 'user' | 'assistant' | 'system'
 export type MessageStatus = 'done' | 'streaming' | 'error' | 'interrupted'
+export type ThemeMode = 'light' | 'dark'
 
 export interface ChatMessage {
   id: string
@@ -20,6 +21,8 @@ export interface SettingsDoc extends BaseDoc {
   apiKey: string
   baseUrl: string
   model: string
+  temperature: number
+  theme: ThemeMode
 }
 
 export interface SessionDoc extends BaseDoc {
@@ -41,4 +44,6 @@ export interface SettingsForm {
   apiKey: string
   baseUrl: string
   model: string
+  temperature: number
+  theme: ThemeMode
 }

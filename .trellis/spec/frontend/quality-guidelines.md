@@ -1,51 +1,113 @@
 # Quality Guidelines
 
-> Code quality standards for frontend development.
+> Frontend quality rules that are already enforced by the current chat feature.
 
 ---
 
 ## Overview
 
-<!--
-Document your project's quality standards here.
+For this project, frontend quality means:
 
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
+- type-safe state transitions
+- explicit visible failure states
+- compact but usable interactions
+- tests for non-obvious async behavior
 
 ---
 
 ## Forbidden Patterns
 
-<!-- Patterns that should never be used and why -->
+### Don't: Overwrite persistent conversation titles during normal saves
 
-(To be filled by the team)
+Problem:
+
+```ts
+title: buildConversationTitle(messages)
+```
+
+Why it is bad:
+
+- generated titles regress to the first user message
+- sidebar metadata becomes unstable
+
+Instead:
+
+```ts
+title: existing?.title?.trim() || '新对话'
+```
+
+### Don't: Block independent metadata work behind full response completion
+
+Problem:
+
+- title generation starts only after the assistant reply fully completes
+
+Why it is bad:
+
+- metadata updates feel delayed
+- unnecessary serial dependency
+
+Instead:
+
+- start metadata tasks after the first durable save when they do not require the final reply body
+
+### Don't: Force auto-scroll after the user intentionally scrolls up
+
+Why it is bad:
+
+- makes streaming content difficult to inspect
+- creates adversarial UI behavior
+
+Instead:
+
+- release auto-follow for the current streaming message when user scroll intent is detected
 
 ---
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+### Required: Visible terminal message states
 
-(To be filled by the team)
+Assistant messages must always end in a visible terminal state:
+
+- `done`
+- `error`
+- `interrupted`
+
+### Required: Storage access behind service helpers
+
+All uTools DB reads/writes must go through `src/services/utools.ts`.
+
+Do not access `window.utools.db` directly from components or composables.
+
+### Required: Tests for async orchestration
+
+When changing send-flow ordering, add or update tests for:
+
+- persist timing
+- interruption timing
+- metadata side effects
 
 ---
 
 ## Testing Requirements
 
-<!-- What level of testing is expected -->
+Minimum required automated coverage for the chat flow:
 
-(To be filled by the team)
+1. successful streaming reply
+2. reasoning content handling
+3. restore interrupted session
+4. delete active conversation
+5. stop generation
+6. title generation starts before stream completion
+7. generated title is preserved across later saves
 
 ---
 
 ## Code Review Checklist
 
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Does a later save accidentally recompute metadata from transient UI state?
+- Does streaming behavior expose a visible stop or interrupted outcome?
+- Does compact UI stay compact, or did helper copy/padding inflate the layout?
+- Does a new async task need to run in parallel rather than after the entire flow?
+- If theme-aware styling changed, are colors driven by shared variables rather than file-specific hardcoded values?

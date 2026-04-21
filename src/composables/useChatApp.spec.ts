@@ -4,6 +4,10 @@ vi.mock('../services/deepseek', () => ({
   streamChatCompletion: vi.fn(),
 }))
 
+vi.mock('../services/conversationTitle', () => ({
+  requestConversationTitle: vi.fn().mockResolvedValue('自动标题'),
+}))
+
 vi.mock('../services/utools', () => ({
   deleteConversation: vi.fn().mockResolvedValue(undefined),
   hasUtools: vi.fn(() => false),
@@ -13,6 +17,8 @@ vi.mock('../services/utools', () => ({
     apiKey: '',
     baseUrl: 'https://api.deepseek.com',
     model: 'deepseek-chat',
+    temperature: 1,
+    theme: 'light',
   }),
   saveConversation: vi.fn(async (conversation) => conversation),
   saveSession: vi.fn().mockResolvedValue(undefined),
@@ -20,6 +26,7 @@ vi.mock('../services/utools', () => ({
 }))
 
 import { streamChatCompletion } from '../services/deepseek'
+import { requestConversationTitle } from '../services/conversationTitle'
 import {
   deleteConversation,
   hasUtools,
@@ -40,8 +47,11 @@ describe('useChatApp', () => {
       apiKey: '',
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-chat',
+      temperature: 1,
+      theme: 'light',
     })
     vi.mocked(deleteConversation).mockResolvedValue(undefined)
+    vi.mocked(requestConversationTitle).mockResolvedValue('自动标题')
     vi.mocked(saveConversation).mockImplementation(async (conversation) => conversation)
     vi.mocked(streamChatCompletion).mockReset()
   })
@@ -59,6 +69,8 @@ describe('useChatApp', () => {
       apiKey: 'sk-test',
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-chat',
+      temperature: 1,
+      theme: 'light',
     })
     vi.mocked(streamChatCompletion).mockImplementation(async (_messages, _settings, onDelta) => {
       onDelta({ content: '你好，我在。' })
@@ -83,6 +95,8 @@ describe('useChatApp', () => {
       apiKey: 'sk-test',
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-reasoner',
+      temperature: 1,
+      theme: 'light',
     })
     vi.mocked(streamChatCompletion).mockImplementation(async (_messages, _settings, onDelta) => {
       onDelta({ reasoningContent: '先思考' })
@@ -101,6 +115,51 @@ describe('useChatApp', () => {
     expect(app.messages.value[1]?.status).toBe('done')
   })
 
+  it('starts title generation before the streaming reply finishes', async () => {
+    vi.mocked(hasUtools).mockReturnValue(true)
+    vi.mocked(loadSettings).mockResolvedValue({
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat',
+      temperature: 1,
+      theme: 'light',
+    })
+
+    let resolveReply: (value: string) => void = () => {
+      throw new Error('流式回调未建立。')
+    }
+    vi.mocked(streamChatCompletion).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveReply = resolve
+        }),
+    )
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '给这段对话起标题'
+
+    const sendPromise = app.sendMessage()
+
+    await vi.waitFor(() => {
+      expect(requestConversationTitle).toHaveBeenCalledWith(
+        {
+          apiKey: 'sk-test',
+          baseUrl: 'https://api.deepseek.com',
+          model: 'deepseek-chat',
+          temperature: 1,
+          theme: 'light',
+        },
+        '给这段对话起标题',
+      )
+    })
+
+    expect(app.conversations.value[0]?.title).toBe('自动标题')
+
+    resolveReply('流式回复')
+    await sendPromise
+  })
+
   it('normalizes settings before saving them', async () => {
     const app = useChatApp()
     await app.initialize()
@@ -108,6 +167,8 @@ describe('useChatApp', () => {
     app.updateSettingsField('apiKey', '  sk-test  ')
     app.updateSettingsField('baseUrl', '  https://api.deepseek.com/  ')
     app.updateSettingsField('model', '  deepseek-chat  ')
+    app.updateSettingsField('temperature', 1.36)
+    app.updateSettingsField('theme', 'dark')
 
     await app.saveSettings()
 
@@ -115,6 +176,8 @@ describe('useChatApp', () => {
       apiKey: 'sk-test',
       baseUrl: 'https://api.deepseek.com/',
       model: 'deepseek-chat',
+      temperature: 1.4,
+      theme: 'dark',
     })
   })
 
@@ -137,6 +200,8 @@ describe('useChatApp', () => {
       apiKey: 'sk-test',
       baseUrl: '   ',
       model: 'deepseek-chat',
+      temperature: 1,
+      theme: 'light',
     })
 
     const app = useChatApp()
@@ -156,6 +221,8 @@ describe('useChatApp', () => {
       apiKey: '  sk-test  ',
       baseUrl: '  https://api.deepseek.com/  ',
       model: '  deepseek-chat  ',
+      temperature: 1.3,
+      theme: 'light',
     })
     vi.mocked(streamChatCompletion).mockResolvedValue('你好')
 
@@ -171,6 +238,8 @@ describe('useChatApp', () => {
         apiKey: 'sk-test',
         baseUrl: 'https://api.deepseek.com/',
         model: 'deepseek-chat',
+        temperature: 1.3,
+        theme: 'light',
       },
       expect.any(Function),
       expect.any(AbortSignal),
@@ -182,6 +251,8 @@ describe('useChatApp', () => {
       apiKey: 'sk-test',
       baseUrl: 'https://api.deepseek.com',
       model: '   ',
+      temperature: 1,
+      theme: 'light',
     })
 
     const app = useChatApp()
@@ -201,6 +272,8 @@ describe('useChatApp', () => {
       apiKey: 'sk-test',
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-chat',
+      temperature: 1,
+      theme: 'light',
     })
     vi.mocked(saveConversation).mockRejectedValueOnce(new Error('uTools 数据库存储失败。'))
 
@@ -222,6 +295,8 @@ describe('useChatApp', () => {
       apiKey: 'sk-test',
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-chat',
+      temperature: 1,
+      theme: 'light',
     })
     vi.mocked(streamChatCompletion).mockRejectedValueOnce(new Error('流式响应中断。'))
     vi.mocked(saveConversation)
@@ -246,6 +321,8 @@ describe('useChatApp', () => {
       apiKey: 'sk-test',
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-chat',
+      temperature: 1,
+      theme: 'light',
     })
     vi.mocked(loadConversations).mockResolvedValue([
       {
@@ -351,5 +428,42 @@ describe('useChatApp', () => {
     expect(app.activeConversationId.value).toBeNull()
     expect(app.messages.value).toEqual([])
     expect(app.conversations.value).toEqual([])
+  })
+
+  it('stops the current response without surfacing an error', async () => {
+    vi.mocked(loadSettings).mockResolvedValue({
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat',
+      temperature: 1,
+      theme: 'light',
+    })
+
+    let rejectReply: (reason?: unknown) => void = () => {
+      throw new Error('流式回调未建立。')
+    }
+    vi.mocked(streamChatCompletion).mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectReply = reject
+        }),
+    )
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '停一下'
+
+    const sendPromise = app.sendMessage()
+    await vi.waitFor(() => {
+      expect(streamChatCompletion).toHaveBeenCalledTimes(1)
+    })
+
+    const stopPromise = app.stopGenerating()
+    rejectReply(new DOMException('Aborted', 'AbortError'))
+    await Promise.all([stopPromise, sendPromise])
+
+    expect(app.lastError.value).toBeNull()
+    expect(app.isSending.value).toBe(false)
+    expect(app.messages.value[1]?.status).toBe('interrupted')
   })
 })

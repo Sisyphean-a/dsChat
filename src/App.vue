@@ -2,17 +2,30 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import ChatComposer from './components/ChatComposer.vue'
 import MessageBubble from './components/MessageBubble.vue'
+import ModelPicker from './components/ModelPicker.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import SidebarPanel from './components/SidebarPanel.vue'
 import { useChatApp } from './composables/useChatApp'
 
 const app = useChatApp()
 const messageListRef = ref<HTMLElement | null>(null)
+const releasedScrollMessageId = ref<string | null>(null)
 
 const currentTitle = computed(() => {
   if (!app.activeConversationId.value) return '新对话'
   const target = app.conversations.value.find(c => c.id === app.activeConversationId.value)
   return target?.title || '新对话'
+})
+
+const currentStreamingMessageId = computed(() => {
+  for (let index = app.messages.value.length - 1; index >= 0; index -= 1) {
+    const message = app.messages.value[index]
+    if (message?.status === 'streaming') {
+      return message.id
+    }
+  }
+
+  return null
 })
 
 const messageScrollKey = computed(() => {
@@ -28,14 +41,45 @@ const messageScrollKey = computed(() => {
   ].join(':')
 })
 
-async function scrollToBottom(): Promise<void> {
+function isNearBottom(element: HTMLElement): boolean {
+  return element.scrollHeight - element.scrollTop - element.clientHeight < 48
+}
+
+function handleMessageListScroll(): void {
+  if (!messageListRef.value || !currentStreamingMessageId.value) {
+    return
+  }
+
+  releasedScrollMessageId.value = isNearBottom(messageListRef.value)
+    ? null
+    : currentStreamingMessageId.value
+}
+
+async function scrollToBottom(force = false): Promise<void> {
   await nextTick()
   if (!messageListRef.value) return
+  if (!force && releasedScrollMessageId.value === currentStreamingMessageId.value) return
   messageListRef.value.scrollTop = messageListRef.value.scrollHeight
+}
+
+function handleModelSelect(model: string): void {
+  app.updateSettingsField('model', model)
+  void app.saveSettings()
 }
 
 onMounted(() => {
   void app.initialize()
+})
+
+watch(currentStreamingMessageId, (next, prev) => {
+  if (next && next !== prev) {
+    releasedScrollMessageId.value = null
+  }
+})
+
+watch(() => app.activeConversationId.value, () => {
+  releasedScrollMessageId.value = null
+  void scrollToBottom(true)
 })
 
 watch(messageScrollKey, () => {
@@ -83,7 +127,12 @@ watch(messageScrollKey, () => {
         {{ app.lastError.value }}
       </div>
 
-      <section v-if="app.messages.value.length" ref="messageListRef" class="message-list">
+      <section
+        v-if="app.messages.value.length"
+        ref="messageListRef"
+        class="message-list"
+        @scroll.passive="handleMessageListScroll"
+      >
         <MessageBubble
           v-for="message in app.messages.value"
           :key="message.id"
@@ -105,12 +154,17 @@ watch(messageScrollKey, () => {
         <ChatComposer
           v-model="app.draftMessage.value"
           :disabled="app.isSending.value"
+          :is-sending="app.isSending.value"
           @send="app.sendMessage"
+          @stop="app.stopGenerating"
         >
           <template #actions>
-            <select class="model-select action-select" v-model="app.settings.value.model" @change="app.saveSettings" title="切换模型">
-              <option v-for="opt in app.modelOptions" :key="opt" :value="opt">{{ opt }}</option>
-            </select>
+            <ModelPicker
+              :disabled="app.isSending.value"
+              :model-value="app.settings.value.model"
+              :options="app.modelOptions"
+              @select="handleModelSelect"
+            />
           </template>
         </ChatComposer>
       </div>
@@ -153,11 +207,11 @@ watch(messageScrollKey, () => {
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
-  background: rgba(255, 255, 255, 0.7);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   z-index: 10;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
 }
 
 .chat-title {
@@ -178,22 +232,6 @@ watch(messageScrollKey, () => {
   justify-content: center;
 }
 
-.action-select {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  background: var(--bg-hover);
-  padding: 3px 6px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-.action-select:hover {
-  background: var(--bg-active);
-  color: var(--text);
-}
-
 .message-list {
   flex: 1;
   overflow-y: auto;
@@ -201,6 +239,7 @@ watch(messageScrollKey, () => {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  scroll-behavior: smooth;
 }
 
 .empty-state {
@@ -231,7 +270,7 @@ watch(messageScrollKey, () => {
 
 .composer-container {
   flex-shrink: 0;
-  padding: 0 16px 24px;
-  background: linear-gradient(0deg, var(--bg) 60%, rgba(255, 255, 255, 0));
+  padding: 0 14px 12px;
+  background: linear-gradient(0deg, var(--bg) 60%, transparent);
 }
 </style>

@@ -11,7 +11,7 @@ import type {
   SettingsDoc,
   SettingsForm,
 } from '../types/chat'
-import type { DbResult } from '../types/utools'
+import type { DbResult, UtoolsApi } from '../types/utools'
 import { sortConversations } from '../utils/chat'
 
 const memoryStore = new Map<string, BaseDoc>()
@@ -30,6 +30,8 @@ export async function loadSettings(): Promise<SettingsForm> {
     apiKey: doc.apiKey,
     baseUrl: doc.baseUrl,
     model: doc.model,
+    temperature: typeof doc.temperature === 'number' ? doc.temperature : DEFAULT_SETTINGS.temperature,
+    theme: doc.theme ?? DEFAULT_SETTINGS.theme,
   }
 }
 
@@ -68,7 +70,7 @@ export async function saveConversation(conversation: ConversationDoc): Promise<C
 
 export async function deleteConversation(conversation: ConversationDoc): Promise<void> {
   if (hasUtools()) {
-    const result = await window.utools!.db.promises.remove(conversation._id)
+    const result = await getUtoolsApi().db.promises.remove(conversation._id)
     if (!result.ok) {
       throw new Error(result.message ?? 'uTools 数据库删除失败。')
     }
@@ -80,7 +82,7 @@ export async function deleteConversation(conversation: ConversationDoc): Promise
 
 async function getDoc(id: string): Promise<BaseDoc | null> {
   if (hasUtools()) {
-    return window.utools!.db.promises.get(id)
+    return getUtoolsApi().db.promises.get(id)
   }
 
   return cloneDoc(memoryStore.get(id) ?? null)
@@ -88,12 +90,12 @@ async function getDoc(id: string): Promise<BaseDoc | null> {
 
 async function getAllDocs(prefix: string): Promise<BaseDoc[]> {
   if (hasUtools()) {
-    return window.utools!.db.promises.allDocs(prefix)
+    return getUtoolsApi().db.promises.allDocs(prefix)
   }
 
   return [...memoryStore.values()]
     .filter((doc) => doc._id.startsWith(prefix))
-    .map((doc) => cloneDoc(doc)!)
+    .map((doc) => cloneBaseDoc(doc))
 }
 
 async function putDoc(doc: BaseDoc): Promise<BaseDoc> {
@@ -105,7 +107,7 @@ async function putDoc(doc: BaseDoc): Promise<BaseDoc> {
 }
 
 async function writeUtoolsDoc(doc: BaseDoc): Promise<BaseDoc> {
-  const result = (await window.utools!.db.promises.put(doc)) as DbResult
+  const result = (await getUtoolsApi().db.promises.put(doc)) as DbResult
   if (!result.ok || !result.rev) {
     throw new Error(result.message ?? 'uTools 数据库存储失败。')
   }
@@ -124,7 +126,7 @@ function writeMemoryDoc(doc: BaseDoc): BaseDoc {
   }
 
   memoryStore.set(next._id, next)
-  return cloneDoc(next)!
+  return cloneBaseDoc(next)
 }
 
 function createMemoryRevision(revision?: string): string {
@@ -142,4 +144,16 @@ function cloneDoc<T extends BaseDoc | null | undefined>(doc: T): T {
   }
 
   return structuredClone(doc)
+}
+
+function cloneBaseDoc<T extends BaseDoc>(doc: T): T {
+  return structuredClone(doc)
+}
+
+function getUtoolsApi(): UtoolsApi {
+  if (!window.utools) {
+    throw new Error('uTools API 不可用。')
+  }
+
+  return window.utools
 }

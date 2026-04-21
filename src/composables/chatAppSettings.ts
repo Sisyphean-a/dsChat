@@ -1,3 +1,4 @@
+import { DEFAULT_TEMPERATURE, THEME_OPTIONS } from '../constants/app'
 import type { SettingsForm } from '../types/chat'
 
 export function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
@@ -5,6 +6,8 @@ export function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
     apiKey: currentSettings.apiKey.trim(),
     baseUrl: currentSettings.baseUrl.trim(),
     model: currentSettings.model.trim(),
+    temperature: normalizeTemperature(currentSettings.temperature),
+    theme: normalizeTheme(currentSettings.theme),
   }
 }
 
@@ -22,4 +25,20 @@ export function getSendSettingsError(currentSettings: SettingsForm): string | nu
   }
 
   return null
+}
+
+export function modelSupportsTemperature(model: string): boolean {
+  return model.trim() !== 'deepseek-reasoner'
+}
+
+function normalizeTemperature(temperature: number): number {
+  if (!Number.isFinite(temperature)) {
+    return DEFAULT_TEMPERATURE
+  }
+
+  return Math.min(2, Math.max(0, Number(temperature.toFixed(1))))
+}
+
+function normalizeTheme(theme: SettingsForm['theme']): SettingsForm['theme'] {
+  return THEME_OPTIONS.includes(theme) ? theme : THEME_OPTIONS[0]
 }

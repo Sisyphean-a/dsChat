@@ -14,6 +14,10 @@ export function buildConversationTitle(messages: ChatMessage[]): string {
   return source.replace(/\s+/g, ' ').trim().slice(0, 24) || '新对话'
 }
 
+function resolveConversationTitle(existing?: ConversationDoc): string {
+  return existing?.title?.trim() || '新对话'
+}
+
 export function buildConversationDoc(
   id: string,
   messages: ChatMessage[],
@@ -26,7 +30,7 @@ export function buildConversationDoc(
     _rev: existing?._rev,
     type: 'conversation',
     id,
-    title: buildConversationTitle(messages),
+    title: resolveConversationTitle(existing),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     messages,

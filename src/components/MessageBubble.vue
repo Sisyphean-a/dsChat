@@ -8,6 +8,7 @@ const props = defineProps<{
 }>()
 
 const containerRef = ref<HTMLElement | null>(null)
+const isReasoningExpanded = ref(false)
 
 const bubbleClass = computed(() => ({
   bubble: true,
@@ -32,6 +33,18 @@ const renderedReasoningHtml = computed(() => {
   return renderMarkdown(props.message.reasoningContent)
 })
 
+const hasReasoning = computed(() => renderedReasoningHtml.value.length > 0)
+const inReasoningStage = computed(() => {
+  return props.message.role === 'assistant'
+    && props.message.status === 'streaming'
+    && !props.message.content.trim()
+    && hasReasoning.value
+})
+
+const reasoningLabel = computed(() => {
+  return inReasoningStage.value ? '思考中...' : '思考过程'
+})
+
 async function applyHighlight(): Promise<void> {
   if (!containerRef.value || props.message.role !== 'assistant') {
     return
@@ -41,6 +54,11 @@ async function applyHighlight(): Promise<void> {
   highlightCodeBlocks(containerRef.value)
 }
 
+function toggleReasoning(): void {
+  if (!hasReasoning.value) return
+  isReasoningExpanded.value = !isReasoningExpanded.value
+}
+
 onMounted(() => {
   void applyHighlight()
 })
@@ -48,6 +66,17 @@ onMounted(() => {
 watch(() => [props.message.content, props.message.reasoningContent], () => {
   void applyHighlight()
 })
+
+watch(inReasoningStage, (next, prev) => {
+  if (next) {
+    isReasoningExpanded.value = true
+    return
+  }
+
+  if (prev && hasReasoning.value) {
+    isReasoningExpanded.value = false
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -56,21 +85,25 @@ watch(() => [props.message.content, props.message.reasoningContent], () => {
       {{ props.message.role === 'user' ? '你' : 'DeepSeek' }}
     </p>
 
-    <details
-      v-if="renderedReasoningHtml"
-      class="reasoning-block"
-      :open="props.message.status === 'streaming'"
-    >
-      <summary>{{ props.message.status === 'streaming' ? '思考中...' : '思考过程' }}</summary>
-      <div class="reasoning-body" v-html="renderedReasoningHtml" />
-    </details>
+    <section v-if="hasReasoning" class="reasoning-block" :class="{ expanded: isReasoningExpanded }">
+      <button class="reasoning-toggle" type="button" @click="toggleReasoning">
+        <span>{{ reasoningLabel }}</span>
+        <svg class="reasoning-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+      <div class="reasoning-panel" :class="{ expanded: isReasoningExpanded }">
+        <div class="reasoning-inner">
+          <div class="reasoning-body" v-html="renderedReasoningHtml" />
+        </div>
+      </div>
+    </section>
 
     <div v-if="props.message.role === 'assistant' && props.message.content" class="markdown-body" v-html="renderedHtml" />
-
     <p v-if="props.message.role === 'user'" class="plain-body">{{ props.message.content }}</p>
 
     <span v-if="props.message.status === 'streaming'" class="message-status">生成中...</span>
-    <span v-else-if="props.message.status === 'interrupted'" class="message-status">已中断</span>
+    <span v-else-if="props.message.status === 'interrupted'" class="message-status">已中止</span>
     <span v-else-if="props.message.status === 'error'" class="message-status">请求失败</span>
   </article>
 </template>
@@ -82,6 +115,7 @@ watch(() => [props.message.content, props.message.reasoningContent], () => {
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   animation: reveal 200ms ease;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.03);
 }
 
 .bubble.is-user {
@@ -103,7 +137,7 @@ watch(() => [props.message.content, props.message.reasoningContent], () => {
 }
 
 .message-role {
-  display: none; /* Hide the explicit DeepSeek / 你 label to save space, let the alignment speak */
+  display: none;
 }
 
 .message-status {
@@ -116,21 +150,49 @@ watch(() => [props.message.content, props.message.reasoningContent], () => {
 .reasoning-block {
   margin-bottom: 8px;
   border: 1px solid rgba(16, 163, 127, 0.12);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   background: rgba(16, 163, 127, 0.04);
 }
 
-.reasoning-block summary {
-  padding: 8px 10px;
-  cursor: pointer;
-  font-size: 0.78rem;
+.reasoning-toggle {
+  width: 100%;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   color: var(--text-muted);
-  user-select: none;
+}
+
+.reasoning-arrow {
+  transition: transform 180ms ease;
+}
+
+.reasoning-block.expanded .reasoning-arrow {
+  transform: rotate(180deg);
+}
+
+.reasoning-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: grid-template-rows 180ms ease, opacity 180ms ease, transform 180ms ease;
+}
+
+.reasoning-panel.expanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reasoning-inner {
+  overflow: hidden;
 }
 
 .reasoning-body {
   padding: 0 10px 10px;
   color: var(--text-muted);
+  will-change: opacity, transform;
 }
 
 .plain-body {
@@ -150,27 +212,23 @@ watch(() => [props.message.content, props.message.reasoningContent], () => {
   font-size: 0.85rem;
 }
 
-.markdown-body :deep(p:first-child) {
-  margin-top: 0;
-}
-
+.markdown-body :deep(p:first-child),
 .reasoning-body :deep(p:first-child) {
   margin-top: 0;
 }
 
-.markdown-body :deep(p:last-child) {
-  margin-bottom: 0;
-}
-
+.markdown-body :deep(p:last-child),
 .reasoning-body :deep(p:last-child) {
   margin-bottom: 0;
 }
 
-.markdown-body :deep(pre) {
+.markdown-body :deep(pre),
+.reasoning-body :deep(pre) {
   overflow: auto;
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-hover);
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
   font-size: 0.85rem;
 }
 
@@ -183,6 +241,14 @@ watch(() => [props.message.content, props.message.reasoningContent], () => {
 .markdown-body :deep(td) {
   padding: 6px 10px;
   border: 1px solid var(--border);
+}
+
+.markdown-body :deep(code:not(pre code)),
+.reasoning-body :deep(code:not(pre code)) {
+  padding: 0.15rem 0.35rem;
+  border-radius: 6px;
+  background: var(--code-inline-bg);
+  color: var(--code-text);
 }
 
 @keyframes reveal {

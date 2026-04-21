@@ -1,3 +1,4 @@
+import { modelSupportsTemperature } from '../composables/chatAppSettings'
 import type { ChatMessage, SettingsForm } from '../types/chat'
 
 interface ChatChoice {
@@ -36,7 +37,7 @@ export async function requestChatCompletion(
   settings: SettingsForm,
 ): Promise<string> {
   const response = await fetch(createChatUrl(settings.baseUrl), {
-    body: JSON.stringify(createPayload(messages, settings.model, false)),
+    body: JSON.stringify(createPayload(messages, settings, false)),
     headers: createHeaders(settings.apiKey),
     method: 'POST',
   })
@@ -62,7 +63,7 @@ export async function streamChatCompletion(
   signal?: AbortSignal,
 ): Promise<string> {
   const response = await fetch(createChatUrl(settings.baseUrl), {
-    body: JSON.stringify(createPayload(messages, settings.model, true)),
+    body: JSON.stringify(createPayload(messages, settings, true)),
     headers: createHeaders(settings.apiKey),
     method: 'POST',
     signal,
@@ -178,10 +179,19 @@ function createHeaders(apiKey: string): HeadersInit {
   }
 }
 
-function createPayload(messages: ChatMessage[], model: string, stream: boolean) {
-  return {
+function createPayload(messages: ChatMessage[], settings: SettingsForm, stream: boolean) {
+  const payload = {
     messages: messages.map(({ content, role }) => ({ content, role })),
-    model,
+    model: settings.model,
     stream,
+  }
+
+  if (!modelSupportsTemperature(settings.model)) {
+    return payload
+  }
+
+  return {
+    ...payload,
+    temperature: settings.temperature,
   }
 }

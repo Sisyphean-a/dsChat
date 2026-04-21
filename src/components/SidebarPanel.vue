@@ -177,19 +177,26 @@ function formatTime(timestamp: number): string {
 }
 
 .history-delete {
-  width: 32px;
+  width: 40px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin: 6px 6px 6px 0;
-  opacity: 0;
-  transition: opacity 150ms, background 150ms;
+  opacity: 0.72;
+  color: var(--text-muted);
+  transition: opacity 150ms, background 150ms, color 150ms, transform 150ms;
 }
 
 .history-item:hover .history-delete,
 .history-item.active .history-delete {
   opacity: 1;
+  transform: translateY(-1px);
+}
+
+.history-delete:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger);
 }
 
 .item-title {

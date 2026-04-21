@@ -2,12 +2,14 @@
 
 const props = defineProps<{
   disabled: boolean
+  isSending: boolean
   modelValue: string
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   send: []
+  stop: []
 }>()
 
 function onKeydown(event: KeyboardEvent): void {
@@ -43,9 +45,21 @@ function adjustHeight(event: Event) {
         <div class="composer-actions">
           <slot name="actions"></slot>
         </div>
-        <button 
-          class="send-button" 
-          type="submit" 
+        <button
+          v-if="props.isSending"
+          class="stop-button"
+          type="button"
+          title="停止生成"
+          @click="emit('stop')"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+          </svg>
+        </button>
+        <button
+          v-else
+          class="send-button"
+          type="submit"
           :disabled="props.disabled || !props.modelValue.trim()"
           title="发送 (Enter)"
         >
@@ -73,13 +87,14 @@ function adjustHeight(event: Event) {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  transition: border-color 200ms, box-shadow 200ms;
+  box-shadow: var(--panel-shadow);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
 .input-wrapper:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.1);
+  box-shadow: 0 10px 24px rgba(16, 163, 127, 0.12);
+  transform: translateY(-1px);
 }
 
 .input-wrapper.is-disabled {
@@ -88,13 +103,13 @@ function adjustHeight(event: Event) {
 
 textarea {
   width: 100%;
-  min-height: 48px;
+  min-height: 42px;
   max-height: 200px;
-  padding: 14px 16px;
+  padding: 12px 14px 8px;
   resize: none;
   line-height: 1.5;
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 0.93rem;
 }
 
 textarea::placeholder {
@@ -105,13 +120,14 @@ textarea::placeholder {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: 4px 10px 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.03);
 }
 
 .composer-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 
@@ -120,15 +136,32 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-sm);
   background: var(--accent);
   color: #fff;
   transition: opacity 150ms, transform 150ms;
 }
 
+.stop-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+  transition: background 150ms, transform 150ms, color 150ms;
+}
+
 .send-button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.stop-button:hover {
+  background: rgba(239, 68, 68, 0.18);
   transform: translateY(-1px);
 }
 
