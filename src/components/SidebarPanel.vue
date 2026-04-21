@@ -33,12 +33,7 @@ function formatTime(timestamp: number): string {
 
 <template>
   <aside :class="panelClass">
-    <div class="sidebar-header">
-      <button class="icon-button" type="button" @click="emit('toggle')" title="切换侧边栏">
-        <svg v-if="collapsed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-        <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-      </button>
-    </div>
+
 
     <template v-if="!collapsed">
       <div class="sidebar-action">
@@ -90,35 +85,15 @@ function formatTime(timestamp: number): string {
 }
 
 .sidebar-panel.is-collapsed {
-  width: 52px;
+  width: 0;
+  border-right: none;
+  overflow: hidden;
 }
 
-.sidebar-header {
-  height: 52px;
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  flex-shrink: 0;
-}
 
-.icon-button {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  transition: background 150ms;
-}
-
-.icon-button:hover {
-  background: var(--bg-active);
-  color: var(--text);
-}
 
 .sidebar-action {
-  padding: 0 12px 16px;
+  padding: 16px 12px 16px;
   flex-shrink: 0;
 }
 

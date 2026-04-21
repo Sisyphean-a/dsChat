@@ -3,7 +3,6 @@ import type { SettingsForm } from '../types/chat'
 
 const props = defineProps<{
   isBrowserMode: boolean
-  modelOptions: string[]
   open: boolean
   saving: boolean
   settings: SettingsForm
@@ -21,8 +20,7 @@ const emit = defineEmits<{
     <section class="settings-panel">
       <div class="settings-header">
         <div>
-          <p class="eyebrow">连接设置</p>
-          <h2>DeepSeek 与本地持久化</h2>
+          <h2>设置</h2>
         </div>
         <button class="close-button" type="button" @click="emit('close')">
           关闭
@@ -53,17 +51,7 @@ const emit = defineEmits<{
         />
       </label>
 
-      <label class="field">
-        <span>模型</span>
-        <select
-          :value="props.settings.model"
-          @change="emit('updateField', 'model', ($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="model in props.modelOptions" :key="model" :value="model">
-            {{ model }}
-          </option>
-        </select>
-      </label>
+
 
       <button class="save-button" type="button" :disabled="props.saving" @click="emit('save')">
         {{ props.saving ? '保存中...' : '保存设置' }}
@@ -84,14 +72,14 @@ const emit = defineEmits<{
 }
 
 .settings-panel {
-  width: min(560px, 100%);
+  width: min(480px, 100%);
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 24px;
-  border-radius: 28px;
-  background: #fbf8f1;
-  box-shadow: 0 28px 60px rgba(37, 48, 54, 0.2);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--bg);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
 }
 
 .settings-header {
@@ -119,28 +107,51 @@ const emit = defineEmits<{
   color: var(--text-muted);
 }
 
-.field input,
-.field select {
-  padding: 14px 16px;
-  border-radius: 16px;
+.field input {
+  padding: 10px 14px;
+  border-radius: var(--radius-md, 8px);
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--bg);
   color: var(--text);
+  font-family: monospace;
+}
+
+.field input:focus {
+  border-color: var(--accent);
+  outline: none;
 }
 
 .save-button,
 .close-button {
-  padding: 13px 16px;
-  border-radius: 16px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background 150ms;
 }
 
 .save-button {
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
-  color: #eff7f4;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+}
+
+.save-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.save-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .close-button {
-  background: rgba(37, 48, 54, 0.06);
+  background: transparent;
   color: var(--text-muted);
+}
+
+.close-button:hover {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 </style>

@@ -34,7 +34,7 @@ export function useChatApp() {
   const messages = ref<ChatMessage[]>([])
   const draftMessage = ref('')
   const isSettingsOpen = ref(false)
-  const isSidebarCollapsed = ref(false)
+  const isSidebarCollapsed = ref(true)
   const isSending = ref(false)
   const isSavingSettings = ref(false)
   const lastError = ref<string | null>(null)

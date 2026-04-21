@@ -2,7 +2,6 @@
 
 const props = defineProps<{
   disabled: boolean
-  modelName: string
   modelValue: string
 }>()
 
@@ -19,6 +18,13 @@ function onKeydown(event: KeyboardEvent): void {
     }
   }
 }
+
+function adjustHeight(event: Event) {
+  const target = event.target as HTMLTextAreaElement
+  target.style.height = 'auto'
+  const newHeight = Math.min(target.scrollHeight, 200)
+  target.style.height = `${newHeight}px`
+}
 </script>
 
 <template>
@@ -29,12 +35,14 @@ function onKeydown(event: KeyboardEvent): void {
         :value="props.modelValue"
         placeholder="给 DeepSeek 发送消息..."
         rows="1"
-        @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
+        @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value); adjustHeight($event)"
         @keydown="onKeydown"
       />
       
       <div class="composer-controls">
-        <span class="model-badge" title="当前模型">{{ props.modelName }}</span>
+        <div class="composer-actions">
+          <slot name="actions"></slot>
+        </div>
         <button 
           class="send-button" 
           type="submit" 
@@ -83,7 +91,7 @@ textarea {
   min-height: 48px;
   max-height: 200px;
   padding: 14px 16px;
-  resize: vertical;
+  resize: none;
   line-height: 1.5;
   color: var(--text);
   font-size: 0.95rem;
@@ -100,14 +108,13 @@ textarea::placeholder {
   padding: 8px 12px;
 }
 
-.model-badge {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  background: var(--bg-hover);
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  user-select: none;
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+
+
 
 .send-button {
   display: flex;

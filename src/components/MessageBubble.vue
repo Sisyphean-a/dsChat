@@ -64,68 +64,68 @@ watch(() => props.message.content, () => {
 
 <style scoped>
 .bubble {
-  max-width: min(82%, 720px);
-  padding: 18px 20px;
-  border-radius: 24px;
+  max-width: min(85%, 720px);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   animation: reveal 200ms ease;
 }
 
 .bubble.is-user {
   align-self: flex-end;
-  background: linear-gradient(180deg, #1a6c64, #0b4841);
-  color: #f3f7f6;
-  border-bottom-right-radius: 8px;
+  background: var(--bg-hover);
+  color: var(--text);
+  border-bottom-right-radius: 2px;
 }
 
 .bubble.is-assistant,
 .bubble.is-error {
   align-self: flex-start;
-  background: rgba(255, 255, 255, 0.84);
-  border-bottom-left-radius: 8px;
+  background: var(--bg);
+  border-bottom-left-radius: 2px;
 }
 
 .bubble.is-error {
-  border-color: rgba(143, 53, 53, 0.24);
-}
-
-.message-role,
-.message-status {
-  margin: 0 0 10px;
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 .message-role {
-  opacity: 0.72;
+  display: none; /* Hide the explicit DeepSeek / 你 label to save space, let the alignment speak */
 }
 
 .message-status {
   display: inline-block;
-  margin-top: 12px;
+  margin-top: 6px;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
 .plain-body {
   margin: 0;
   white-space: pre-wrap;
-  line-height: 1.8;
+  line-height: 1.6;
+  font-size: 0.95rem;
 }
 
 .markdown-body :deep(*) {
-  line-height: 1.72;
+  line-height: 1.6;
+  font-size: 0.95rem;
 }
 
 .markdown-body :deep(p:first-child) {
   margin-top: 0;
 }
 
+.markdown-body :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
 .markdown-body :deep(pre) {
   overflow: auto;
-  padding: 14px;
-  border-radius: 16px;
-  background: #1d2428;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  font-size: 0.85rem;
 }
 
 .markdown-body :deep(table) {
@@ -135,14 +135,14 @@ watch(() => props.message.content, () => {
 
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
-  padding: 10px 12px;
-  border: 1px solid rgba(43, 53, 56, 0.12);
+  padding: 6px 10px;
+  border: 1px solid var(--border);
 }
 
 @keyframes reveal {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
