@@ -10,6 +10,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  deleteConversation: [id: string]
   newConversation: []
   openSettings: []
   selectConversation: [id: string]
@@ -50,18 +51,38 @@ function formatTime(timestamp: number): string {
 
       <div class="sidebar-body">
         <div v-if="conversations.length" class="history-list">
-          <button
+          <div
             v-for="conversation in conversations"
             :key="conversation.id"
             class="history-item"
             :class="{ active: conversation.id === activeConversationId }"
-            type="button"
-            :disabled="props.disabled"
-            @click="emit('selectConversation', conversation.id)"
           >
-            <span class="item-title">{{ conversation.title }}</span>
-            <span class="item-time">{{ formatTime(conversation.updatedAt) }}</span>
-          </button>
+            <button
+              class="history-main"
+              type="button"
+              :disabled="props.disabled"
+              @click="emit('selectConversation', conversation.id)"
+            >
+              <span class="item-title">{{ conversation.title }}</span>
+              <span class="item-time">{{ formatTime(conversation.updatedAt) }}</span>
+            </button>
+
+            <button
+              class="history-delete ghost-button"
+              type="button"
+              :disabled="props.disabled"
+              title="删除对话"
+              @click="emit('deleteConversation', conversation.id)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6l-1 14H6L5 6"></path>
+                <path d="M10 11v6"></path>
+                <path d="M14 11v6"></path>
+                <path d="M9 6V4h6v2"></path>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div v-else class="history-empty">
@@ -130,11 +151,9 @@ function formatTime(timestamp: number): string {
 
 .history-item {
   width: 100%;
-  padding: 10px 12px;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  text-align: left;
+  align-items: stretch;
+  gap: 6px;
   border-radius: var(--radius-md);
   transition: background 150ms;
 }
@@ -145,6 +164,32 @@ function formatTime(timestamp: number): string {
 
 .history-item.active {
   background: var(--bg-active);
+}
+
+.history-main {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.history-delete {
+  width: 32px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 6px 6px 6px 0;
+  opacity: 0;
+  transition: opacity 150ms, background 150ms;
+}
+
+.history-item:hover .history-delete,
+.history-item.active .history-delete {
+  opacity: 1;
 }
 
 .item-title {
@@ -168,7 +213,8 @@ function formatTime(timestamp: number): string {
   font-size: 0.85rem;
 }
 
-.history-item:disabled,
+.history-main:disabled,
+.history-delete:disabled,
 .primary-button:disabled {
   cursor: not-allowed;
   opacity: 0.5;

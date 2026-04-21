@@ -24,6 +24,14 @@ const renderedHtml = computed(() => {
   return renderMarkdown(props.message.content)
 })
 
+const renderedReasoningHtml = computed(() => {
+  if (props.message.role !== 'assistant' || !props.message.reasoningContent) {
+    return ''
+  }
+
+  return renderMarkdown(props.message.reasoningContent)
+})
+
 async function applyHighlight(): Promise<void> {
   if (!containerRef.value || props.message.role !== 'assistant') {
     return
@@ -37,27 +45,32 @@ onMounted(() => {
   void applyHighlight()
 })
 
-watch(() => props.message.content, () => {
+watch(() => [props.message.content, props.message.reasoningContent], () => {
   void applyHighlight()
 })
 </script>
 
 <template>
-  <article :class="bubbleClass">
+  <article ref="containerRef" :class="bubbleClass">
     <p class="message-role">
       {{ props.message.role === 'user' ? '你' : 'DeepSeek' }}
     </p>
 
-    <div
-      v-if="props.message.role === 'assistant'"
-      ref="containerRef"
-      class="markdown-body"
-      v-html="renderedHtml"
-    />
+    <details
+      v-if="renderedReasoningHtml"
+      class="reasoning-block"
+      :open="props.message.status === 'streaming'"
+    >
+      <summary>{{ props.message.status === 'streaming' ? '思考中...' : '思考过程' }}</summary>
+      <div class="reasoning-body" v-html="renderedReasoningHtml" />
+    </details>
 
-    <p v-else class="plain-body">{{ props.message.content }}</p>
+    <div v-if="props.message.role === 'assistant' && props.message.content" class="markdown-body" v-html="renderedHtml" />
+
+    <p v-if="props.message.role === 'user'" class="plain-body">{{ props.message.content }}</p>
 
     <span v-if="props.message.status === 'streaming'" class="message-status">生成中...</span>
+    <span v-else-if="props.message.status === 'interrupted'" class="message-status">已中断</span>
     <span v-else-if="props.message.status === 'error'" class="message-status">请求失败</span>
   </article>
 </template>
@@ -100,6 +113,26 @@ watch(() => props.message.content, () => {
   color: var(--text-muted);
 }
 
+.reasoning-block {
+  margin-bottom: 8px;
+  border: 1px solid rgba(16, 163, 127, 0.12);
+  border-radius: var(--radius-sm);
+  background: rgba(16, 163, 127, 0.04);
+}
+
+.reasoning-block summary {
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.reasoning-body {
+  padding: 0 10px 10px;
+  color: var(--text-muted);
+}
+
 .plain-body {
   margin: 0;
   white-space: pre-wrap;
@@ -112,11 +145,24 @@ watch(() => props.message.content, () => {
   font-size: 0.95rem;
 }
 
+.reasoning-body :deep(*) {
+  line-height: 1.55;
+  font-size: 0.85rem;
+}
+
 .markdown-body :deep(p:first-child) {
   margin-top: 0;
 }
 
+.reasoning-body :deep(p:first-child) {
+  margin-top: 0;
+}
+
 .markdown-body :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.reasoning-body :deep(p:last-child) {
   margin-bottom: 0;
 }
 

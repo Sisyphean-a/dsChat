@@ -5,7 +5,8 @@ vi.mock('../services/deepseek', () => ({
 }))
 
 vi.mock('../services/utools', () => ({
-  hasUtools: () => false,
+  deleteConversation: vi.fn().mockResolvedValue(undefined),
+  hasUtools: vi.fn(() => false),
   loadConversations: vi.fn().mockResolvedValue([]),
   loadSession: vi.fn().mockResolvedValue(null),
   loadSettings: vi.fn().mockResolvedValue({
@@ -19,17 +20,28 @@ vi.mock('../services/utools', () => ({
 }))
 
 import { streamChatCompletion } from '../services/deepseek'
-import { loadConversations, loadSettings, saveConversation, saveSettings } from '../services/utools'
+import {
+  deleteConversation,
+  hasUtools,
+  loadConversations,
+  loadSession,
+  loadSettings,
+  saveConversation,
+  saveSettings,
+} from '../services/utools'
 import { useChatApp } from './useChatApp'
 
 describe('useChatApp', () => {
   beforeEach(() => {
+    vi.mocked(hasUtools).mockReturnValue(false)
     vi.mocked(loadConversations).mockResolvedValue([])
+    vi.mocked(loadSession).mockResolvedValue(null)
     vi.mocked(loadSettings).mockResolvedValue({
       apiKey: '',
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-chat',
     })
+    vi.mocked(deleteConversation).mockResolvedValue(undefined)
     vi.mocked(saveConversation).mockImplementation(async (conversation) => conversation)
     vi.mocked(streamChatCompletion).mockReset()
   })
@@ -49,7 +61,7 @@ describe('useChatApp', () => {
       model: 'deepseek-chat',
     })
     vi.mocked(streamChatCompletion).mockImplementation(async (_messages, _settings, onDelta) => {
-      onDelta('你好，我在。')
+      onDelta({ content: '你好，我在。' })
       return '你好，我在。'
     })
 
@@ -63,6 +75,29 @@ describe('useChatApp', () => {
     expect(app.messages.value).toHaveLength(2)
     expect(app.messages.value[0]?.content).toBe('你好')
     expect(app.messages.value[1]?.content).toBe('你好，我在。')
+    expect(app.messages.value[1]?.status).toBe('done')
+  })
+
+  it('stores reasoning content when the model streams thinking output', async () => {
+    vi.mocked(loadSettings).mockResolvedValue({
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-reasoner',
+    })
+    vi.mocked(streamChatCompletion).mockImplementation(async (_messages, _settings, onDelta) => {
+      onDelta({ reasoningContent: '先思考' })
+      onDelta({ content: '再回答' })
+      return '再回答'
+    })
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '你好'
+
+    await app.sendMessage()
+
+    expect(app.messages.value[1]?.reasoningContent).toBe('先思考')
+    expect(app.messages.value[1]?.content).toBe('再回答')
     expect(app.messages.value[1]?.status).toBe('done')
   })
 
@@ -138,6 +173,7 @@ describe('useChatApp', () => {
         model: 'deepseek-chat',
       },
       expect.any(Function),
+      expect.any(AbortSignal),
     )
   })
 
@@ -254,5 +290,66 @@ describe('useChatApp', () => {
 
     resolveReply('流式回复')
     await sendPromise
+  })
+
+  it('repairs persisted streaming messages when restoring a session', async () => {
+    vi.mocked(hasUtools).mockReturnValue(true)
+    vi.mocked(loadSession).mockResolvedValue({
+      _id: 'session/runtime',
+      type: 'session',
+      currentConversationId: 'existing',
+      lastOutAt: Date.now(),
+    })
+    vi.mocked(loadConversations).mockResolvedValue([
+      {
+        _id: 'conversation/existing',
+        type: 'conversation',
+        id: 'existing',
+        title: '已有会话',
+        createdAt: 1,
+        updatedAt: 1,
+        messages: [
+          { id: 'm-user', role: 'user', content: '旧消息', createdAt: 1, status: 'done' },
+          { id: 'm-assistant', role: 'assistant', content: '', createdAt: 2, status: 'streaming' },
+        ],
+      },
+    ])
+
+    const app = useChatApp()
+    await app.initialize()
+
+    expect(app.messages.value[1]?.status).toBe('interrupted')
+    expect(app.messages.value[1]?.content).toBe('本次响应已中断，请重新发送。')
+    expect(saveConversation).toHaveBeenCalled()
+  })
+
+  it('deletes the active conversation and clears the current session pointer', async () => {
+    vi.mocked(loadConversations).mockResolvedValue([
+      {
+        _id: 'conversation/existing',
+        type: 'conversation',
+        id: 'existing',
+        title: '已有会话',
+        createdAt: 1,
+        updatedAt: 1,
+        messages: [
+          { id: 'm-user', role: 'user', content: '旧消息', createdAt: 1, status: 'done' },
+        ],
+      },
+    ])
+
+    const app = useChatApp()
+    await app.initialize()
+    app.selectConversation('existing')
+    await vi.waitFor(() => {
+      expect(app.activeConversationId.value).toBe('existing')
+    })
+
+    await app.deleteConversation('existing')
+
+    expect(deleteConversation).toHaveBeenCalled()
+    expect(app.activeConversationId.value).toBeNull()
+    expect(app.messages.value).toEqual([])
+    expect(app.conversations.value).toEqual([])
   })
 })

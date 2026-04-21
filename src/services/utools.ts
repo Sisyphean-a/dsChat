@@ -66,6 +66,18 @@ export async function saveConversation(conversation: ConversationDoc): Promise<C
   return (await putDoc(conversation)) as ConversationDoc
 }
 
+export async function deleteConversation(conversation: ConversationDoc): Promise<void> {
+  if (hasUtools()) {
+    const result = await window.utools!.db.promises.remove(conversation._id)
+    if (!result.ok) {
+      throw new Error(result.message ?? 'uTools 数据库删除失败。')
+    }
+    return
+  }
+
+  memoryStore.delete(conversation._id)
+}
+
 async function getDoc(id: string): Promise<BaseDoc | null> {
   if (hasUtools()) {
     return window.utools!.db.promises.get(id)

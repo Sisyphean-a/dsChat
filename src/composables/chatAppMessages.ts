@@ -11,6 +11,28 @@ export function createChatMessage(role: ChatMessage['role'], content: string): C
   }
 }
 
+export function finalizeStreamingMessages(
+  messages: ChatMessage[],
+  fallback: string,
+): { changed: boolean; messages: ChatMessage[] } {
+  let changed = false
+
+  const nextMessages = messages.map((message) => {
+    if (message.status !== 'streaming') {
+      return { ...message }
+    }
+
+    changed = true
+    return {
+      ...message,
+      content: message.content.trim() ? message.content : fallback,
+      status: 'interrupted' as const,
+    }
+  })
+
+  return { changed, messages: nextMessages }
+}
+
 export function updateMessageById(
   messages: ChatMessage[],
   id: string,

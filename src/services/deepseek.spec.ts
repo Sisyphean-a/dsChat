@@ -57,8 +57,8 @@ describe('streamChatCompletion', () => {
     const content = await streamChatCompletion(
       [{ id: '1', role: 'user', content: 'test', createdAt: 0, status: 'done' }],
       { apiKey: 'sk-test', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat' },
-      (chunk) => {
-        deltas.push(chunk)
+      (delta) => {
+        deltas.push(delta.content ?? '')
       },
     )
 
@@ -90,5 +90,46 @@ describe('streamChatCompletion', () => {
         vi.fn(),
       ),
     ).rejects.toThrow('DeepSeek 未返回可用内容。')
+  })
+
+  it('parses reasoning deltas separately from final content', async () => {
+    const encoder = new TextEncoder()
+    const deltas: Array<{ content?: string; reasoningContent?: string }> = []
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode([
+          'data: {"choices":[{"delta":{"reasoning_content":"先分析"}}]}',
+          '',
+          'data: {"choices":[{"delta":{"content":"再回答"}}]}',
+          '',
+          'data: [DONE]',
+          '',
+        ].join('\n')))
+        controller.close()
+      },
+    })
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        body: stream,
+      }),
+    )
+
+    const content = await streamChatCompletion(
+      [{ id: '1', role: 'user', content: 'test', createdAt: 0, status: 'done' }],
+      { apiKey: 'sk-test', baseUrl: 'https://api.deepseek.com', model: 'deepseek-reasoner' },
+      (delta) => {
+        deltas.push(delta)
+      },
+    )
+
+    expect(content).toBe('再回答')
+    expect(deltas).toEqual([
+      { reasoningContent: '先分析' },
+      { content: '再回答' },
+    ])
   })
 })

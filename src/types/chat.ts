@@ -1,10 +1,11 @@
 export type ChatRole = 'user' | 'assistant' | 'system'
-export type MessageStatus = 'done' | 'streaming' | 'error'
+export type MessageStatus = 'done' | 'streaming' | 'error' | 'interrupted'
 
 export interface ChatMessage {
   id: string
   role: ChatRole
   content: string
+  reasoningContent?: string
   createdAt: number
   status: MessageStatus
 }

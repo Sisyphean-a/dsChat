@@ -13,6 +13,7 @@ export interface UtoolsDb {
     allDocs(prefix?: string): Promise<BaseDoc[]>
     get(id: string): Promise<BaseDoc | null>
     put(doc: BaseDoc): Promise<DbResult>
+    remove(doc: BaseDoc | string): Promise<DbResult>
   }
 }
 

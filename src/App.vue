@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import ChatComposer from './components/ChatComposer.vue'
 import MessageBubble from './components/MessageBubble.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
@@ -7,6 +7,7 @@ import SidebarPanel from './components/SidebarPanel.vue'
 import { useChatApp } from './composables/useChatApp'
 
 const app = useChatApp()
+const messageListRef = ref<HTMLElement | null>(null)
 
 const currentTitle = computed(() => {
   if (!app.activeConversationId.value) return '新对话'
@@ -14,9 +15,32 @@ const currentTitle = computed(() => {
   return target?.title || '新对话'
 })
 
+const messageScrollKey = computed(() => {
+  const last = app.messages.value.at(-1)
+  if (!last) return `${app.activeConversationId.value ?? 'empty'}:0`
+  return [
+    app.activeConversationId.value ?? 'empty',
+    app.messages.value.length,
+    last.id,
+    last.status,
+    last.content.length,
+    last.reasoningContent?.length ?? 0,
+  ].join(':')
+})
+
+async function scrollToBottom(): Promise<void> {
+  await nextTick()
+  if (!messageListRef.value) return
+  messageListRef.value.scrollTop = messageListRef.value.scrollHeight
+}
+
 onMounted(() => {
   void app.initialize()
 })
+
+watch(messageScrollKey, () => {
+  void scrollToBottom()
+}, { flush: 'post' })
 </script>
 
 <template>
@@ -26,6 +50,7 @@ onMounted(() => {
       :collapsed="app.isSidebarCollapsed.value"
       :conversations="app.conversations.value"
       :disabled="app.isSending.value"
+      @delete-conversation="app.deleteConversation"
       @new-conversation="app.startFreshConversation"
       @open-settings="app.openSettings"
       @select-conversation="app.selectConversation"
@@ -58,7 +83,7 @@ onMounted(() => {
         {{ app.lastError.value }}
       </div>
 
-      <section v-if="app.messages.value.length" class="message-list">
+      <section v-if="app.messages.value.length" ref="messageListRef" class="message-list">
         <MessageBubble
           v-for="message in app.messages.value"
           :key="message.id"
@@ -86,7 +111,6 @@ onMounted(() => {
             <select class="model-select action-select" v-model="app.settings.value.model" @change="app.saveSettings" title="切换模型">
               <option v-for="opt in app.modelOptions" :key="opt" :value="opt">{{ opt }}</option>
             </select>
-            <span v-if="app.isSending.value" class="status-pill">生成中...</span>
           </template>
         </ChatComposer>
       </div>

@@ -3,14 +3,21 @@ import type { ChatMessage, SettingsForm } from '../types/chat'
 interface ChatChoice {
   delta?: {
     content?: string
+    reasoning_content?: string
   }
   message?: {
     content?: string
+    reasoning_content?: string
   }
 }
 
 interface ChatCompletionResponse {
   choices?: ChatChoice[]
+}
+
+export interface StreamDelta {
+  content?: string
+  reasoningContent?: string
 }
 
 const DONE_EVENT = '[DONE]'
@@ -51,12 +58,14 @@ export async function requestChatCompletion(
 export async function streamChatCompletion(
   messages: ChatMessage[],
   settings: SettingsForm,
-  onDelta: (chunk: string) => void,
+  onDelta: (delta: StreamDelta) => void,
+  signal?: AbortSignal,
 ): Promise<string> {
   const response = await fetch(createChatUrl(settings.baseUrl), {
     body: JSON.stringify(createPayload(messages, settings.model, true)),
     headers: createHeaders(settings.apiKey),
     method: 'POST',
+    signal,
   })
 
   if (!response.ok) {
@@ -71,6 +80,7 @@ export async function streamChatCompletion(
   const decoder = new TextDecoder()
   let buffer = ''
   let content = ''
+  let reasoningContent = ''
 
   while (true) {
     const chunk = await reader.read()
@@ -83,18 +93,20 @@ export async function streamChatCompletion(
     buffer = consumed.rest
 
     for (const event of consumed.events) {
-      const next = appendDelta(content, event, onDelta)
+      const next = appendDelta({ content, reasoningContent }, event, onDelta)
       if (next.done) {
         return finalizeStreamContent(next.content)
       }
 
       content = next.content
+      reasoningContent = next.reasoningContent
     }
   }
 
   const trailingEvent = extractEventPayload(buffer)
   if (trailingEvent) {
-    content = appendDelta(content, trailingEvent, onDelta).content
+    const trailing = appendDelta({ content, reasoningContent }, trailingEvent, onDelta)
+    content = trailing.content
   }
 
   return finalizeStreamContent(content)
@@ -110,28 +122,40 @@ function extractEventPayload(frame: string): string {
 }
 
 function appendDelta(
-  content: string,
+  current: { content: string; reasoningContent: string },
   event: string,
-  onDelta: (chunk: string) => void,
-): { content: string; done: boolean } {
+  onDelta: (delta: StreamDelta) => void,
+): { content: string; done: boolean; reasoningContent: string } {
   if (!event) {
-    return { content, done: false }
+    return { ...current, done: false }
   }
 
   if (event === DONE_EVENT) {
-    return { content, done: true }
+    return { ...current, done: true }
   }
 
   const data = JSON.parse(event) as ChatCompletionResponse
-  const delta = data.choices?.[0]?.delta?.content ?? ''
-  if (!delta) {
-    return { content, done: false }
+  const delta = data.choices?.[0]?.delta
+  const reasoningDelta = delta?.reasoning_content ?? ''
+  if (reasoningDelta) {
+    onDelta({ reasoningContent: reasoningDelta })
+    return {
+      content: current.content,
+      done: false,
+      reasoningContent: `${current.reasoningContent}${reasoningDelta}`,
+    }
   }
 
-  onDelta(delta)
+  const contentDelta = delta?.content ?? ''
+  if (!contentDelta) {
+    return { ...current, done: false }
+  }
+
+  onDelta({ content: contentDelta })
   return {
-    content: `${content}${delta}`,
+    content: `${current.content}${contentDelta}`,
     done: false,
+    reasoningContent: current.reasoningContent,
   }
 }
 
