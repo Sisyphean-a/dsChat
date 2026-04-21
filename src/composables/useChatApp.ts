@@ -6,7 +6,7 @@ import {
   MODEL_OPTIONS,
   SESSION_DOC_ID,
 } from '../constants/app'
-import { streamChatCompletion } from '../services/deepseek'
+import { requestChatCompletion, streamChatCompletion } from '../services/deepseek'
 import {
   hasUtools,
   loadConversations,
@@ -130,10 +130,13 @@ export function useChatApp() {
       return
     }
 
+    const isNewConversation = !activeConversationId.value
     if (!activeConversationId.value) {
       activeConversationId.value = createConversationId()
       messages.value = []
     }
+    
+    const currentConversationId = activeConversationId.value
 
     draftMessage.value = ''
     lastError.value = null
@@ -160,6 +163,10 @@ export function useChatApp() {
 
       failureStage = 'final-persist'
       await persistConversation()
+
+      if (isNewConversation) {
+        generateConversationTitle(currentConversationId, content).catch(console.error)
+      }
     } catch (error) {
       await handleSendFailure(error, assistantMessage.id, failureStage === 'stream')
     } finally {
@@ -268,6 +275,28 @@ export function useChatApp() {
 
   function getErrorMessage(error: unknown, fallback: string): string {
     return error instanceof Error ? error.message : fallback
+  }
+
+  async function generateConversationTitle(conversationId: string, firstMessageContent: string): Promise<void> {
+    try {
+      if (isBrowserMode.value) return
+
+      const prompt = `请用六到十二个字总结以下内容的意图作为极简标题，不要带标点：\n${firstMessageContent}`
+      const msgs: ChatMessage[] = [{ id: 'title-req', role: 'user', content: prompt, status: 'done', createdAt: Date.now() }]
+      const normalizedSettings = normalizeSettings(settings.value)
+      
+      const newTitle = await requestChatCompletion(msgs, normalizedSettings)
+      
+      const idx = conversations.value.findIndex(c => c.id === conversationId)
+      if (idx !== -1) {
+        conversations.value[idx].title = newTitle.replace(/[。！？”“"']/g, '').trim()
+        await saveConversation(conversations.value[idx])
+        // Trigger reactivity for layout
+        conversations.value = [...conversations.value]
+      }
+    } catch (e) {
+      console.warn('Failed to generate automatic title:', e)
+    }
   }
 
   return {
