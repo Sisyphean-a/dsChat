@@ -6,8 +6,10 @@ import ModelPicker from './components/ModelPicker.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import SidebarPanel from './components/SidebarPanel.vue'
 import { useChatApp } from './composables/useChatApp'
+import { getModelConfigOptions } from './composables/chatAppSettings'
 
 const app = useChatApp()
+const configOptions = computed(() => getModelConfigOptions(app.settings.value))
 const messageListRef = ref<HTMLElement | null>(null)
 const releasedScrollMessageId = ref<string | null>(null)
 
@@ -64,6 +66,11 @@ async function scrollToBottom(force = false): Promise<void> {
 
 function handleModelSelect(model: string): void {
   app.selectActiveModel(model)
+  void app.saveSettings()
+}
+
+function handleProviderSelect(configId: string): void {
+  app.selectActiveConfig(configId)
   void app.saveSettings()
 }
 
@@ -159,6 +166,12 @@ watch(messageScrollKey, () => {
           @stop="app.stopGenerating"
         >
           <template #actions>
+            <ModelPicker
+              :disabled="app.isSending.value"
+              :model-value="app.settings.value.activeConfigId"
+              :options="configOptions"
+              @select="handleProviderSelect"
+            />
             <ModelPicker
               :disabled="app.isSending.value"
               :model-value="app.activeChatConfig.value.model"

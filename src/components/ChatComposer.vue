@@ -120,6 +120,7 @@ textarea::placeholder {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 4px 10px 8px;
   border-top: 1px solid rgba(0, 0, 0, 0.03);
 }
@@ -128,6 +129,8 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 

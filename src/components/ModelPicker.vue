@@ -58,7 +58,6 @@ onBeforeUnmount(() => {
 <template>
   <div ref="rootRef" class="model-picker" :class="{ disabled: props.disabled, open: isOpen }">
     <button class="picker-trigger" type="button" :disabled="props.disabled" @click="togglePanel">
-      <span class="provider-badge">{{ currentMeta.badge }}</span>
       <span class="picker-copy">{{ currentMeta.shortLabel }}</span>
       <svg class="picker-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="6 9 12 15 18 9"></polyline>
@@ -97,13 +96,16 @@ onBeforeUnmount(() => {
 
 .model-picker {
   position: relative;
-  width: 228px;
+  width: auto;
+  min-width: 140px;
+  max-width: 228px;
+  flex: 1;
 }
 
 .picker-trigger {
   width: 100%;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 8px;
   height: 32px;
@@ -122,18 +124,6 @@ onBeforeUnmount(() => {
   background: var(--bg-hover);
   transform: translateY(-1px);
   box-shadow: 0 8px 18px rgba(16, 163, 127, 0.08);
-}
-
-.provider-badge {
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-size: 0.67rem;
-  font-weight: 700;
 }
 
 .picker-copy {
@@ -206,7 +196,8 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .model-picker {
-    width: 188px;
+    min-width: 120px;
+    max-width: 188px;
   }
 }
 </style>
