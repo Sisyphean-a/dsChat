@@ -70,7 +70,7 @@ Keep purely presentational state in the component that owns it:
 
 - model picker open/close
 - reasoning panel expanded/collapsed
-- scroll release state for the current streaming message
+- scroll auto-follow lock state for the current streaming message (`releasedForStreamingMessageId`)
 
 Do not promote these to shared state unless another component must coordinate with them.
 

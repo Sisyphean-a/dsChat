@@ -61,7 +61,40 @@ Why it is bad:
 Instead:
 
 - release auto-follow for the current streaming message immediately on upward scroll intent
-- allow re-follow only when user manually returns near bottom
+- allow re-follow only when user manually returns to bottom threshold
+
+### Don't: Unlock auto-follow on near-bottom heuristics
+
+Problem:
+
+- tiny downward jitter after an upward user scroll can accidentally resume auto-follow
+
+Why it is bad:
+
+- creates “scroll control fighting” during streaming
+- behavior looks random under fast mouse wheel input
+
+Instead:
+
+- use deterministic lock/unlock state machine
+- lock on upward intent
+- unlock only on explicit return-to-bottom condition
+
+### Don't: Use scroll-event skip counters as the primary anti-jitter strategy
+
+Problem:
+
+- skip-count logic can swallow real user intent events in rapid scroll sequences
+
+Why it is bad:
+
+- introduces probabilistic behavior
+- hard to reason about in bug reports
+
+Instead:
+
+- prefer stateful lock keyed to current streaming message
+- treat wheel-up as high-priority user intent
 
 ### Don't: Re-scan the whole message list on every stream chunk
 
@@ -146,6 +179,8 @@ Minimum required automated coverage for the chat flow:
 6. title generation starts before stream completion
 7. generated title is preserved across later saves
 8. stream delta updates do not depend on full-list remap hot path semantics
+9. auto-follow lock/unlock remains deterministic across multiple up-down cycles in one stream
+10. slight downward jitter after an upward lock does not unexpectedly re-enable auto-follow
 
 ---
 

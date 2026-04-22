@@ -167,9 +167,17 @@ For streaming chat views:
 1. default behavior is follow-to-bottom
 2. if the user manually scrolls upward during the current streaming message, stop forcing scroll for this message immediately
 3. reset auto-follow when the next streaming message starts
-4. if the user manually scrolls back near bottom, allow auto-follow to resume for the same streaming message
+4. auto-follow resumes only when user scrolls back to bottom (strict bottom threshold), not just near-bottom
+5. upward wheel intent must be captured at container level via `@wheel.capture.passive`
 
 This is a component orchestration rule, but the list component must support it by exposing a stable scroll container and using passive scroll listeners.
+
+Current implementation contract (`useMessageListAutoScroll`):
+
+1. lock key is the current streaming message id
+2. lock is set by either upward `wheel` or upward `scrollTop` delta
+3. lock is cleared only when user scrolls down and reaches bottom threshold
+4. programmatic auto-scroll must not clear lock implicitly
 
 ---
 

@@ -53,6 +53,17 @@ Required:
 - use index-first mutation strategy with safe id fallback
 - preserve immutable array replacement for Vue reactivity
 
+### Pattern D: Deterministic Auto-Scroll State Machine
+
+For streaming message list auto-follow:
+
+1. represent follow-release as explicit state (locked/unlocked) keyed by current streaming message id
+2. lock on upward user intent (`wheel` up or upward `scrollTop` delta)
+3. unlock only on explicit return-to-bottom condition
+4. keep `wheel` intent listener at capture phase to reduce event-order ambiguity
+
+This avoids probabilistic behavior under fast wheel input.
+
 ---
 
 ## Data Fetching And Side Effects
@@ -111,3 +122,14 @@ Fix:
 
 - move side effects to composables
 - keep components presentational and event-driven
+
+### Common Mistake: Mixing heuristic skip counters with user-intent state
+
+Symptom:
+
+- “sometimes still auto-scrolls after I scrolled up”
+
+Fix:
+
+- remove skip-count as primary control logic
+- use explicit lock/unlock transitions and test multi-cycle interactions

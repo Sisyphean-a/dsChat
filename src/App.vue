@@ -13,6 +13,7 @@ const app = useChatApp()
 const configOptions = computed(() => getModelConfigOptions(app.settings.value))
 const {
   handleMessageListScroll,
+  handleMessageListWheel,
   messageListRef,
 } = useMessageListAutoScroll({
   activeConversationId: app.activeConversationId,
@@ -93,6 +94,7 @@ onMounted(() => {
         ref="messageListRef"
         class="message-list"
         @scroll.passive="handleMessageListScroll"
+        @wheel.capture.passive="handleMessageListWheel"
       >
         <MessageBubble
           v-for="message in app.messages.value"
