@@ -175,6 +175,7 @@ This is a component orchestration rule, but the list component must support it b
 ## Styling Patterns
 
 Use local scoped styles inside components and shared design tokens from `src/style.css`.
+Top-level shell styles live in `src/styles/app-shell.css`.
 
 Required:
 
@@ -186,6 +187,27 @@ Avoid:
 
 - one-off hardcoded colors that ignore the active theme
 - default browser `select` styling when a compact custom control is already established
+
+## Convention: Keep Template Click Logic Declarative
+
+For maintainability and type safety:
+
+1. avoid long inline `@click` imperative statements
+2. route quick actions through small script functions (`applyQuickPrompt`, etc.)
+3. keep template event payloads simple and predictable
+
+Why:
+
+- reduces template syntax regressions
+- keeps behavior unit-testable from script logic
+
+## Convention: App Shell Visual Rules Stay Externalized
+
+Rules:
+
+1. `App.vue` should focus on wiring logic and structure
+2. shell-level style baseline belongs to `src/styles/app-shell.css`
+3. when shell geometry changes, update `style-baseline.md` in the same change
 
 ---
 

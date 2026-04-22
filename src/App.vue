@@ -1,68 +1,30 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, onMounted } from 'vue'
 import ChatComposer from './components/ChatComposer.vue'
 import MessageBubble from './components/MessageBubble.vue'
 import ModelPicker from './components/ModelPicker.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import SidebarPanel from './components/SidebarPanel.vue'
+import { useMessageListAutoScroll } from './composables/useMessageListAutoScroll'
 import { useChatApp } from './composables/useChatApp'
 import { getModelConfigOptions } from './composables/chatAppSettings'
 
 const app = useChatApp()
 const configOptions = computed(() => getModelConfigOptions(app.settings.value))
-const messageListRef = ref<HTMLElement | null>(null)
-const releasedScrollMessageId = ref<string | null>(null)
+const {
+  handleMessageListScroll,
+  messageListRef,
+} = useMessageListAutoScroll({
+  activeConversationId: app.activeConversationId,
+  messages: app.messages,
+})
+void messageListRef
 
 const currentTitle = computed(() => {
   if (!app.activeConversationId.value) return '新对话'
   const target = app.conversations.value.find(c => c.id === app.activeConversationId.value)
   return target?.title || '新对话'
 })
-
-const currentStreamingMessageId = computed(() => {
-  for (let index = app.messages.value.length - 1; index >= 0; index -= 1) {
-    const message = app.messages.value[index]
-    if (message?.status === 'streaming') {
-      return message.id
-    }
-  }
-
-  return null
-})
-
-const messageScrollKey = computed(() => {
-  const last = app.messages.value.at(-1)
-  if (!last) return `${app.activeConversationId.value ?? 'empty'}:0`
-  return [
-    app.activeConversationId.value ?? 'empty',
-    app.messages.value.length,
-    last.id,
-    last.status,
-    last.content.length,
-    last.reasoningContent?.length ?? 0,
-  ].join(':')
-})
-
-function isNearBottom(element: HTMLElement): boolean {
-  return element.scrollHeight - element.scrollTop - element.clientHeight < 48
-}
-
-function handleMessageListScroll(): void {
-  if (!messageListRef.value || !currentStreamingMessageId.value) {
-    return
-  }
-
-  releasedScrollMessageId.value = isNearBottom(messageListRef.value)
-    ? null
-    : currentStreamingMessageId.value
-}
-
-async function scrollToBottom(force = false): Promise<void> {
-  await nextTick()
-  if (!messageListRef.value) return
-  if (!force && releasedScrollMessageId.value === currentStreamingMessageId.value) return
-  messageListRef.value.scrollTop = messageListRef.value.scrollHeight
-}
 
 function handleModelSelect(model: string): void {
   app.selectActiveModel(model)
@@ -74,24 +36,16 @@ function handleProviderSelect(configId: string): void {
   void app.saveSettings()
 }
 
+function applyQuickPrompt(prompt: string, autoSend = false): void {
+  app.draftMessage.value = prompt
+  if (autoSend) {
+    void app.sendMessage()
+  }
+}
+
 onMounted(() => {
   void app.initialize()
 })
-
-watch(currentStreamingMessageId, (next, prev) => {
-  if (next && next !== prev) {
-    releasedScrollMessageId.value = null
-  }
-})
-
-watch(() => app.activeConversationId.value, () => {
-  releasedScrollMessageId.value = null
-  void scrollToBottom(true)
-})
-
-watch(messageScrollKey, () => {
-  void scrollToBottom()
-}, { flush: 'post' })
 </script>
 
 <template>
@@ -155,13 +109,13 @@ watch(messageScrollKey, () => {
             关闭插件后 1 分钟内重新打开，将恢复当前对话。
           </p>
           <div class="quick-prompts">
-            <button class="prompt-btn" @click="app.draftMessage.value = '写一段 Python 快速排序代码'; app.sendMessage()">
+            <button class="prompt-btn" @click="applyQuickPrompt('写一段 Python 快速排序代码', true)">
               写一段 Python 快速排序代码
             </button>
-            <button class="prompt-btn" @click="app.draftMessage.value = '帮我翻译这段英文到中文：\n\n'">
+            <button class="prompt-btn" @click="applyQuickPrompt('帮我翻译这段英文到中文：\n\n')">
               翻译英文
             </button>
-            <button class="prompt-btn" @click="app.draftMessage.value = '请解释什么是大语言模型（LLM）？'; app.sendMessage()">
+            <button class="prompt-btn" @click="applyQuickPrompt('请解释什么是大语言模型（LLM）？', true)">
               解释大语言模型
             </button>
           </div>
@@ -210,124 +164,4 @@ watch(messageScrollKey, () => {
     />
   </div>
 </template>
-
-<style scoped>
-.app-shell {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: var(--bg);
-}
-
-.chat-stage {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  height: 100vh;
-  position: relative;
-}
-
-.chat-header {
-  height: 44px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 12px;
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  z-index: 10;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-}
-
-.chat-title {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  user-select: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 50%;
-}
-
-.action-btn {
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.message-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  scroll-behavior: smooth;
-}
-
-.empty-state {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
-}
-
-.empty-content {
-  text-align: center;
-  max-width: 400px;
-}
-
-.empty-content h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin: 0 0 12px;
-}
-
-.empty-content p {
-  font-size: 0.9rem;
-  line-height: 1.6;
-  color: var(--text-muted);
-  margin: 0 0 24px;
-}
-
-.quick-prompts {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: center;
-}
-
-.prompt-btn {
-  padding: 8px 16px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  background: transparent;
-  transition: all 180ms ease;
-  cursor: pointer;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.prompt-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.composer-container {
-  flex-shrink: 0;
-  padding: 0 14px 12px;
-  background: linear-gradient(0deg, var(--bg) 60%, transparent);
-}
-</style>
+<style scoped src="./styles/app-shell.css"></style>

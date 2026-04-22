@@ -1,51 +1,104 @@
 # Type Safety
 
-> Type safety patterns in this project.
+> Type contracts and runtime normalization rules for chat frontend code.
 
 ---
 
 ## Overview
 
-<!--
-Document your project's type safety conventions here.
+Type system:
 
-Questions to answer:
-- What type system do you use?
-- How are types organized?
-- What validation library do you use?
-- How do you handle type inference?
--->
+- TypeScript + Vue `script setup`
+- strict linting (`noUnusedLocals`, `noUnusedParameters`, fallthrough guard)
 
-(To be filled by the team)
+Core principle:
+
+- types describe domain contracts
+- normalization functions enforce runtime boundaries
 
 ---
 
 ## Type Organization
 
-<!-- Where types are defined, shared types vs local types -->
+### Domain types
 
-(To be filled by the team)
+- `src/types/chat.ts`:
+  - chat message model
+  - settings model
+  - provider model
+  - persistence document model
+
+- `src/types/utools.ts`:
+  - uTools DB API surface used by services
+
+### Layer usage contract
+
+1. components use typed props/events only
+2. composables use domain types and normalized settings
+3. services receive fully shaped inputs from composables
 
 ---
 
-## Validation
+## Validation And Normalization
 
-<!-- Runtime validation patterns (Zod, Yup, io-ts, etc.) -->
+Runtime normalization entry:
 
-(To be filled by the team)
+- `normalizeSettings(settings)` in `src/composables/chatAppSettings.ts`
+
+Required normalization boundaries:
+
+1. `loadSettings()` result must be normalized before use.
+2. `saveSettings()` writes normalized data.
+3. send flow validates normalized active settings before dispatching request.
+
+Required non-coercion:
+
+- explicit blank `baseUrl` and `model` must remain blank so send-time validation can surface errors explicitly.
 
 ---
 
 ## Common Patterns
 
-<!-- Type utilities, generics, type guards -->
+### Pattern A: Narrow event contracts
 
-(To be filled by the team)
+Use tuple-typed emits:
+
+```ts
+const emit = defineEmits<{
+  select: [value: string]
+}>()
+```
+
+### Pattern B: Immutable state updates
+
+When mutating arrays/objects in refs:
+
+- clone item/object
+- replace array/object reference
+
+This keeps Vue change detection explicit and testable.
+
+### Pattern C: Error guards over broad casting
+
+Use small guards/utilities (`isAbortError`, `getErrorMessage`) instead of `as any` branches.
 
 ---
 
 ## Forbidden Patterns
 
-<!-- any, type assertions, etc. -->
+### Forbidden: `any` for cross-layer payloads
 
-(To be filled by the team)
+Do not use `any` for:
+
+- chat completion payloads
+- stream delta parsing
+- settings persistence models
+
+### Forbidden: Silent type widening in action modules
+
+Do not accept `unknown` input and mutate state directly without normalization/guards.
+
+### Forbidden: Unused typed values left in facade modules
+
+With `noUnusedLocals` enabled, dead typed branches indicate drift.
+Remove or wire every typed value intentionally.

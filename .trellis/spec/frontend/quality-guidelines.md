@@ -62,6 +62,22 @@ Instead:
 
 - release auto-follow for the current streaming message when user scroll intent is detected
 
+### Don't: Re-scan the whole message list on every stream chunk
+
+Problem:
+
+- hot path uses `messages.map(...)` for each token delta
+
+Why it is bad:
+
+- unnecessary O(n) work per chunk as history grows
+- harder to reason about stream performance regressions
+
+Instead:
+
+- patch the assistant message by preferred index
+- fallback to id lookup only when index becomes stale
+
 ### Don't: Add non-functional copy to compact tool windows
 
 Problem:
@@ -106,6 +122,15 @@ When changing send-flow ordering, add or update tests for:
 - interruption timing
 - metadata side effects
 
+### Required: Stop-generation behavior is covered
+
+At least one automated test must verify:
+
+1. stream in progress
+2. user triggers stop
+3. assistant message ends in `interrupted`
+4. visible stopped content is persisted (`已停止生成。` fallback when empty)
+
 ---
 
 ## Testing Requirements
@@ -119,6 +144,7 @@ Minimum required automated coverage for the chat flow:
 5. stop generation
 6. title generation starts before stream completion
 7. generated title is preserved across later saves
+8. stream delta updates do not depend on full-list remap hot path semantics
 
 ---
 
@@ -127,6 +153,7 @@ Minimum required automated coverage for the chat flow:
 - Does a later save accidentally recompute metadata from transient UI state?
 - Does streaming behavior expose a visible stop or interrupted outcome?
 - Does compact UI stay compact, or did helper copy/padding inflate the layout?
+- If shell style/layout changed, did we update `style-baseline.md`?
 - Does every visible sentence earn its space, or is it just repeating labels and values?
 - Does a new async task need to run in parallel rather than after the entire flow?
 - If theme-aware styling changed, are colors driven by shared variables rather than file-specific hardcoded values?

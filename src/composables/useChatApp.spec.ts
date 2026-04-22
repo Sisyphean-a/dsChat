@@ -354,6 +354,44 @@ describe('useChatApp', () => {
     expect(app.messages.value).toEqual([])
     expect(app.conversations.value).toEqual([])
   })
+
+  it('marks the assistant message as interrupted when stop is triggered during streaming', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+
+    vi.mocked(streamChatCompletion).mockImplementation(
+      async (_messages, _settings, _onDelta, signal) =>
+        new Promise((_resolve, reject) => {
+          if (signal?.aborted) {
+            reject(createAbortError())
+            return
+          }
+
+          signal?.addEventListener('abort', () => {
+            reject(createAbortError())
+          })
+        }),
+    )
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '你好'
+
+    const sending = app.sendMessage()
+    await vi.waitFor(() => {
+      expect(app.isSending.value).toBe(true)
+    })
+
+    await app.stopGenerating()
+    await sending
+
+    expect(app.isSending.value).toBe(false)
+    expect(app.messages.value[1]?.status).toBe('interrupted')
+    expect(app.messages.value[1]?.content).toBe('已停止生成。')
+  })
 })
 
 function createSettings(
@@ -370,4 +408,10 @@ function createSettings(
       ...(overrides.deepseek ?? {}),
     },
   }
+}
+
+function createAbortError(): Error & { name: 'AbortError' } {
+  const error = new Error('aborted') as Error & { name: 'AbortError' }
+  error.name = 'AbortError'
+  return error
 }

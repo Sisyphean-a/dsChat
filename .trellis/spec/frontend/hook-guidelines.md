@@ -1,51 +1,113 @@
 # Hook Guidelines
 
-> How hooks are used in this project.
+> Composable contracts for this Vue frontend.
 
 ---
 
 ## Overview
 
-<!--
-Document your project's hook conventions here.
+This project uses Vue composables as feature orchestration boundaries.
 
-Questions to answer:
-- What custom hooks do you have?
-- How do you handle data fetching?
-- What are the naming conventions?
-- How do you share stateful logic?
--->
+Current anchors:
 
-(To be filled by the team)
+- `useChatApp.ts` (feature facade)
+- `chatAppSettingsActions.ts` (settings write actions)
+- `chatAppSendActions.ts` (send/abort stream actions)
+- `useMessageListAutoScroll.ts` (message list scroll-follow behavior)
+
+Goal:
+
+- keep orchestration testable
+- isolate high-frequency mutation logic
+- preserve UI behavior while simplifying extension points
 
 ---
 
 ## Custom Hook Patterns
 
-<!-- How to create and structure custom hooks -->
+### Pattern A: One facade + internal action modules
 
-(To be filled by the team)
+`useChatApp()` is the only composable consumed by `App.vue` for chat feature state.
+Internal concerns are split into focused modules and composed by `useChatApp`.
+
+Benefits:
+
+- stable external API for components
+- easier internal refactor with fewer template-level changes
+
+### Pattern B: Explicit dependency boundaries
+
+Action composables receive required refs/functions through options objects instead of importing UI-level concerns.
+
+Required:
+
+- options objects contain only needed dependencies
+- keep action modules independent from component instances
+
+### Pattern C: Hot-path mutation optimization
+
+For stream delta updates, avoid full-array `map` on every chunk when a stable target index is available.
+
+Required:
+
+- use index-first mutation strategy with safe id fallback
+- preserve immutable array replacement for Vue reactivity
 
 ---
 
-## Data Fetching
+## Data Fetching And Side Effects
 
-<!-- How data fetching is handled (React Query, SWR, etc.) -->
+This project does not use query libraries.
+All network and persistence side effects are orchestrated by composables through service functions.
 
-(To be filled by the team)
+Rules:
+
+1. fetch/stream logic stays in `services/chatCompletion.ts`
+2. persistence stays in `services/utools.ts`
+3. composables coordinate side effects and view-model transitions
+4. components emit intent only (`send`, `stop`, `select`, etc.)
 
 ---
 
 ## Naming Conventions
 
-<!-- Hook naming rules (use*, etc.) -->
-
-(To be filled by the team)
+- Consumer-facing composables: `use*` (`useChatApp`, `useMessageListAutoScroll`)
+- Feature-internal composable helpers: `chatApp*`
+- Action factory naming: `create*Actions` (e.g., `createChatAppSendActions`)
 
 ---
 
 ## Common Mistakes
 
-<!-- Hook-related mistakes your team has made -->
+### Common Mistake: Letting facade composables become monoliths
 
-(To be filled by the team)
+Symptom:
+
+- one composable file mixes settings, send flow, persistence, lifecycle, and UI wiring
+
+Fix:
+
+- split by concern into action modules
+- keep `useChatApp` as composition layer
+
+### Common Mistake: Performing expensive full-list scans on each stream chunk
+
+Symptom:
+
+- stream updates become slower as message history grows
+
+Fix:
+
+- patch assistant message by preferred index
+- fallback to id lookup only when index is stale
+
+### Common Mistake: Hiding side effects in components
+
+Symptom:
+
+- components directly call services or embed orchestration branches
+
+Fix:
+
+- move side effects to composables
+- keep components presentational and event-driven

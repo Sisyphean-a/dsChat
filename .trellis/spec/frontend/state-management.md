@@ -11,15 +11,35 @@ This project uses **Vue refs + a single feature composable** for stateful chat f
 Current reference implementation:
 
 - `src/composables/useChatApp.ts`
+- `src/composables/chatAppSettingsActions.ts`
+- `src/composables/chatAppSendActions.ts`
+- `src/composables/useMessageListAutoScroll.ts`
 - `src/services/utools.ts`
 - `src/utils/chat.ts`
 
 The default pattern is:
 
-1. Keep feature state inside one composable
-2. Keep persistence at the service boundary
-3. Keep component-local UI state inside components
-4. Persist conversation state explicitly after each meaningful transition
+1. Keep feature state refs inside one facade composable (`useChatApp`)
+2. Split write actions by concern into dedicated modules
+3. Keep persistence at the service boundary
+4. Keep component-local UI state inside components/composables
+5. Persist conversation state explicitly after each meaningful transition
+
+## Convention: Facade + Action Modules
+
+`useChatApp` should compose focused action modules instead of owning all branches itself.
+
+Current split:
+
+- settings mutation and save flow -> `chatAppSettingsActions.ts`
+- send/interrupt/title flow -> `chatAppSendActions.ts`
+- message mutation primitives -> `chatAppMessages.ts`
+
+Why:
+
+- easier to test branches independently
+- clearer extension boundaries
+- fewer monolithic edits when fixing bugs
 
 ---
 

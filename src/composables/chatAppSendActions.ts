@@ -1,0 +1,215 @@
+import type { ComputedRef, Ref } from 'vue'
+import type { StreamDelta } from '../services/chatCompletion'
+import type {
+  ActiveProviderSettings,
+  ChatMessage,
+  ConversationDoc,
+  SettingsForm,
+} from '../types/chat'
+import { createConversationId } from '../utils/chat'
+import { createChatMessage, finalizeStreamingMessages } from './chatAppMessages'
+import { getErrorMessage, isAbortError } from './chatAppErrors'
+import {
+  generateConversationTitle,
+  handleInterruptedReply,
+  handleSendFailure,
+  patchAssistantMessage,
+  prepareSendRequest,
+  streamAssistantReply,
+} from './chatAppSendHelpers'
+
+type SendFailureStage = 'initial-persist' | 'stream' | 'final-persist'
+
+interface ChatAppSendActionsOptions {
+  settings: Ref<SettingsForm>
+  activeConversationId: Ref<string | null>
+  messages: Ref<ChatMessage[]>
+  conversations: Ref<ConversationDoc[]>
+  draftMessage: Ref<string>
+  isSending: Ref<boolean>
+  lastError: Ref<string | null>
+  isBrowserMode: ComputedRef<boolean>
+  interruptedResponseMessage: string
+  stoppedResponseMessage: string
+  streamChatCompletion: (
+    messages: ChatMessage[],
+    settings: ActiveProviderSettings,
+    onDelta: (delta: StreamDelta) => void,
+    signal?: AbortSignal,
+  ) => Promise<string>
+  requestConversationTitle: (
+    settings: ActiveProviderSettings,
+    firstMessageContent: string,
+  ) => Promise<string>
+  saveConversation: (conversation: ConversationDoc) => Promise<ConversationDoc>
+  openSettings: () => void
+  persistConversation: () => Promise<void>
+  getAbortController: () => AbortController | null
+  setAbortController: (controller: AbortController | null) => void
+}
+
+interface StreamingReply {
+  assistantId: string
+  assistantIndex: number
+  conversationId: string
+  failureStage: SendFailureStage
+  isNewConversation: boolean
+}
+
+export interface ChatAppSendActions {
+  interruptActiveSend: (fallback?: string) => Promise<void>
+  sendMessage: () => Promise<void>
+  stopGenerating: () => Promise<void>
+}
+
+export function createChatAppSendActions(options: ChatAppSendActionsOptions): ChatAppSendActions {
+  const {
+    settings,
+    activeConversationId,
+    messages,
+    conversations,
+    draftMessage,
+    isSending,
+    lastError,
+    isBrowserMode,
+    interruptedResponseMessage,
+    stoppedResponseMessage,
+    streamChatCompletion,
+    requestConversationTitle,
+    saveConversation,
+    openSettings,
+    persistConversation,
+    getAbortController,
+    setAbortController,
+  } = options
+
+  async function sendMessage(): Promise<void> {
+    const prepared = prepareSendRequest({
+      draftMessage,
+      isSending,
+      settings,
+      openSettings,
+      lastError,
+    })
+    if (!prepared) {
+      return
+    }
+
+    const reply = startStreamingReply(prepared.content)
+    try {
+      reply.failureStage = 'initial-persist'
+      await persistConversation()
+      if (reply.isNewConversation) {
+        generateConversationTitle({
+          conversationId: reply.conversationId,
+          firstMessageContent: prepared.content,
+          settingsSnapshot: prepared.activeSettings,
+          conversations,
+          isBrowserMode,
+          requestConversationTitle,
+          saveConversation,
+        }).catch(console.error)
+      }
+
+      reply.failureStage = 'stream'
+      reply.assistantIndex = await streamAssistantReply({
+        messages,
+        assistantIndex: reply.assistantIndex,
+        assistantId: reply.assistantId,
+        activeSettings: prepared.activeSettings,
+        streamChatCompletion,
+        getAbortController,
+      })
+
+      reply.failureStage = 'final-persist'
+      reply.assistantIndex = patchAssistantMessage(
+        messages,
+        reply.assistantIndex,
+        reply.assistantId,
+        (draft) => {
+          draft.status = 'done'
+        },
+      )
+      await persistConversation()
+    } catch (error) {
+      if (isAbortError(error)) {
+        await handleInterruptedReply({
+          messages,
+          assistantIndex: reply.assistantIndex,
+          assistantId: reply.assistantId,
+          interruptedResponseMessage,
+          persistConversation,
+        })
+      } else {
+        await handleSendFailure({
+          error,
+          messages,
+          assistantIndex: reply.assistantIndex,
+          assistantId: reply.assistantId,
+          shouldPersistFailureState: reply.failureStage === 'stream',
+          lastError,
+          persistConversation,
+        })
+      }
+    } finally {
+      isSending.value = false
+      setAbortController(null)
+    }
+  }
+
+  async function interruptActiveSend(fallback = interruptedResponseMessage): Promise<void> {
+    if (!isSending.value) {
+      return
+    }
+
+    const restored = finalizeStreamingMessages(messages.value, fallback)
+    messages.value = restored.messages
+    getAbortController()?.abort()
+
+    if (!restored.changed) {
+      return
+    }
+
+    try {
+      await persistConversation()
+    } catch (error) {
+      lastError.value = getErrorMessage(error, '会话记录写入失败。')
+    }
+  }
+
+  async function stopGenerating(): Promise<void> {
+    await interruptActiveSend(stoppedResponseMessage)
+  }
+
+  function startStreamingReply(content: string): StreamingReply {
+    const isNewConversation = !activeConversationId.value
+    if (!activeConversationId.value) {
+      activeConversationId.value = createConversationId()
+      messages.value = []
+    }
+
+    const conversationId = activeConversationId.value as string
+    const userMessage = createChatMessage('user', content)
+    const assistantMessage = createChatMessage('assistant', '')
+    messages.value = [...messages.value, userMessage, assistantMessage]
+
+    draftMessage.value = ''
+    lastError.value = null
+    isSending.value = true
+    setAbortController(new AbortController())
+
+    return {
+      assistantId: assistantMessage.id,
+      assistantIndex: messages.value.length - 1,
+      conversationId,
+      failureStage: 'initial-persist',
+      isNewConversation,
+    }
+  }
+
+  return {
+    interruptActiveSend,
+    sendMessage,
+    stopGenerating,
+  }
+}
