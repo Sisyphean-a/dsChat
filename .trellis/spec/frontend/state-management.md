@@ -117,12 +117,37 @@ Rules:
 2. Title generation starts **after the first conversation save succeeds**
 3. Title generation runs in parallel with the assistant reply stream
 4. Later conversation saves must preserve the existing generated title
+5. Any title save that happens **after an async await** must reload the latest persisted conversation snapshot before writing
+6. All writes for the same conversation id must be serialized through one persistence boundary
 
 Correct pattern:
 
 ```ts
 await persistConversation()
 generateConversationTitle(conversationId, firstUserMessage, settingsSnapshot)
+```
+
+Inside the async title task:
+
+```ts
+const title = await requestConversationTitle(settingsSnapshot, firstUserMessage)
+const latest = conversations.value.find((item) => item.id === conversationId)
+await saveConversation({
+  ...latest,
+  title,
+})
+```
+
+Persistence boundary rule:
+
+```ts
+await runConversationWrite(conversationId, async () => {
+  const latest = conversations.value.find((item) => item.id === conversationId)
+  await saveConversation({
+    ...latest,
+    title,
+  })
+})
 ```
 
 Wrong pattern:
@@ -137,6 +162,8 @@ Wrong pattern effect:
 
 - title updates feel delayed
 - title can be overwritten by the first user message if later saves recompute it
+- title writes can fail on uTools `_rev` conflicts when the background task saves a stale conversation snapshot
+- title writes can also race with later message persists unless both writes go through the same serialized persistence boundary
 
 ---
 
@@ -201,6 +228,8 @@ Do not let components parse SSE frames or build request payloads directly.
 | Stream abort by user | assistant -> `interrupted` | Yes | Partial content kept, marked stopped |
 | Stream abort by plugin exit | assistant -> `interrupted` | Yes | Reopened session is usable |
 | Title generation fails | conversation remains usable | No blocking failure | Warning only |
+| Title request resolves after final message save | title write uses latest `_rev` | Yes | title still updates instead of staying `新对话` |
+| Title save overlaps a later message save | writes are serialized per conversation id | Yes | title and final message both persist |
 
 ---
 
@@ -214,6 +243,8 @@ For chat state changes, keep these assertions covered:
 4. deleting the active conversation clears session pointer and visible messages
 5. title generation starts before the streaming reply finishes
 6. generated titles are not overwritten by later conversation saves
+7. generated title still updates when the title request resolves after the final conversation save
+8. title save and later message save for the same conversation do not race on `_rev`
 
 ---
 
@@ -243,3 +274,39 @@ Symptom:
 Fix:
 
 - start independent async work immediately after the first durable save
+
+### Common Mistake: Capturing a conversation doc before `await` and saving it later
+
+Symptom:
+
+- assistant reply is fully persisted
+- title request returns later
+- sidebar and header stay at `新对话`
+
+Cause:
+
+- background title flow captured a stale conversation object with an old `_rev`
+- the later title save races with a newer final-persist save in uTools
+
+Fix:
+
+- await the title request first
+- re-read the latest conversation snapshot from `conversations.value`
+- save the title on top of that fresh snapshot
+
+### Common Mistake: Letting title save and message save hit storage concurrently
+
+Symptom:
+
+- title request already succeeded
+- UI still stays at `新对话`
+- storage layer reports intermittent stale revision conflicts
+
+Cause:
+
+- title metadata save and later message save are both valid on their own
+- but they write the same conversation doc concurrently with the same revision lineage
+
+Fix:
+
+- route both title writes and message writes through the same per-conversation serialized persistence helper

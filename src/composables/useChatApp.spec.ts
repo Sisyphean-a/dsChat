@@ -147,6 +147,103 @@ describe('useChatApp', () => {
     await sendPromise
   })
 
+  it('still starts title generation when utools is unavailable (browser mode)', async () => {
+    vi.mocked(hasUtools).mockReturnValue(false)
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+    vi.mocked(streamChatCompletion).mockResolvedValue('流式回复')
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '浏览器模式也应触发标题请求'
+
+    await app.sendMessage()
+
+    await vi.waitFor(() => {
+      expect(requestConversationTitle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          configId: 'deepseek',
+          provider: 'deepseek',
+        }),
+        '浏览器模式也应触发标题请求',
+      )
+    })
+  })
+
+  it('falls back to local title when title generation request fails', async () => {
+    vi.mocked(hasUtools).mockReturnValue(true)
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+    vi.mocked(requestConversationTitle).mockRejectedValueOnce(new Error('title api failed'))
+    vi.mocked(streamChatCompletion).mockResolvedValue('流式回复')
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '这个标题接口会失败但不该丢失标题'
+
+    await app.sendMessage()
+
+    await vi.waitFor(() => {
+      expect(app.conversations.value[0]?.title).toBe('这个标题接口会失败但不该丢失标题')
+    })
+  })
+
+  it('falls back to local title when generated title is empty', async () => {
+    vi.mocked(hasUtools).mockReturnValue(true)
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+    vi.mocked(requestConversationTitle).mockResolvedValueOnce('   ')
+    vi.mocked(streamChatCompletion).mockResolvedValue('流式回复')
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '标题返回空字符串时也应该有兜底'
+
+    await app.sendMessage()
+
+    await vi.waitFor(() => {
+      expect(app.conversations.value[0]?.title).toBe('标题返回空字符串时也应该有兜底')
+    })
+  })
+
+  it('updates the title when title generation resolves after the final conversation save', async () => {
+    vi.mocked(hasUtools).mockReturnValue(true)
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+    vi.mocked(streamChatCompletion).mockResolvedValue('流式回复')
+
+    const deferredTitle = createDeferred<string>()
+    const revisionStore = createRevisionedDocStore()
+    vi.mocked(requestConversationTitle).mockImplementation(() => deferredTitle.promise)
+    vi.mocked(saveConversation).mockImplementation(async (conversation) => revisionStore.save(conversation))
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '这个标题会在回复结束后才返回'
+
+    await app.sendMessage()
+
+    expect(app.conversations.value[0]?.title).toBe('新对话')
+
+    deferredTitle.resolve('延迟返回的标题')
+
+    await vi.waitFor(() => {
+      expect(app.conversations.value[0]?.title).toBe('延迟返回的标题')
+    })
+  })
+
   it('normalizes deepseek settings before saving them', async () => {
     const app = useChatApp()
     await app.initialize()
@@ -414,4 +511,56 @@ function createAbortError(): Error & { name: 'AbortError' } {
   const error = new Error('aborted') as Error & { name: 'AbortError' }
   error.name = 'AbortError'
   return error
+}
+
+function createDeferred<T>(): {
+  promise: Promise<T>
+  resolve: (value: T) => void
+  reject: (reason?: unknown) => void
+} {
+  let resolve: (value: T) => void = () => undefined
+  let reject: (reason?: unknown) => void = () => undefined
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+
+  return {
+    promise,
+    reject,
+    resolve,
+  }
+}
+
+function createRevisionedDocStore() {
+  const docs = new Map<string, { _id: string; _rev?: string }>()
+
+  return {
+    async save<T extends { _id: string; _rev?: string }>(doc: T): Promise<T> {
+      const current = docs.get(doc._id)
+      if (current?._rev && doc._rev !== current._rev) {
+        throw new Error(`stale revision for ${doc._id}`)
+      }
+
+      const nextRevision = `${readRevisionNumber(current?._rev) + 1}-mock`
+      const saved = cloneSerializable({
+        ...doc,
+        _rev: nextRevision,
+      }) as T
+      docs.set(saved._id, saved)
+      return cloneSerializable(saved)
+    },
+  }
+}
+
+function readRevisionNumber(revision?: string): number {
+  if (!revision) {
+    return 0
+  }
+
+  return Number.parseInt(revision, 10) || 0
+}
+
+function cloneSerializable<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
 }

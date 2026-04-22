@@ -23,12 +23,12 @@ import type {
   ChatMessage,
   ConversationDoc,
   ProviderSettings,
-  SessionDoc,
   SettingsForm,
 } from '../types/chat'
 import { shouldResetConversation } from '../utils/session'
-import { buildConversationDoc, cloneMessages, sortConversations } from '../utils/chat'
+import { cloneMessages } from '../utils/chat'
 import { finalizeStreamingMessages } from './chatAppMessages'
+import { createChatAppConversationPersistence } from './chatAppConversationPersistence'
 import { getErrorMessage } from './chatAppErrors'
 import { createChatAppSendActions } from './chatAppSendActions'
 import { createChatAppSettingsActions } from './chatAppSettingsActions'
@@ -66,20 +66,26 @@ export function useChatApp() {
     settings,
   })
 
-  const sendActions = createChatAppSendActions({
+  const conversationPersistence = createChatAppConversationPersistence({
     activeConversationId,
     conversations,
+    messages,
+    saveConversation,
+    saveSession,
+  })
+
+  const sendActions = createChatAppSendActions({
+    activeConversationId,
+    applyGeneratedConversationTitle: conversationPersistence.applyGeneratedConversationTitle,
     draftMessage,
     getAbortController: () => activeAbortController,
     interruptedResponseMessage: INTERRUPTED_RESPONSE_MESSAGE,
-    isBrowserMode,
     isSending,
     lastError,
     messages,
     openSettings: settingsActions.openSettings,
-    persistConversation,
+    persistConversation: conversationPersistence.persistConversation,
     requestConversationTitle,
-    saveConversation,
     setAbortController: (controller) => {
       activeAbortController = controller
     },
@@ -146,7 +152,7 @@ export function useChatApp() {
 
     activeConversationId.value = null
     messages.value = []
-    await persistSession(null)
+    await conversationPersistence.persistSession(null)
   }
 
   async function restoreSession(): Promise<void> {
@@ -157,7 +163,7 @@ export function useChatApp() {
 
     if (shouldResetConversation(session.lastOutAt, Date.now(), CHAT_IDLE_RESET_MS)) {
       startFreshConversation()
-      await persistSession(null)
+      await conversationPersistence.persistSession(null)
       return
     }
 
@@ -185,13 +191,12 @@ export function useChatApp() {
 
     window.utools?.onPluginOut(async () => {
       await sendActions.interruptActiveSend(INTERRUPTED_RESPONSE_MESSAGE)
-      const session: SessionDoc = {
+      await saveSession({
         _id: SESSION_DOC_ID,
         type: 'session',
         currentConversationId: activeConversationId.value,
         lastOutAt: Date.now(),
-      }
-      await saveSession(session)
+      })
     })
   }
 
@@ -205,40 +210,10 @@ export function useChatApp() {
     }
 
     try {
-      await persistConversation()
+      await conversationPersistence.persistConversation()
     } catch (error) {
       lastError.value = getErrorMessage(error, '会话记录修复失败。')
     }
-  }
-
-  async function persistConversation(): Promise<void> {
-    if (!activeConversationId.value || !messages.value.length) {
-      await persistSession(activeConversationId.value)
-      return
-    }
-
-    const existing = conversations.value.find((conversation) => conversation.id === activeConversationId.value)
-    const saved = await saveConversation(
-      buildConversationDoc(activeConversationId.value, cloneMessages(messages.value), existing),
-    )
-
-    conversations.value = sortConversations([
-      saved,
-      ...conversations.value.filter((conversation) => conversation.id !== saved.id),
-    ])
-
-    await persistSession(saved.id)
-  }
-
-  async function persistSession(conversationId: string | null): Promise<void> {
-    const session: SessionDoc = {
-      _id: SESSION_DOC_ID,
-      type: 'session',
-      currentConversationId: conversationId,
-      lastOutAt: null,
-    }
-
-    await saveSession(session)
   }
 
   function updateDeepseekField(

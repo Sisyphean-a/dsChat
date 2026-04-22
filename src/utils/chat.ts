@@ -43,6 +43,13 @@ export function cloneMessages(messages: ChatMessage[]): ChatMessage[] {
   }))
 }
 
+export function cloneConversationDoc(conversation: ConversationDoc): ConversationDoc {
+  return {
+    ...conversation,
+    messages: cloneMessages(conversation.messages),
+  }
+}
+
 export function sortConversations(conversations: ConversationDoc[]): ConversationDoc[] {
   return [...conversations].sort((left, right) => right.updatedAt - left.updatedAt)
 }

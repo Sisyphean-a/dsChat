@@ -1,11 +1,11 @@
-import type { ComputedRef, Ref } from 'vue'
+import type { Ref } from 'vue'
 import type { StreamDelta } from '../services/chatCompletion'
 import type {
   ActiveProviderSettings,
   ChatMessage,
-  ConversationDoc,
   SettingsForm,
 } from '../types/chat'
+import { buildConversationTitle } from '../utils/chat'
 import { getErrorMessage } from './chatAppErrors'
 import { getActiveProviderSettings, getSendSettingsError, normalizeSettings } from './chatAppSettings'
 
@@ -55,16 +55,14 @@ interface HandleSendFailureOptions {
 }
 
 interface GenerateConversationTitleOptions {
+  applyGeneratedConversationTitle: (conversationId: string, title: string) => Promise<void>
   conversationId: string
   firstMessageContent: string
   settingsSnapshot: ActiveProviderSettings
-  conversations: Ref<ConversationDoc[]>
-  isBrowserMode: ComputedRef<boolean>
   requestConversationTitle: (
     settings: ActiveProviderSettings,
     firstMessageContent: string,
   ) => Promise<string>
-  saveConversation: (conversation: ConversationDoc) => Promise<ConversationDoc>
 }
 
 export function prepareSendRequest(
@@ -213,38 +211,19 @@ export async function generateConversationTitle(
   options: GenerateConversationTitleOptions,
 ): Promise<void> {
   const {
+    applyGeneratedConversationTitle,
     conversationId,
     firstMessageContent,
     settingsSnapshot,
-    conversations,
-    isBrowserMode,
     requestConversationTitle,
-    saveConversation,
   } = options
 
-  if (isBrowserMode.value) {
-    return
-  }
-
-  const index = conversations.value.findIndex((conversation) => conversation.id === conversationId)
-  if (index === -1) {
-    return
-  }
-
-  const title = await requestConversationTitle(settingsSnapshot, firstMessageContent)
-  const target = conversations.value[index]
-  if (!target) {
-    return
-  }
-
-  const savedConversation = await saveConversation({
-    ...target,
-    title,
-  })
-
-  const nextConversations = [...conversations.value]
-  nextConversations[index] = savedConversation
-  conversations.value = nextConversations
+  const title = await resolveTitleWithFallback(
+    requestConversationTitle,
+    settingsSnapshot,
+    firstMessageContent,
+  )
+  await applyGeneratedConversationTitle(conversationId, title)
 }
 
 function appendStreamDelta(message: ChatMessage, delta: StreamDelta): void {
@@ -267,4 +246,30 @@ function resolveAssistantIndex(
   }
 
   return messages.findIndex((item) => item.id === assistantId)
+}
+
+async function resolveTitleWithFallback(
+  requestConversationTitle: GenerateConversationTitleOptions['requestConversationTitle'],
+  settingsSnapshot: ActiveProviderSettings,
+  firstMessageContent: string,
+): Promise<string> {
+  try {
+    const generated = await requestConversationTitle(settingsSnapshot, firstMessageContent)
+    const normalized = generated.trim()
+    if (normalized) {
+      return normalized
+    }
+  } catch (error) {
+    console.warn('Failed to generate conversation title, fallback to local title.', error)
+  }
+
+  return buildConversationTitle([
+    {
+      id: 'local-title',
+      role: 'user',
+      content: firstMessageContent,
+      createdAt: Date.now(),
+      status: 'done',
+    },
+  ])
 }

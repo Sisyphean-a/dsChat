@@ -51,6 +51,25 @@ Instead:
 
 - start metadata tasks after the first durable save when they do not require the final reply body
 
+### Don't: Save async metadata with a pre-`await` conversation snapshot
+
+Problem:
+
+- background title generation captures a conversation doc before awaiting the title request
+- by the time the title returns, the main send flow may already have persisted a newer `_rev`
+
+Why it is bad:
+
+- the title save can fail only in real persistence environments
+- UI looks normal except the conversation title stays `新对话`
+
+Instead:
+
+- await the metadata request first
+- reload the latest conversation doc from reactive state
+- write the metadata on top of that fresh snapshot
+- serialize metadata writes and message writes for the same conversation id
+
 ### Don't: Force auto-scroll after the user intentionally scrolls up
 
 Why it is bad:
@@ -155,6 +174,8 @@ When changing send-flow ordering, add or update tests for:
 - persist timing
 - interruption timing
 - metadata side effects
+- metadata writes that resolve after a later conversation save with revisioned persistence
+- metadata writes that begin before a later message save but must not race on the same conversation doc
 
 ### Required: Stop-generation behavior is covered
 
@@ -178,9 +199,10 @@ Minimum required automated coverage for the chat flow:
 5. stop generation
 6. title generation starts before stream completion
 7. generated title is preserved across later saves
-8. stream delta updates do not depend on full-list remap hot path semantics
-9. auto-follow lock/unlock remains deterministic across multiple up-down cycles in one stream
-10. slight downward jitter after an upward lock does not unexpectedly re-enable auto-follow
+8. generated title still persists when the title request resolves after the final message save
+9. stream delta updates do not depend on full-list remap hot path semantics
+10. auto-follow lock/unlock remains deterministic across multiple up-down cycles in one stream
+11. slight downward jitter after an upward lock does not unexpectedly re-enable auto-follow
 
 ---
 
@@ -192,4 +214,6 @@ Minimum required automated coverage for the chat flow:
 - If shell style/layout changed, did we update `style-baseline.md`?
 - Does every visible sentence earn its space, or is it just repeating labels and values?
 - Does a new async task need to run in parallel rather than after the entire flow?
+- Does an async metadata write re-read the latest persisted document after `await`, or is it saving a stale `_rev` snapshot?
+- Do multiple writes for the same conversation pass through one serialized persistence boundary, or can they still hit storage concurrently?
 - If theme-aware styling changed, are colors driven by shared variables rather than file-specific hardcoded values?

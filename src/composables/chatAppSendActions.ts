@@ -1,9 +1,8 @@
-import type { ComputedRef, Ref } from 'vue'
+import type { Ref } from 'vue'
 import type { StreamDelta } from '../services/chatCompletion'
 import type {
   ActiveProviderSettings,
   ChatMessage,
-  ConversationDoc,
   SettingsForm,
 } from '../types/chat'
 import { createConversationId } from '../utils/chat'
@@ -24,11 +23,9 @@ interface ChatAppSendActionsOptions {
   settings: Ref<SettingsForm>
   activeConversationId: Ref<string | null>
   messages: Ref<ChatMessage[]>
-  conversations: Ref<ConversationDoc[]>
   draftMessage: Ref<string>
   isSending: Ref<boolean>
   lastError: Ref<string | null>
-  isBrowserMode: ComputedRef<boolean>
   interruptedResponseMessage: string
   stoppedResponseMessage: string
   streamChatCompletion: (
@@ -41,7 +38,7 @@ interface ChatAppSendActionsOptions {
     settings: ActiveProviderSettings,
     firstMessageContent: string,
   ) => Promise<string>
-  saveConversation: (conversation: ConversationDoc) => Promise<ConversationDoc>
+  applyGeneratedConversationTitle: (conversationId: string, title: string) => Promise<void>
   openSettings: () => void
   persistConversation: () => Promise<void>
   getAbortController: () => AbortController | null
@@ -67,16 +64,14 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
     settings,
     activeConversationId,
     messages,
-    conversations,
     draftMessage,
     isSending,
     lastError,
-    isBrowserMode,
     interruptedResponseMessage,
     stoppedResponseMessage,
     streamChatCompletion,
     requestConversationTitle,
-    saveConversation,
+    applyGeneratedConversationTitle,
     openSettings,
     persistConversation,
     getAbortController,
@@ -101,13 +96,11 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
       await persistConversation()
       if (reply.isNewConversation) {
         generateConversationTitle({
+          applyGeneratedConversationTitle,
           conversationId: reply.conversationId,
           firstMessageContent: prepared.content,
           settingsSnapshot: prepared.activeSettings,
-          conversations,
-          isBrowserMode,
           requestConversationTitle,
-          saveConversation,
         }).catch(console.error)
       }
 
