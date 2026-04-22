@@ -1,43 +1,51 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { highlightCodeBlocks, renderMarkdown } from '../services/markdown'
+import { computed, ref, watch } from 'vue'
+import AssistantMessageContent from './AssistantMessageContent.vue'
+import { useBufferedTextStream } from '../composables/useBufferedTextStream'
 import type { ChatMessage } from '../types/chat'
 
 const props = defineProps<{
   message: ChatMessage
 }>()
 
-const containerRef = ref<HTMLElement | null>(null)
 const isReasoningExpanded = ref(false)
+const isAssistantMessage = computed(() => props.message.role === 'assistant')
+const isStreamingStatus = computed(() => props.message.status === 'streaming')
 
 const bubbleClass = computed(() => ({
   bubble: true,
   'is-user': props.message.role === 'user',
-  'is-assistant': props.message.role === 'assistant',
+  'is-assistant': isAssistantMessage.value,
   'is-error': props.message.status === 'error',
 }))
 
-const renderedHtml = computed(() => {
-  if (props.message.role === 'user') {
-    return ''
-  }
-
-  return renderMarkdown(props.message.content)
+const contentSource = computed(() => props.message.content)
+const reasoningSource = computed(() => props.message.reasoningContent ?? '')
+const {
+  displayedText: displayedContent,
+} = useBufferedTextStream({
+  isStreaming: isStreamingStatus,
+  source: contentSource,
+})
+const {
+  displayedText: displayedReasoningContent,
+} = useBufferedTextStream({
+  isStreaming: isStreamingStatus,
+  source: reasoningSource,
 })
 
-const renderedReasoningHtml = computed(() => {
-  if (props.message.role !== 'assistant' || !props.message.reasoningContent) {
-    return ''
-  }
-
-  return renderMarkdown(props.message.reasoningContent)
+const isAnswerRevealActive = computed(() => {
+  return false
+})
+const isReasoningRevealActive = computed(() => {
+  return false
 })
 
-const hasReasoning = computed(() => renderedReasoningHtml.value.length > 0)
+const hasReasoning = computed(() => Boolean(displayedReasoningContent.value.trim()))
 const inReasoningStage = computed(() => {
-  return props.message.role === 'assistant'
-    && props.message.status === 'streaming'
-    && !props.message.content.trim()
+  return isAssistantMessage.value
+    && isStreamingStatus.value
+    && !displayedContent.value.trim()
     && hasReasoning.value
 })
 
@@ -45,27 +53,10 @@ const reasoningLabel = computed(() => {
   return inReasoningStage.value ? '思考中...' : '思考过程'
 })
 
-async function applyHighlight(): Promise<void> {
-  if (!containerRef.value || props.message.role !== 'assistant') {
-    return
-  }
-
-  await nextTick()
-  highlightCodeBlocks(containerRef.value)
-}
-
 function toggleReasoning(): void {
   if (!hasReasoning.value) return
   isReasoningExpanded.value = !isReasoningExpanded.value
 }
-
-onMounted(() => {
-  void applyHighlight()
-})
-
-watch(() => [props.message.content, props.message.reasoningContent], () => {
-  void applyHighlight()
-})
 
 watch(inReasoningStage, (next, prev) => {
   if (next) {
@@ -80,7 +71,7 @@ watch(inReasoningStage, (next, prev) => {
 </script>
 
 <template>
-  <article ref="containerRef" :class="bubbleClass">
+  <article :class="bubbleClass" :data-message-id="props.message.id">
     <p class="message-role">
       {{ props.message.role === 'user' ? '你' : 'DeepSeek' }}
     </p>
@@ -94,12 +85,23 @@ watch(inReasoningStage, (next, prev) => {
       </button>
       <div class="reasoning-panel" :class="{ expanded: isReasoningExpanded }">
         <div class="reasoning-inner">
-          <div class="reasoning-body" v-html="renderedReasoningHtml" />
+          <AssistantMessageContent
+            v-if="displayedReasoningContent.trim()"
+            class="reasoning-body"
+            :content="displayedReasoningContent"
+            :reveal-active="isReasoningRevealActive"
+            variant="reasoning"
+          />
         </div>
       </div>
     </section>
 
-    <div v-if="props.message.role === 'assistant' && props.message.content" class="markdown-body" v-html="renderedHtml" />
+    <AssistantMessageContent
+      v-if="isAssistantMessage && displayedContent.trim()"
+      class="markdown-body"
+      :content="displayedContent"
+      :reveal-active="isAnswerRevealActive"
+    />
     <p v-if="props.message.role === 'user'" class="plain-body">{{ props.message.content }}</p>
 
     <span v-if="props.message.status === 'streaming'" class="message-status">生成中...</span>
@@ -116,6 +118,7 @@ watch(inReasoningStage, (next, prev) => {
   border: 1px solid var(--border);
   animation: reveal 200ms ease;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.03);
+  contain: layout paint;
 }
 
 .bubble.is-user {
@@ -200,55 +203,6 @@ watch(inReasoningStage, (next, prev) => {
   white-space: pre-wrap;
   line-height: 1.6;
   font-size: 0.95rem;
-}
-
-.markdown-body :deep(*) {
-  line-height: 1.6;
-  font-size: 0.95rem;
-}
-
-.reasoning-body :deep(*) {
-  line-height: 1.55;
-  font-size: 0.85rem;
-}
-
-.markdown-body :deep(p:first-child),
-.reasoning-body :deep(p:first-child) {
-  margin-top: 0;
-}
-
-.markdown-body :deep(p:last-child),
-.reasoning-body :deep(p:last-child) {
-  margin-bottom: 0;
-}
-
-.markdown-body :deep(pre),
-.reasoning-body :deep(pre) {
-  overflow: auto;
-  padding: 12px;
-  border-radius: 10px;
-  background: var(--code-bg);
-  border: 1px solid var(--code-border);
-  font-size: 0.85rem;
-}
-
-.markdown-body :deep(table) {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.markdown-body :deep(th),
-.markdown-body :deep(td) {
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-}
-
-.markdown-body :deep(code:not(pre code)),
-.reasoning-body :deep(code:not(pre code)) {
-  padding: 0.15rem 0.35rem;
-  border-radius: 6px;
-  background: var(--code-inline-bg);
-  color: var(--code-text);
 }
 
 @keyframes reveal {

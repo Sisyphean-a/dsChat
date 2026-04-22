@@ -1,9 +1,28 @@
 import { nextTick, ref } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatMessage } from '../types/chat'
 import { useMessageListAutoScroll } from './useMessageListAutoScroll'
 
 describe('useMessageListAutoScroll', () => {
+  let resizeObserverCallback: ResizeObserverCallback | null = null
+
+  beforeEach(() => {
+    resizeObserverCallback = null
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: ResizeObserverCallback) {
+        resizeObserverCallback = callback
+      }
+
+      observe(): void {}
+      disconnect(): void {}
+      unobserve(): void {}
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('releases auto-follow for current stream on slight upward user scroll', async () => {
     const activeConversationId = ref<string | null>('c1')
     const messages = ref<ChatMessage[]>(createStreamingMessages('a'))
@@ -223,6 +242,39 @@ describe('useMessageListAutoScroll', () => {
     await flushWatchers()
     expect(list.scrollTop).toBe(2300)
   })
+
+  it('preserves the locked viewport offset when message height grows after the user scrolls up', async () => {
+    const activeConversationId = ref<string | null>('c1')
+    const messages = ref<ChatMessage[]>(createStreamingMessages('a'))
+    const autoScroll = useMessageListAutoScroll({
+      activeConversationId,
+      messages,
+    })
+
+    const anchorRect = { top: 140, bottom: 220 }
+    const list = createMessageListElement({
+      clientHeight: 500,
+      scrollHeight: 2000,
+      scrollTop: 1500,
+      children: [
+        createMessageItem('assistant', anchorRect),
+      ],
+      rect: { top: 100, bottom: 600 },
+    })
+    autoScroll.messageListRef.value = list
+    await flushWatchers()
+
+    autoScroll.handleMessageListWheel(createWheelEvent(-120))
+    list.scrollTop = 1490
+    autoScroll.handleMessageListScroll()
+
+    anchorRect.top += 120
+    anchorRect.bottom += 120
+    resizeObserverCallback?.([], {} as ResizeObserver)
+    await flushWatchers()
+
+    expect(list.scrollTop).toBe(1610)
+  })
 })
 
 function createStreamingMessages(content: string): ChatMessage[] {
@@ -248,12 +300,31 @@ function createMessageListElement(options: {
   clientHeight: number
   scrollHeight: number
   scrollTop: number
+  children?: HTMLElement[]
+  rect?: { top: number; bottom: number }
 }): HTMLElement {
   return {
+    children: options.children ?? [],
     clientHeight: options.clientHeight,
+    getBoundingClientRect: () => ({
+      top: options.rect?.top ?? 0,
+      bottom: options.rect?.bottom ?? options.clientHeight,
+    }),
     scrollHeight: options.scrollHeight,
     scrollTop: options.scrollTop,
-  } as HTMLElement
+  } as unknown as HTMLElement
+}
+
+function createMessageItem(messageId: string, rect: { top: number; bottom: number }): HTMLElement {
+  return {
+    dataset: {
+      messageId,
+    },
+    getBoundingClientRect: () => ({
+      top: rect.top,
+      bottom: rect.bottom,
+    }),
+  } as unknown as HTMLElement
 }
 
 function setScrollHeight(element: HTMLElement, value: number): void {
