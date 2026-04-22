@@ -14,6 +14,7 @@ Current anchors:
 - `chatAppSettingsActions.ts` (settings write actions)
 - `chatAppSendActions.ts` (send/abort stream actions)
 - `useMessageListAutoScroll.ts` (message list scroll-follow behavior)
+- `useBufferedTextStream.ts` (chunk-aware visible text release)
 
 Goal:
 
@@ -63,6 +64,21 @@ For streaming message list auto-follow:
 4. keep `wheel` intent listener at capture phase to reduce event-order ambiguity
 
 This avoids probabilistic behavior under fast wheel input.
+
+### Pattern E: Chunk-Aware Visible Text Release
+
+For streamed assistant text:
+
+1. the network layer still appends raw deltas immediately to message state
+2. the view layer may expose a second "displayed text" stream that lags behind the raw content slightly
+3. release cadence should depend on chunk append timing, not only on a fixed chars-per-second constant
+4. when streaming ends, remaining buffered text should flush immediately instead of dragging the tail animation
+
+Why:
+
+- keeps persistence and business state exact
+- allows UI-only smoothing without corrupting message content
+- avoids the "slow fake typing after completion" effect
 
 ---
 

@@ -13,6 +13,7 @@ Reference files:
 - `src/App.vue`
 - `src/components/ChatComposer.vue`
 - `src/components/MessageBubble.vue`
+- `src/components/AssistantMessageContent.vue`
 - `src/components/ModelPicker.vue`
 - `src/components/SidebarPanel.vue`
 
@@ -160,6 +161,29 @@ Why:
 
 ---
 
+## Convention: Assistant Rich Content Uses Separate Prose And Code Strategies
+
+For streamed assistant markdown:
+
+1. `MessageBubble` should own message-level state only
+2. rich markdown rendering should live in a dedicated child component
+3. normal prose and completed fenced code blocks must be treated as different render segments
+4. incomplete fenced blocks stay in prose mode until the closing fence arrives
+5. code blocks may fade in lightly after they become structurally complete, but prose-specific reveal experiments must not be applied to the whole markdown container
+
+Why:
+
+- prose updates frequently and can tolerate lightweight smoothing
+- code blocks change structure abruptly when fences close
+- forcing one visual strategy across both causes flicker, white flashes, or unstable highlight transitions
+
+Current implementation reference:
+
+- segment builder in `src/services/streamingMarkdownSegments.ts`
+- renderer in `src/components/AssistantMessageContent.vue`
+
+---
+
 ## Convention: Auto-Scroll Must Yield To User Scroll Intent
 
 For streaming chat views:
@@ -255,3 +279,17 @@ Fix:
 
 - render reasoning in its own collapsible section
 - transition focus to the final answer as soon as answer content appears
+
+### Common Mistake: Animating the entire streamed markdown container
+
+Symptom:
+
+- large white overlays
+- visible flicker on every stream update
+- code blocks repeatedly flashing or re-entering
+
+Fix:
+
+- keep message content readable first
+- split prose/code rendering strategies
+- limit visual experiments to stable sub-units instead of the full markdown DOM

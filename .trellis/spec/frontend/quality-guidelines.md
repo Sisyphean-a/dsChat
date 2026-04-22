@@ -149,6 +149,24 @@ Instead:
 - use one-line notices only for actual state or risk
 - remove repeated descriptions that do not change the next user action
 
+### Don't: Let streaming visual polish break readable markdown
+
+Problem:
+
+- reveal overlays or repeated entry animations can make assistant output unreadable during streaming
+- users perceive flicker or "whole block flashing" instead of smoothness
+
+Why it is bad:
+
+- readability is the baseline contract
+- "fancier" motion that regresses markdown stability is a net quality loss
+
+Instead:
+
+- keep text release smoothing in a UI-only layer
+- keep markdown rendering structurally stable
+- disable or remove an animation path as soon as it causes flicker in real usage
+
 ---
 
 ## Required Patterns
@@ -186,6 +204,14 @@ At least one automated test must verify:
 3. assistant message ends in `interrupted`
 4. visible stopped content is persisted (`已停止生成。` fallback when empty)
 
+### Required: Streaming markdown segmentation is covered
+
+At least one automated test must verify:
+
+1. completed fenced code blocks are extracted as independent render segments
+2. incomplete fenced blocks stay in prose mode while streaming
+3. markdown readability is preserved when visual smoothing is enabled
+
 ---
 
 ## Testing Requirements
@@ -203,6 +229,7 @@ Minimum required automated coverage for the chat flow:
 9. stream delta updates do not depend on full-list remap hot path semantics
 10. auto-follow lock/unlock remains deterministic across multiple up-down cycles in one stream
 11. slight downward jitter after an upward lock does not unexpectedly re-enable auto-follow
+12. streamed markdown segmentation keeps completed code blocks separate from prose
 
 ---
 
