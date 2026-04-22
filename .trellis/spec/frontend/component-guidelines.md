@@ -165,8 +165,9 @@ Why:
 For streaming chat views:
 
 1. default behavior is follow-to-bottom
-2. if the user manually scrolls away from the bottom during the current streaming message, stop forcing scroll
+2. if the user manually scrolls upward during the current streaming message, stop forcing scroll for this message immediately
 3. reset auto-follow when the next streaming message starts
+4. if the user manually scrolls back near bottom, allow auto-follow to resume for the same streaming message
 
 This is a component orchestration rule, but the list component must support it by exposing a stable scroll container and using passive scroll listeners.
 

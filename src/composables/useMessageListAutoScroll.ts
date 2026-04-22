@@ -2,6 +2,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import type { ChatMessage } from '../types/chat'
 
+const AUTO_SCROLL_BOTTOM_GAP_PX = 48
+const PROGRAMMATIC_SCROLL_EVENT_SKIP_COUNT = 2
 interface UseMessageListAutoScrollOptions {
   activeConversationId: Ref<string | null>
   messages: Ref<ChatMessage[]>
@@ -11,6 +13,8 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
   const { activeConversationId, messages } = options
   const messageListRef = ref<HTMLElement | null>(null)
   const releasedScrollMessageId = ref<string | null>(null)
+  const previousScrollTop = ref<number | null>(null)
+  const skippedProgrammaticScrollEvents = ref(0)
 
   const currentStreamingMessageId = computed(() => {
     for (let index = messages.value.length - 1; index >= 0; index -= 1) {
@@ -36,17 +40,35 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
   })
 
   function isNearBottom(element: HTMLElement): boolean {
-    return element.scrollHeight - element.scrollTop - element.clientHeight < 48
+    return element.scrollHeight - element.scrollTop - element.clientHeight < AUTO_SCROLL_BOTTOM_GAP_PX
   }
 
   function handleMessageListScroll(): void {
-    if (!messageListRef.value || !currentStreamingMessageId.value) {
+    if (!messageListRef.value) {
       return
     }
 
-    releasedScrollMessageId.value = isNearBottom(messageListRef.value)
-      ? null
-      : currentStreamingMessageId.value
+    const currentTop = messageListRef.value.scrollTop
+    const previousTop = previousScrollTop.value
+    previousScrollTop.value = currentTop
+
+    if (skippedProgrammaticScrollEvents.value > 0) {
+      skippedProgrammaticScrollEvents.value -= 1
+      return
+    }
+
+    if (!currentStreamingMessageId.value || previousTop === null) {
+      return
+    }
+
+    if (currentTop < previousTop) {
+      releasedScrollMessageId.value = currentStreamingMessageId.value
+      return
+    }
+
+    if (isNearBottom(messageListRef.value)) {
+      releasedScrollMessageId.value = null
+    }
   }
 
   async function scrollToBottom(force = false): Promise<void> {
@@ -59,7 +81,9 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
       return
     }
 
+    skippedProgrammaticScrollEvents.value = PROGRAMMATIC_SCROLL_EVENT_SKIP_COUNT
     messageListRef.value.scrollTop = messageListRef.value.scrollHeight
+    previousScrollTop.value = messageListRef.value.scrollTop
   }
 
   watch(currentStreamingMessageId, (next, prev) => {
@@ -70,7 +94,13 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
 
   watch(activeConversationId, () => {
     releasedScrollMessageId.value = null
+    previousScrollTop.value = messageListRef.value?.scrollTop ?? null
     void scrollToBottom(true)
+  })
+
+  watch(() => messageListRef.value, (element) => {
+    previousScrollTop.value = element?.scrollTop ?? null
+    skippedProgrammaticScrollEvents.value = 0
   })
 
   watch(messageScrollSnapshot, () => {

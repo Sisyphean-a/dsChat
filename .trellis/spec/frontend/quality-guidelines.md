@@ -60,7 +60,8 @@ Why it is bad:
 
 Instead:
 
-- release auto-follow for the current streaming message when user scroll intent is detected
+- release auto-follow for the current streaming message immediately on upward scroll intent
+- allow re-follow only when user manually returns near bottom
 
 ### Don't: Re-scan the whole message list on every stream chunk
 
