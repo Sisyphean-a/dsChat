@@ -154,6 +154,17 @@ watch(messageScrollKey, () => {
             当前默认模型：{{ app.activeChatConfig.value.label }}。<br />
             关闭插件后 1 分钟内重新打开，将恢复当前对话。
           </p>
+          <div class="quick-prompts">
+            <button class="prompt-btn" @click="app.draftMessage.value = '写一段 Python 快速排序代码'; app.sendMessage()">
+              写一段 Python 快速排序代码
+            </button>
+            <button class="prompt-btn" @click="app.draftMessage.value = '帮我翻译这段英文到中文：\n\n'">
+              翻译英文
+            </button>
+            <button class="prompt-btn" @click="app.draftMessage.value = '请解释什么是大语言模型（LLM）？'; app.sendMessage()">
+              解释大语言模型
+            </button>
+          </div>
         </div>
       </section>
 
@@ -283,7 +294,35 @@ watch(messageScrollKey, () => {
   font-size: 0.9rem;
   line-height: 1.6;
   color: var(--text-muted);
-  margin: 0;
+  margin: 0 0 24px;
+}
+
+.quick-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.prompt-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  background: transparent;
+  transition: all 180ms ease;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prompt-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .composer-container {
