@@ -1,19 +1,23 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import EditableModelPicker from './EditableModelPicker.vue'
+import ModelPicker from './ModelPicker.vue'
 import { UTOOLS_UPLOAD_MODE_OPTIONS } from '../constants/storage'
 import {
   getAddableProviderDefinitions,
   getProviderDefinition,
-  getProviderModelOptions,
 } from '../constants/providers'
 import type {
   AddableProviderId,
+  ModelConfigOption,
   ProviderSettings,
   SettingsForm,
   ThemeMode,
   UtoolsUploadMode,
 } from '../types/chat'
 
-type CustomModelField = keyof ProviderSettings | 'name'
+type ProviderEditableField = Exclude<keyof ProviderSettings, 'modelOptions'>
+type CustomModelField = ProviderEditableField | 'name'
 
 const props = defineProps<{
   isBrowserMode: boolean
@@ -24,12 +28,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   addCustomModel: [provider: AddableProviderId]
+  addCustomModelOption: [id: string, option: string]
   close: []
   removeCustomModel: [id: string]
+  removeCustomModelOption: [id: string, option: string]
   save: []
-  selectActiveConfig: [configId: string]
   updateCustomModelField: [id: string, field: CustomModelField, value: string | number]
-  updateDeepseekField: [field: keyof ProviderSettings, value: string | number]
+  updateDeepseekField: [field: ProviderEditableField, value: string | number]
   updateTheme: [theme: ThemeMode]
   updateUtoolsUploadMode: [mode: UtoolsUploadMode]
 }>()
@@ -40,8 +45,22 @@ const themeCards: Array<{ label: string; value: ThemeMode }> = [
 ]
 
 const addableProviders = getAddableProviderDefinitions()
-const deepseekOptions = getProviderModelOptions('deepseek')
 const uploadModeOptions = UTOOLS_UPLOAD_MODE_OPTIONS
+const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
+  const shortLabels: Record<UtoolsUploadMode, string> = {
+    'all-data': 'API + 对话',
+    'local-only': '仅本地',
+    'settings-only': '仅 API',
+  }
+
+  return uploadModeOptions.map((option) => ({
+    badge: '存储',
+    detail: option.label,
+    label: option.label,
+    shortLabel: shortLabels[option.value],
+    value: option.value,
+  }))
+})
 </script>
 
 <template>
@@ -61,46 +80,35 @@ const uploadModeOptions = UTOOLS_UPLOAD_MODE_OPTIONS
         <div class="settings-body">
           <section class="setting-group">
             <h3>外观</h3>
-            
-            <div class="preference-row">
-              <div class="theme-toggle">
-                <button
-                  v-for="theme in themeCards"
-                  :key="theme.value"
-                  :class="{ active: props.settings.theme === theme.value }"
-                  type="button"
-                  @click="emit('updateTheme', theme.value)"
-                >
-                  {{ theme.label }}
-                </button>
-              </div>
+            <div class="theme-toggle">
+              <button
+                v-for="theme in themeCards"
+                :key="theme.value"
+                :class="{ active: props.settings.theme === theme.value }"
+                type="button"
+                @click="emit('updateTheme', theme.value)"
+              >
+                {{ theme.label }}
+              </button>
             </div>
           </section>
 
           <section class="setting-group">
             <h3>存储</h3>
-
-            <div class="preference-row">
-              <select
-                class="storage-select"
-                :value="props.settings.utoolsUploadMode"
-                @change="emit('updateUtoolsUploadMode', ($event.target as HTMLSelectElement).value as UtoolsUploadMode)"
-              >
-                <option
-                  v-for="option in uploadModeOptions"
-                  :key="option.value"
-                  :value="option.value"
-                >
-                  {{ option.label }}
-                </option>
-              </select>
-            </div>
+            <ModelPicker
+              class="storage-picker"
+              :disabled="props.saving"
+              :model-value="props.settings.utoolsUploadMode"
+              :options="uploadModePickerOptions"
+              panel-direction="down"
+              @select="emit('updateUtoolsUploadMode', $event as UtoolsUploadMode)"
+            />
+            <div v-if="props.isBrowserMode" class="hint-row">浏览器预览模式仅使用本地存储</div>
           </section>
 
           <section class="setting-group">
             <h3>服务提供商</h3>
-            
-            <!-- DeepSeek -->
+
             <div class="provider-card">
               <div class="provider-head">
                 <h4>DeepSeek</h4>
@@ -118,28 +126,17 @@ const uploadModeOptions = UTOOLS_UPLOAD_MODE_OPTIONS
                   type="password"
                   @input="emit('updateDeepseekField', 'apiKey', ($event.target as HTMLInputElement).value)"
                 />
-                <input
-                  :value="props.settings.deepseek.model"
-                  placeholder="自定义模型 ID"
-                  type="text"
-                  @input="emit('updateDeepseekField', 'model', ($event.target as HTMLInputElement).value)"
+                <EditableModelPicker
+                  :allow-manage="false"
+                  :disabled="props.saving"
+                  :model-value="props.settings.deepseek.model"
+                  :options="props.settings.deepseek.modelOptions"
+                  placeholder="输入模型 ID"
+                  @select="emit('updateDeepseekField', 'model', $event)"
                 />
-              </div>
-              <div class="chip-grid">
-                <button
-                  v-for="model in deepseekOptions"
-                  :key="model.value"
-                  class="chip-button"
-                  :class="{ active: model.value === props.settings.deepseek.model }"
-                  type="button"
-                  @click="emit('updateDeepseekField', 'model', model.value)"
-                >
-                  {{ model.shortLabel }}
-                </button>
               </div>
             </div>
 
-            <!-- Custom Models -->
             <div
               v-for="item in props.settings.customModels"
               :key="item.id"
@@ -168,24 +165,16 @@ const uploadModeOptions = UTOOLS_UPLOAD_MODE_OPTIONS
                   type="password"
                   @input="emit('updateCustomModelField', item.id, 'apiKey', ($event.target as HTMLInputElement).value)"
                 />
-                <input
-                  :value="item.model"
-                  placeholder="自定义模型 ID"
-                  type="text"
-                  @input="emit('updateCustomModelField', item.id, 'model', ($event.target as HTMLInputElement).value)"
+                <EditableModelPicker
+                  :allow-manage="true"
+                  :disabled="props.saving"
+                  :model-value="item.model"
+                  :options="item.modelOptions"
+                  placeholder="输入模型 ID"
+                  @add-option="emit('addCustomModelOption', item.id, $event)"
+                  @remove-option="emit('removeCustomModelOption', item.id, $event)"
+                  @select="emit('updateCustomModelField', item.id, 'model', $event)"
                 />
-              </div>
-              <div class="chip-grid" v-if="getProviderModelOptions(item.provider).length">
-                <button
-                  v-for="model in getProviderModelOptions(item.provider)"
-                  :key="model.value"
-                  class="chip-button"
-                  :class="{ active: model.value === item.model }"
-                  type="button"
-                  @click="emit('updateCustomModelField', item.id, 'model', model.value)"
-                >
-                  {{ model.shortLabel }}
-                </button>
               </div>
             </div>
 
@@ -240,7 +229,7 @@ const uploadModeOptions = UTOOLS_UPLOAD_MODE_OPTIONS
 }
 
 .settings-panel {
-  width: min(640px, 100%);
+  width: min(700px, 100%);
   max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
@@ -249,7 +238,6 @@ const uploadModeOptions = UTOOLS_UPLOAD_MODE_OPTIONS
   border-radius: 20px;
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  will-change: transform, opacity;
 }
 
 .settings-header {
@@ -259,7 +247,6 @@ const uploadModeOptions = UTOOLS_UPLOAD_MODE_OPTIONS
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
-  z-index: 10;
 }
 
 .settings-header h2 {
@@ -267,7 +254,6 @@ const uploadModeOptions = UTOOLS_UPLOAD_MODE_OPTIONS
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text);
-  letter-spacing: -0.02em;
 }
 
 .header-actions {
@@ -282,7 +268,6 @@ button {
   font-family: inherit;
   font-size: 0.9rem;
   transition: all 0.2s ease;
-  user-select: none;
 }
 
 .ghost-action {
@@ -291,6 +276,7 @@ button {
   color: var(--text-muted);
   font-weight: 500;
 }
+
 .ghost-action:hover {
   background: var(--bg-hover);
   color: var(--text);
@@ -303,14 +289,7 @@ button {
   color: var(--bg);
   font-weight: 600;
 }
-.primary-action:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-.primary-action:active:not(:disabled) {
-  transform: translateY(0);
-}
+
 .primary-action:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -322,21 +301,6 @@ button {
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-
-/* Custom Scrollbar for inner body */
-.settings-body::-webkit-scrollbar {
-  width: 6px;
-}
-.settings-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-.settings-body::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-.settings-body::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
 }
 
 .setting-group {
@@ -352,11 +316,6 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  opacity: 0.8;
-}
-
-.preference-row {
-  display: flex;
 }
 
 .theme-toggle {
@@ -377,7 +336,11 @@ button {
 .theme-toggle button.active {
   background: var(--bg);
   color: var(--text);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.hint-row {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .provider-card {
@@ -388,11 +351,6 @@ button {
   border-radius: 12px;
   background: var(--bg-soft);
   border: 1px solid var(--border);
-  transition: all 0.2s ease;
-}
-
-.provider-card:hover {
-  border-color: var(--text-muted);
 }
 
 .provider-head {
@@ -420,32 +378,32 @@ button {
   flex: 1;
   min-width: 0;
 }
+
 .transparent-input::placeholder {
   color: var(--text-muted);
-  opacity: 0.6;
 }
 
 .danger-text {
-  color: var(--danger, #ef4444);
+  color: var(--danger);
   font-size: 0.8rem;
   font-weight: 600;
   padding: 4px 8px;
   border-radius: 6px;
-  flex-shrink: 0;
-  white-space: nowrap;
 }
+
 .danger-text:hover {
   background: rgba(239, 68, 68, 0.1);
 }
 
 .field-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1.4fr;
   gap: 12px;
+  align-items: start;
 }
 
 input:not(.transparent-input),
-select {
+.storage-select {
   width: 100%;
   padding: 8px 12px;
   border-radius: 8px;
@@ -454,46 +412,19 @@ select {
   color: var(--text);
   font-size: 0.85rem;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
   font-family: var(--font-mono, inherit);
-}
-
-input:not(.transparent-input):focus,
-select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(var(--accent-rgb, 0,0,0), 0.1);
 }
 
 .storage-select {
   font-family: inherit;
 }
 
-.chip-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.chip-button {
-  padding: 4px 12px;
-  border-radius: 16px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.chip-button:hover {
-  border-color: var(--text-muted);
-  color: var(--text);
-}
-
-.chip-button.active {
-  background: var(--text);
-  color: var(--bg);
-  border-color: var(--text);
+.storage-picker {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  flex: none;
 }
 
 .add-provider-grid {
@@ -518,15 +449,17 @@ select:focus {
   background: var(--bg-soft);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 700px) {
   .field-grid {
     grid-template-columns: 1fr;
   }
+
   .settings-panel {
     border-radius: 16px 16px 0 0;
     max-height: 90vh;
     align-self: end;
   }
+
   .settings-overlay {
     align-items: end;
     padding: 0;

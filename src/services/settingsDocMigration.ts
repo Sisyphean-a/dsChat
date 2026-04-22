@@ -58,6 +58,9 @@ export function migrateSettingsDoc(
       apiKey: doc.apiKey ?? DEFAULT_SETTINGS.deepseek.apiKey,
       baseUrl: doc.baseUrl ?? DEFAULT_SETTINGS.deepseek.baseUrl,
       model: doc.model ?? DEFAULT_SETTINGS.deepseek.model,
+      modelOptions: buildLegacyModelOptions(DEFAULT_SETTINGS.deepseek, {
+        model: doc.model,
+      }),
       temperature: typeof doc.temperature === 'number'
         ? doc.temperature
         : DEFAULT_SETTINGS.deepseek.temperature,
@@ -71,9 +74,11 @@ function migrateLegacyMultiProviderDoc(
   doc: LegacyMultiProviderDoc,
   legacyUploadModeFallback: UtoolsUploadMode,
 ): SettingsForm {
+  const deepseekDefaults = buildDefaultProviderSettings('deepseek')
   const deepseek = {
-    ...DEFAULT_SETTINGS.deepseek,
+    ...deepseekDefaults,
     ...(doc.providers?.deepseek ?? {}),
+    modelOptions: buildLegacyModelOptions(deepseekDefaults, doc.providers?.deepseek),
   }
   const customModels = (['openai', 'minimax', 'kimi'] as const)
     .map((provider) => toLegacyCustomModel(provider, doc.providers?.[provider]))
@@ -113,10 +118,27 @@ function toLegacyCustomModel(
     apiKey: incomingSettings.apiKey ?? draft.apiKey,
     baseUrl: incomingSettings.baseUrl ?? draft.baseUrl,
     model: incomingSettings.model ?? draft.model,
+    modelOptions: buildLegacyModelOptions(draft, incomingSettings),
     temperature: typeof incomingSettings.temperature === 'number'
       ? incomingSettings.temperature
       : draft.temperature,
   }
+}
+
+function buildLegacyModelOptions(
+  defaults: ProviderSettings,
+  incoming: Partial<ProviderSettings> | undefined,
+): string[] {
+  const source = Array.isArray(incoming?.modelOptions)
+    ? incoming.modelOptions
+    : defaults.modelOptions
+  const normalized = [...new Set(source.map((item) => item.trim()).filter(Boolean))]
+  const model = incoming?.model?.trim()
+  if (!model || normalized.includes(model)) {
+    return normalized
+  }
+
+  return [...normalized, model]
 }
 
 function isMeaningfulProviderSettings(

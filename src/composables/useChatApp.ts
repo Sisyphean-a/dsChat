@@ -217,8 +217,8 @@ export function useChatApp() {
   }
 
   function updateDeepseekField(
-    field: keyof ProviderSettings,
-    value: ProviderSettings[keyof ProviderSettings],
+    field: Exclude<keyof ProviderSettings, 'modelOptions'>,
+    value: ProviderSettings[Exclude<keyof ProviderSettings, 'modelOptions'>],
   ): void {
     settingsActions.updateDeepseekField(field, value)
   }
@@ -231,6 +231,7 @@ export function useChatApp() {
     activeChatConfig,
     activeConversationId,
     addCustomModel: settingsActions.addCustomModel,
+    addCustomModelOption: settingsActions.addCustomModelOption,
     closeSettings: settingsActions.closeSettings,
     conversations,
     deleteConversation,
@@ -247,6 +248,7 @@ export function useChatApp() {
     modelOptions,
     openSettings: settingsActions.openSettings,
     removeCustomModel: settingsActions.removeCustomModel,
+    removeCustomModelOption: settingsActions.removeCustomModelOption,
     saveSettings: saveSettingsAction,
     selectActiveConfig: settingsActions.selectActiveConfig,
     selectActiveModel: settingsActions.selectActiveModel,

@@ -103,7 +103,7 @@ export function getModelConfigOptions(settings: SettingsForm): ModelConfigOption
 export function getActiveModelSelectionOptions(settings: SettingsForm): ModelConfigOption[] {
   const activeSettings = getActiveProviderSettings(settings)
   const providerBadge = getProviderDefinition(activeSettings.provider).shortLabel
-  const providerOptions = findProviderOptions(activeSettings.provider)
+  const providerOptions = activeSettings.modelOptions
   if (!providerOptions.length) {
     return [{
       badge: providerBadge,
@@ -114,22 +114,42 @@ export function getActiveModelSelectionOptions(settings: SettingsForm): ModelCon
     }]
   }
 
-  return providerOptions.map((item) => ({
-    badge: providerBadge,
-    detail: item.value,
-    label: item.label,
-    shortLabel: item.shortLabel,
-    value: item.value,
-  }))
+  return providerOptions.map((item) => {
+    const matched = findProviderModel(activeSettings.provider, item)
+    return {
+      badge: providerBadge,
+      detail: item,
+      label: matched?.label ?? item,
+      shortLabel: matched?.shortLabel ?? item,
+      value: item,
+    }
+  })
+}
+
+export function normalizeModelOptions(
+  incomingOptions: ProviderSettings['modelOptions'] | undefined,
+  fallbackOptions: string[],
+): string[] {
+  const source = Array.isArray(incomingOptions) ? incomingOptions : fallbackOptions
+  const normalized: string[] = []
+  const visited = new Set<string>()
+
+  for (const item of source) {
+    const value = item.trim()
+    if (!value || visited.has(value)) {
+      continue
+    }
+
+    visited.add(value)
+    normalized.push(value)
+  }
+
+  return normalized
 }
 
 export function modelSupportsTemperature(provider: ProviderId, model: string): boolean {
   const matched = findProviderModel(provider, model)
   return matched?.supportsTemperature ?? true
-}
-
-function findProviderOptions(provider: ProviderId) {
-  return getProviderDefinition(provider).defaultModels
 }
 
 function normalizeCustomModels(incomingModels: SettingsForm['customModels'] | undefined): AddedModelConfig[] {
@@ -172,6 +192,10 @@ function normalizeProviderSettings(
   const model = incomingSettings?.model === undefined
     ? defaults.model
     : incomingSettings.model.trim()
+  const normalizedModelOptions = normalizeModelOptions(incomingSettings?.modelOptions, defaults.modelOptions)
+  const modelOptions = provider === DEFAULT_CONFIG_ID
+    ? defaults.modelOptions
+    : ensureModelOption(normalizedModelOptions, model)
 
   return {
     apiKey: incomingSettings?.apiKey?.trim() ?? defaults.apiKey,
@@ -179,8 +203,18 @@ function normalizeProviderSettings(
       ? defaults.baseUrl
       : incomingSettings.baseUrl.trim(),
     model,
+    modelOptions,
     temperature: normalizeTemperature(provider, model, incomingSettings?.temperature),
   }
+}
+
+function ensureModelOption(options: string[], model: string): string[] {
+  const value = model.trim()
+  if (!value || options.includes(value)) {
+    return options
+  }
+
+  return [...options, value]
 }
 
 function normalizeTemperature(

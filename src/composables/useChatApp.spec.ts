@@ -128,15 +128,16 @@ describe('useChatApp', () => {
 
     await vi.waitFor(() => {
       expect(requestConversationTitle).toHaveBeenCalledWith(
-        {
+        expect.objectContaining({
           configId: 'deepseek',
           label: 'DeepSeek',
           provider: 'deepseek',
           apiKey: 'sk-test',
           baseUrl: 'https://api.deepseek.com',
           model: 'deepseek-chat',
+          modelOptions: expect.any(Array),
           temperature: 1,
-        },
+        }),
         '给这段对话起标题',
       )
     })
@@ -261,6 +262,7 @@ describe('useChatApp', () => {
         apiKey: 'sk-test',
         baseUrl: 'https://api.deepseek.com/',
         model: 'deepseek-chat',
+        modelOptions: expect.any(Array),
         temperature: 1,
       },
       theme: 'dark',
@@ -297,6 +299,19 @@ describe('useChatApp', () => {
     app.selectActiveModel('deepseek-reasoner')
 
     expect(app.settings.value.deepseek.model).toBe('deepseek-reasoner')
+  })
+
+  it('allows adding and removing custom model options', async () => {
+    const app = useChatApp()
+    await app.initialize()
+    app.addCustomModel('openai')
+
+    const customId = app.settings.value.customModels[0]?.id as string
+    app.addCustomModelOption(customId, 'gpt-custom-1')
+    expect(app.settings.value.customModels[0]?.modelOptions).toContain('gpt-custom-1')
+
+    app.removeCustomModelOption(customId, 'gpt-custom-1')
+    expect(app.settings.value.customModels[0]?.modelOptions).not.toContain('gpt-custom-1')
   })
 
   it('blocks sending when the active custom model base url is blank', async () => {
@@ -350,6 +365,7 @@ describe('useChatApp', () => {
         apiKey: 'sk-openai',
         baseUrl: 'https://api.openai.com/v1/',
         model: 'gpt-4.1',
+        modelOptions: expect.any(Array),
         temperature: 1,
       },
       expect.any(Function),

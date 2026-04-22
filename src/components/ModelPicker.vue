@@ -6,6 +6,7 @@ const props = defineProps<{
   disabled: boolean
   modelValue: string
   options: ModelConfigOption[]
+  panelDirection?: 'up' | 'down'
 }>()
 
 const emit = defineEmits<{
@@ -65,7 +66,11 @@ onBeforeUnmount(() => {
     </button>
 
     <transition name="picker-fade">
-      <div v-if="isOpen" class="picker-panel">
+      <div
+        v-if="isOpen"
+        class="picker-panel"
+        :class="props.panelDirection === 'down' ? 'down' : 'up'"
+      >
         <button
           v-for="option in props.options"
           :key="option.value"
@@ -149,7 +154,6 @@ onBeforeUnmount(() => {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(100% + 8px);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -159,6 +163,14 @@ onBeforeUnmount(() => {
   background: var(--bg);
   box-shadow: var(--panel-shadow);
   z-index: 20;
+}
+
+.picker-panel.up {
+  bottom: calc(100% + 8px);
+}
+
+.picker-panel.down {
+  top: calc(100% + 8px);
 }
 
 .picker-option {

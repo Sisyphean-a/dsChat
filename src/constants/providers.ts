@@ -137,6 +137,10 @@ export function getProviderModelOptions(provider: ProviderId): ProviderModelOpti
   return PROVIDER_REGISTRY[provider].defaultModels
 }
 
+export function getProviderDefaultModelValues(provider: ProviderId): string[] {
+  return PROVIDER_REGISTRY[provider].defaultModels.map((option) => option.value)
+}
+
 export function findProviderModel(
   provider: ProviderId,
   model: string,
@@ -154,6 +158,7 @@ export function buildDefaultProviderSettings(provider: ProviderId): ProviderSett
     apiKey: '',
     baseUrl: definition.baseUrlDefault,
     model: definition.defaultModels[0]?.value ?? '',
+    modelOptions: getProviderDefaultModelValues(provider),
     temperature: definition.temperature.defaultValue,
   }
 }

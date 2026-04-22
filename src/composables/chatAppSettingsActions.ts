@@ -10,7 +10,8 @@ import { createAddedModelDraft } from '../constants/providers'
 import { getErrorMessage } from './chatAppErrors'
 import { normalizeSettings } from './chatAppSettings'
 
-type CustomModelField = keyof ProviderSettings | 'name'
+type ProviderEditableField = Exclude<keyof ProviderSettings, 'modelOptions'>
+type CustomModelField = ProviderEditableField | 'name'
 
 interface ChatAppSettingsActionsOptions {
   settings: Ref<SettingsForm>
@@ -23,17 +24,19 @@ interface ChatAppSettingsActionsOptions {
 
 export interface ChatAppSettingsActions {
   addCustomModel: (provider: AddableProviderId) => void
+  addCustomModelOption: (id: string, option: string) => void
   closeSettings: () => void
   openSettings: () => void
   removeCustomModel: (id: string) => void
+  removeCustomModelOption: (id: string, option: string) => void
   saveSettingsAction: () => Promise<void>
   selectActiveConfig: (configId: string) => void
   selectActiveModel: (model: string) => void
   toggleSidebar: () => void
   updateCustomModelField: (id: string, field: CustomModelField, value: string | number) => void
   updateDeepseekField: (
-    field: keyof ProviderSettings,
-    value: ProviderSettings[keyof ProviderSettings],
+    field: ProviderEditableField,
+    value: ProviderSettings[ProviderEditableField],
   ) => void
   updateTheme: (theme: ThemeMode) => void
   updateUtoolsUploadMode: (mode: UtoolsUploadMode) => void
@@ -77,8 +80,8 @@ export function createChatAppSettingsActions(
   }
 
   function updateDeepseekField(
-    field: keyof ProviderSettings,
-    value: ProviderSettings[keyof ProviderSettings],
+    field: ProviderEditableField,
+    value: ProviderSettings[ProviderEditableField],
   ): void {
     settings.value = {
       ...settings.value,
@@ -110,12 +113,26 @@ export function createChatAppSettingsActions(
   }
 
   function selectActiveModel(model: string): void {
+    const value = model.trim()
     if (settings.value.activeConfigId === 'deepseek') {
-      updateDeepseekField('model', model)
+      updateDeepseekField('model', value)
       return
     }
 
-    updateCustomModelField(settings.value.activeConfigId, 'model', model)
+    settings.value = {
+      ...settings.value,
+      customModels: settings.value.customModels.map((item) => {
+        if (item.id !== settings.value.activeConfigId) {
+          return item
+        }
+
+        return {
+          ...item,
+          model: value,
+          modelOptions: appendModelOption(item.modelOptions, value),
+        }
+      }),
+    }
   }
 
   function addCustomModel(provider: AddableProviderId): void {
@@ -123,6 +140,51 @@ export function createChatAppSettingsActions(
     settings.value = {
       ...settings.value,
       customModels: [...settings.value.customModels, nextModel],
+    }
+  }
+
+  function addCustomModelOption(id: string, option: string): void {
+    const value = option.trim()
+    if (!value) {
+      return
+    }
+
+    settings.value = {
+      ...settings.value,
+      customModels: settings.value.customModels.map((item) => {
+        if (item.id !== id) {
+          return item
+        }
+
+        return {
+          ...item,
+          model: item.model.trim() || value,
+          modelOptions: appendModelOption(item.modelOptions, value),
+        }
+      }),
+    }
+  }
+
+  function removeCustomModelOption(id: string, option: string): void {
+    const value = option.trim()
+    if (!value) {
+      return
+    }
+
+    settings.value = {
+      ...settings.value,
+      customModels: settings.value.customModels.map((item) => {
+        if (item.id !== id) {
+          return item
+        }
+
+        const nextOptions = item.modelOptions.filter((candidate) => candidate !== value)
+        return {
+          ...item,
+          model: item.model === value ? (nextOptions[0] ?? '') : item.model,
+          modelOptions: nextOptions,
+        }
+      }),
     }
   }
 
@@ -170,9 +232,11 @@ export function createChatAppSettingsActions(
 
   return {
     addCustomModel,
+    addCustomModelOption,
     closeSettings,
     openSettings,
     removeCustomModel,
+    removeCustomModelOption,
     saveSettingsAction,
     selectActiveConfig,
     selectActiveModel,
@@ -182,4 +246,13 @@ export function createChatAppSettingsActions(
     updateTheme,
     updateUtoolsUploadMode,
   }
+}
+
+function appendModelOption(current: string[], model: string): string[] {
+  const value = model.trim()
+  if (!value || current.includes(value)) {
+    return current
+  }
+
+  return [...current, value]
 }

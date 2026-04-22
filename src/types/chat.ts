@@ -23,6 +23,7 @@ export interface ProviderSettings {
   apiKey: string
   baseUrl: string
   model: string
+  modelOptions: string[]
   temperature: number
 }
 

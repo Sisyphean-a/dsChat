@@ -41,6 +41,7 @@ describe('utools storage routing', () => {
       apiKey: 'sk-legacy',
       baseUrl: 'https://api.deepseek.com/',
       model: 'deepseek-chat',
+      modelOptions: ['deepseek-chat', 'deepseek-reasoner'],
       temperature: 1.5,
     })
     expect(settings.customModels).toEqual([])

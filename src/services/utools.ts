@@ -1,5 +1,6 @@
 import {
   CONVERSATION_PREFIX,
+  DEFAULT_SETTINGS,
   SESSION_DOC_ID,
   SETTINGS_DOC_ID,
 } from '../constants/app'
@@ -8,6 +9,7 @@ import { normalizeSettings } from '../composables/chatAppSettings'
 import type {
   ConversationDoc,
   SessionDoc,
+  SettingsDoc,
   SettingsForm,
   UtoolsUploadMode,
 } from '../types/chat'

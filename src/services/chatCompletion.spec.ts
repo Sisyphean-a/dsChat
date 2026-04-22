@@ -221,14 +221,20 @@ describe('streamChatCompletion', () => {
 function createSettings(
   overrides: Partial<ActiveProviderSettings> = {},
 ): ActiveProviderSettings {
-  return {
+  const defaults: ActiveProviderSettings = {
     configId: 'deepseek',
     label: 'DeepSeek',
     provider: 'deepseek',
     apiKey: 'sk-test',
     baseUrl: 'https://api.deepseek.com',
     model: 'deepseek-chat',
+    modelOptions: ['deepseek-chat', 'deepseek-reasoner'],
     temperature: 1,
+  }
+
+  return {
+    ...defaults,
     ...overrides,
+    modelOptions: overrides.modelOptions ?? defaults.modelOptions,
   }
 }
