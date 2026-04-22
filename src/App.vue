@@ -163,6 +163,7 @@ onMounted(() => {
       @update-custom-model-field="app.updateCustomModelField"
       @update-deepseek-field="app.updateDeepseekField"
       @update-theme="app.updateTheme"
+      @update-utools-upload-mode="app.updateUtoolsUploadMode"
     />
   </div>
 </template>

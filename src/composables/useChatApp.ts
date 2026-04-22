@@ -102,7 +102,7 @@ export function useChatApp() {
     isSending.value = false
 
     if (isBrowserMode.value) {
-      environmentNotice.value = '当前为浏览器预览模式：界面可用，但只有在 uTools 中才会使用本地数据库持久化。'
+      environmentNotice.value = '当前为浏览器预览模式：使用浏览器本地存储保存设置与对话，不接入 uTools 数据库。'
       return
     }
 
@@ -259,5 +259,6 @@ export function useChatApp() {
     updateCustomModelField: settingsActions.updateCustomModelField,
     updateDeepseekField,
     updateTheme: settingsActions.updateTheme,
+    updateUtoolsUploadMode: settingsActions.updateUtoolsUploadMode,
   }
 }

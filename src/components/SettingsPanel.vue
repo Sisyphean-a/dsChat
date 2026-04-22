@@ -1,10 +1,17 @@
 <script setup lang="ts">
+import { UTOOLS_UPLOAD_MODE_OPTIONS } from '../constants/storage'
 import {
   getAddableProviderDefinitions,
   getProviderDefinition,
   getProviderModelOptions,
 } from '../constants/providers'
-import type { AddableProviderId, ProviderSettings, SettingsForm, ThemeMode } from '../types/chat'
+import type {
+  AddableProviderId,
+  ProviderSettings,
+  SettingsForm,
+  ThemeMode,
+  UtoolsUploadMode,
+} from '../types/chat'
 
 type CustomModelField = keyof ProviderSettings | 'name'
 
@@ -24,6 +31,7 @@ const emit = defineEmits<{
   updateCustomModelField: [id: string, field: CustomModelField, value: string | number]
   updateDeepseekField: [field: keyof ProviderSettings, value: string | number]
   updateTheme: [theme: ThemeMode]
+  updateUtoolsUploadMode: [mode: UtoolsUploadMode]
 }>()
 
 const themeCards: Array<{ label: string; value: ThemeMode }> = [
@@ -33,6 +41,7 @@ const themeCards: Array<{ label: string; value: ThemeMode }> = [
 
 const addableProviders = getAddableProviderDefinitions()
 const deepseekOptions = getProviderModelOptions('deepseek')
+const uploadModeOptions = UTOOLS_UPLOAD_MODE_OPTIONS
 </script>
 
 <template>
@@ -65,6 +74,26 @@ const deepseekOptions = getProviderModelOptions('deepseek')
                   {{ theme.label }}
                 </button>
               </div>
+            </div>
+          </section>
+
+          <section class="setting-group">
+            <h3>存储</h3>
+
+            <div class="preference-row">
+              <select
+                class="storage-select"
+                :value="props.settings.utoolsUploadMode"
+                @change="emit('updateUtoolsUploadMode', ($event.target as HTMLSelectElement).value as UtoolsUploadMode)"
+              >
+                <option
+                  v-for="option in uploadModeOptions"
+                  :key="option.value"
+                  :value="option.value"
+                >
+                  {{ option.label }}
+                </option>
+              </select>
             </div>
           </section>
 
@@ -415,7 +444,8 @@ button {
   gap: 12px;
 }
 
-input:not(.transparent-input) {
+input:not(.transparent-input),
+select {
   width: 100%;
   padding: 8px 12px;
   border-radius: 8px;
@@ -429,9 +459,14 @@ input:not(.transparent-input) {
   font-family: var(--font-mono, inherit);
 }
 
-input:not(.transparent-input):focus {
+input:not(.transparent-input):focus,
+select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(var(--accent-rgb, 0,0,0), 0.1);
+}
+
+.storage-select {
+  font-family: inherit;
 }
 
 .chip-grid {

@@ -1,289 +1,232 @@
 import {
   CONVERSATION_PREFIX,
-  DEFAULT_SETTINGS,
   SESSION_DOC_ID,
   SETTINGS_DOC_ID,
 } from '../constants/app'
-import { buildDefaultProviderSettings, createAddedModelDraft } from '../constants/providers'
-import {
-  isLegacyMultiProviderDocShape,
-  normalizeSettings,
-} from '../composables/chatAppSettings'
+import { DEFAULT_UTOOLS_UPLOAD_MODE } from '../constants/storage'
+import { normalizeSettings } from '../composables/chatAppSettings'
 import type {
-  AddableProviderId,
-  BaseDoc,
   ConversationDoc,
-  ProviderSettings,
   SessionDoc,
-  SettingsDoc,
   SettingsForm,
-  ThemeMode,
+  UtoolsUploadMode,
 } from '../types/chat'
-import type { DbResult, UtoolsApi } from '../types/utools'
 import { sortConversations } from '../utils/chat'
+import {
+  loadAllLocalDocs,
+  loadLocalDoc,
+  removeLocalDoc,
+  saveLocalDoc,
+} from './localDocStorage'
+import {
+  hasUtools,
+  loadAllRemoteDocs,
+  loadRemoteDoc,
+  removeRemoteDoc,
+  saveRemoteDoc,
+} from './utoolsRemoteStorage'
+import { migrateSettingsDoc, type PersistedSettingsDoc } from './settingsDocMigration'
 
-const memoryStore = new Map<string, BaseDoc>()
+export { hasUtools } from './utoolsRemoteStorage'
 
-interface LegacySettingsDoc extends BaseDoc {
-  type: 'settings'
-  apiKey?: string
-  baseUrl?: string
-  model?: string
-  temperature?: number
-  theme?: ThemeMode
-}
-
-type LegacyMultiProviderDoc = BaseDoc & {
-  activeProvider?: string
-  providers?: Record<string, Partial<ProviderSettings>>
-  theme?: ThemeMode
-  type: 'settings'
-}
-
-export function hasUtools(): boolean {
-  return typeof window !== 'undefined' && typeof window.utools !== 'undefined'
-}
+const LEGACY_UPLOAD_MODE_FALLBACK: UtoolsUploadMode = 'all-data'
 
 export async function loadSettings(): Promise<SettingsForm> {
-  const doc = (await getDoc(SETTINGS_DOC_ID)) as SettingsDoc | LegacySettingsDoc | LegacyMultiProviderDoc | null
-  if (!doc) {
+  const localDoc = await loadStoredSettingsDoc('local')
+  if (localDoc) {
+    return normalizeSettings(migrateSettingsDoc(localDoc, LEGACY_UPLOAD_MODE_FALLBACK))
+  }
+
+  const remoteDoc = await loadStoredSettingsDoc('remote')
+  if (!remoteDoc) {
     return structuredClone(DEFAULT_SETTINGS)
   }
 
-  return normalizeSettings(migrateSettingsDoc(doc))
+  const settings = normalizeSettings(migrateSettingsDoc(remoteDoc, LEGACY_UPLOAD_MODE_FALLBACK))
+  await persistLocalSettingsDoc(settings)
+  return settings
 }
 
 export async function saveSettings(settings: SettingsForm): Promise<void> {
-  const existing = (await getDoc(SETTINGS_DOC_ID)) as SettingsDoc | null
-  const doc: SettingsDoc = {
+  const normalizedSettings = normalizeSettings(settings)
+  const previousMode = await getCurrentUtoolsUploadMode()
+
+  await persistLocalSettingsDoc(normalizedSettings)
+
+  if (!hasUtools()) {
+    return
+  }
+
+  if (shouldUploadSettingsToUtools(normalizedSettings.utoolsUploadMode)) {
+    await persistRemoteSettingsDoc(normalizedSettings)
+  } else {
+    await removeRemoteDoc(SETTINGS_DOC_ID)
+  }
+
+  if (normalizedSettings.utoolsUploadMode === 'all-data') {
+    await syncLocalChatDataToRemote()
+    return
+  }
+
+  if (previousMode === 'all-data') {
+    await clearRemoteChatData()
+  }
+}
+
+export async function loadSession(): Promise<SessionDoc | null> {
+  const localSession = (await loadLocalDoc(SESSION_DOC_ID)) as SessionDoc | null
+  if (!(await shouldUseRemoteConversationStorage())) {
+    return localSession
+  }
+
+  const remoteSession = (await loadRemoteDoc(SESSION_DOC_ID)) as SessionDoc | null
+  return remoteSession ?? localSession
+}
+
+export async function saveSession(session: SessionDoc): Promise<SessionDoc> {
+  const localSaved = (await saveLocalDoc({
+    ...session,
+    _id: SESSION_DOC_ID,
+  })) as SessionDoc
+
+  if (!(await shouldUseRemoteConversationStorage())) {
+    return localSaved
+  }
+
+  return persistRemoteSessionDoc(session)
+}
+
+export async function loadConversations(): Promise<ConversationDoc[]> {
+  const localDocs = (await loadAllLocalDocs(CONVERSATION_PREFIX)) as ConversationDoc[]
+  if (!(await shouldUseRemoteConversationStorage())) {
+    return sortConversations(localDocs)
+  }
+
+  const remoteDocs = (await loadAllRemoteDocs(CONVERSATION_PREFIX)) as ConversationDoc[]
+  return sortConversations(mergeConversationDocs(localDocs, remoteDocs))
+}
+
+export async function saveConversation(conversation: ConversationDoc): Promise<ConversationDoc> {
+  const localSaved = (await saveLocalDoc(conversation)) as ConversationDoc
+  if (!(await shouldUseRemoteConversationStorage())) {
+    return localSaved
+  }
+
+  return persistRemoteConversationDoc(localSaved)
+}
+
+export async function deleteConversation(conversation: ConversationDoc): Promise<void> {
+  await removeLocalDoc(conversation._id)
+
+  if (hasUtools()) {
+    await removeRemoteDoc(conversation._id)
+  }
+}
+
+async function loadStoredSettingsDoc(
+  source: 'local' | 'remote',
+): Promise<PersistedSettingsDoc | null> {
+  const doc = source === 'local'
+    ? await loadLocalDoc(SETTINGS_DOC_ID)
+    : await loadRemoteDoc(SETTINGS_DOC_ID)
+
+  return doc as PersistedSettingsDoc | null
+}
+
+async function persistLocalSettingsDoc(settings: SettingsForm): Promise<void> {
+  await saveLocalDoc({
+    _id: SETTINGS_DOC_ID,
+    type: 'settings',
+    ...settings,
+  })
+}
+
+async function persistRemoteSettingsDoc(settings: SettingsForm): Promise<void> {
+  const existing = (await loadRemoteDoc(SETTINGS_DOC_ID)) as SettingsDoc | null
+  await saveRemoteDoc({
     _id: SETTINGS_DOC_ID,
     _rev: existing?._rev,
     type: 'settings',
     ...settings,
-  }
-
-  await putDoc(doc)
+  })
 }
 
-export async function loadSession(): Promise<SessionDoc | null> {
-  return (await getDoc(SESSION_DOC_ID)) as SessionDoc | null
-}
-
-export async function saveSession(session: SessionDoc): Promise<SessionDoc> {
-  const existing = (await getDoc(SESSION_DOC_ID)) as SessionDoc | null
-  return (await putDoc({
+async function persistRemoteSessionDoc(session: SessionDoc): Promise<SessionDoc> {
+  const existing = (await loadRemoteDoc(SESSION_DOC_ID)) as SessionDoc | null
+  return (await saveRemoteDoc({
     ...session,
+    _id: SESSION_DOC_ID,
     _rev: existing?._rev,
   })) as SessionDoc
 }
 
-export async function loadConversations(): Promise<ConversationDoc[]> {
-  const docs = (await getAllDocs(CONVERSATION_PREFIX)) as ConversationDoc[]
-  return sortConversations(docs)
+async function persistRemoteConversationDoc(conversation: ConversationDoc): Promise<ConversationDoc> {
+  const existing = (await loadRemoteDoc(conversation._id)) as ConversationDoc | null
+  return (await saveRemoteDoc({
+    ...conversation,
+    _rev: existing?._rev,
+  })) as ConversationDoc
 }
 
-export async function saveConversation(conversation: ConversationDoc): Promise<ConversationDoc> {
-  return (await putDoc(conversation)) as ConversationDoc
+async function shouldUseRemoteConversationStorage(): Promise<boolean> {
+  return hasUtools() && (await getCurrentUtoolsUploadMode()) === 'all-data'
 }
 
-export async function deleteConversation(conversation: ConversationDoc): Promise<void> {
-  if (hasUtools()) {
-    const result = await getUtoolsApi().db.promises.remove(conversation._id)
-    if (!result.ok) {
-      throw new Error(result.message ?? 'uTools 数据库删除失败。')
-    }
+async function getCurrentUtoolsUploadMode(): Promise<UtoolsUploadMode> {
+  const localDoc = await loadStoredSettingsDoc('local')
+  if (localDoc) {
+    return migrateSettingsDoc(localDoc, LEGACY_UPLOAD_MODE_FALLBACK).utoolsUploadMode
+  }
+
+  const remoteDoc = await loadStoredSettingsDoc('remote')
+  if (remoteDoc) {
+    return migrateSettingsDoc(remoteDoc, LEGACY_UPLOAD_MODE_FALLBACK).utoolsUploadMode
+  }
+
+  return DEFAULT_UTOOLS_UPLOAD_MODE
+}
+
+function shouldUploadSettingsToUtools(mode: UtoolsUploadMode): boolean {
+  return mode !== 'local-only'
+}
+
+async function syncLocalChatDataToRemote(): Promise<void> {
+  const localConversations = (await loadAllLocalDocs(CONVERSATION_PREFIX)) as ConversationDoc[]
+  const localSession = (await loadLocalDoc(SESSION_DOC_ID)) as SessionDoc | null
+
+  for (const conversation of localConversations) {
+    await persistRemoteConversationDoc(conversation)
+  }
+
+  if (localSession) {
+    await persistRemoteSessionDoc(localSession)
     return
   }
 
-  memoryStore.delete(conversation._id)
+  await removeRemoteDoc(SESSION_DOC_ID)
 }
 
-async function getDoc(id: string): Promise<BaseDoc | null> {
-  if (hasUtools()) {
-    return getUtoolsApi().db.promises.get(id)
+async function clearRemoteChatData(): Promise<void> {
+  const remoteConversations = await loadAllRemoteDocs(CONVERSATION_PREFIX)
+  for (const conversation of remoteConversations) {
+    await removeRemoteDoc(conversation._id)
   }
 
-  return cloneDoc(memoryStore.get(id) ?? null)
+  await removeRemoteDoc(SESSION_DOC_ID)
 }
 
-async function getAllDocs(prefix: string): Promise<BaseDoc[]> {
-  if (hasUtools()) {
-    return getUtoolsApi().db.promises.allDocs(prefix)
-  }
+function mergeConversationDocs(
+  localDocs: ConversationDoc[],
+  remoteDocs: ConversationDoc[],
+): ConversationDoc[] {
+  const merged = new Map<string, ConversationDoc>()
 
-  return [...memoryStore.values()]
-    .filter((doc) => doc._id.startsWith(prefix))
-    .map((doc) => cloneBaseDoc(doc))
-}
-
-async function putDoc(doc: BaseDoc): Promise<BaseDoc> {
-  if (hasUtools()) {
-    return writeUtoolsDoc(doc)
-  }
-
-  return writeMemoryDoc(doc)
-}
-
-async function writeUtoolsDoc(doc: BaseDoc): Promise<BaseDoc> {
-  const result = (await getUtoolsApi().db.promises.put(doc)) as DbResult
-  if (!result.ok || !result.rev) {
-    throw new Error(result.message ?? 'uTools 数据库存储失败。')
-  }
-
-  return {
-    ...doc,
-    _rev: result.rev,
-  }
-}
-
-function writeMemoryDoc(doc: BaseDoc): BaseDoc {
-  const current = memoryStore.get(doc._id)
-  const next = {
-    ...doc,
-    _rev: createMemoryRevision(current?._rev),
-  }
-
-  memoryStore.set(next._id, next)
-  return cloneBaseDoc(next)
-}
-
-function createMemoryRevision(revision?: string): string {
-  if (!revision) {
-    return '1-memory'
-  }
-
-  const current = Number.parseInt(revision, 10) || 1
-  return `${current + 1}-memory`
-}
-
-function cloneDoc<T extends BaseDoc | null | undefined>(doc: T): T {
-  if (!doc) {
-    return doc
-  }
-
-  return structuredClone(doc)
-}
-
-function cloneBaseDoc<T extends BaseDoc>(doc: T): T {
-  return structuredClone(doc)
-}
-
-function getUtoolsApi(): UtoolsApi {
-  if (!window.utools) {
-    throw new Error('uTools API 不可用。')
-  }
-
-  return window.utools
-}
-
-function migrateSettingsDoc(
-  doc: SettingsDoc | LegacySettingsDoc | LegacyMultiProviderDoc,
-): SettingsForm {
-  if (isSettingsDoc(doc)) {
-    return {
-      activeConfigId: doc.activeConfigId,
-      customModels: doc.customModels,
-      deepseek: doc.deepseek,
-      theme: doc.theme,
+  for (const conversation of [...localDocs, ...remoteDocs]) {
+    const current = merged.get(conversation.id)
+    if (!current || conversation.updatedAt >= current.updatedAt) {
+      merged.set(conversation.id, conversation)
     }
   }
 
-  if (isLegacyMultiProviderDocShape(doc)) {
-    return migrateLegacyMultiProviderDoc(doc as LegacyMultiProviderDoc)
-  }
-
-  return {
-    activeConfigId: 'deepseek',
-    customModels: [],
-    deepseek: {
-      ...DEFAULT_SETTINGS.deepseek,
-      apiKey: doc.apiKey ?? DEFAULT_SETTINGS.deepseek.apiKey,
-      baseUrl: doc.baseUrl ?? DEFAULT_SETTINGS.deepseek.baseUrl,
-      model: doc.model ?? DEFAULT_SETTINGS.deepseek.model,
-      temperature: typeof doc.temperature === 'number'
-        ? doc.temperature
-        : DEFAULT_SETTINGS.deepseek.temperature,
-    },
-    theme: doc.theme ?? DEFAULT_SETTINGS.theme,
-  }
-}
-
-function migrateLegacyMultiProviderDoc(doc: LegacyMultiProviderDoc): SettingsForm {
-  const deepseek = {
-    ...DEFAULT_SETTINGS.deepseek,
-    ...(doc.providers?.deepseek ?? {}),
-  }
-
-  const customModels = (['openai', 'minimax', 'kimi'] as const)
-    .map((provider) => toLegacyCustomModel(provider, doc.providers?.[provider]))
-    .filter((item) => item !== null)
-
-  const activeConfigId = resolveLegacyActiveConfigId(doc.activeProvider, customModels)
-
-  return {
-    activeConfigId,
-    customModels,
-    deepseek,
-    theme: doc.theme ?? DEFAULT_SETTINGS.theme,
-  }
-}
-
-function resolveLegacyActiveConfigId(
-  activeProvider: string | undefined,
-  customModels: SettingsForm['customModels'],
-): string {
-  if (!activeProvider || activeProvider === 'deepseek') {
-    return 'deepseek'
-  }
-
-  const matched = customModels.find((item) => item.provider === activeProvider)
-  return matched?.id ?? 'deepseek'
-}
-
-function toLegacyCustomModel(
-  provider: AddableProviderId,
-  incomingSettings: Partial<ProviderSettings> | undefined,
-): SettingsForm['customModels'][number] | null {
-  if (!incomingSettings || !isMeaningfulProviderSettings(provider, incomingSettings)) {
-    return null
-  }
-
-  const draft = createAddedModelDraft(provider, [])
-  return {
-    ...draft,
-    apiKey: incomingSettings.apiKey ?? draft.apiKey,
-    baseUrl: incomingSettings.baseUrl ?? draft.baseUrl,
-    model: incomingSettings.model ?? draft.model,
-    temperature: typeof incomingSettings.temperature === 'number'
-      ? incomingSettings.temperature
-      : draft.temperature,
-  }
-}
-
-function isMeaningfulProviderSettings(
-  provider: AddableProviderId,
-  incomingSettings: Partial<ProviderSettings>,
-): boolean {
-  if (incomingSettings.apiKey?.trim()) {
-    return true
-  }
-
-  const defaults = buildDefaultProviderSettings(provider)
-  const baseUrl = incomingSettings.baseUrl?.trim()
-  const model = incomingSettings.model?.trim()
-
-  return Boolean(
-    (baseUrl && baseUrl !== defaults.baseUrl)
-    || (model && model !== defaults.model),
-  )
-}
-
-function isSettingsDoc(
-  doc: SettingsDoc | LegacySettingsDoc | LegacyMultiProviderDoc,
-): doc is SettingsDoc {
-  const candidate = doc as Partial<SettingsDoc>
-  return typeof candidate.activeConfigId === 'string'
-    && Array.isArray(candidate.customModels)
-    && typeof candidate.deepseek === 'object'
-    && candidate.deepseek !== null
+  return [...merged.values()]
 }

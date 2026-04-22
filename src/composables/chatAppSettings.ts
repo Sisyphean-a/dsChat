@@ -7,6 +7,10 @@ import {
   getProviderTemperatureRange,
   isAddableProviderId,
 } from '../constants/providers'
+import {
+  DEFAULT_UTOOLS_UPLOAD_MODE,
+  UTOOLS_UPLOAD_MODES,
+} from '../constants/storage'
 import type {
   ActiveProviderSettings,
   AddedModelConfig,
@@ -25,6 +29,7 @@ export function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
     customModels,
     deepseek: normalizeProviderSettings('deepseek', currentSettings.deepseek),
     theme: normalizeTheme(currentSettings.theme),
+    utoolsUploadMode: normalizeUtoolsUploadMode(currentSettings.utoolsUploadMode),
   }
 }
 
@@ -216,6 +221,13 @@ function normalizeCustomProvider(provider: string | undefined): AddableProviderI
 
 function normalizeTheme(theme: SettingsForm['theme']): SettingsForm['theme'] {
   return THEME_OPTIONS.includes(theme) ? theme : THEME_OPTIONS[0]
+}
+
+export function normalizeUtoolsUploadMode(
+  mode: SettingsForm['utoolsUploadMode'] | undefined,
+  fallback = DEFAULT_UTOOLS_UPLOAD_MODE,
+): SettingsForm['utoolsUploadMode'] {
+  return mode && UTOOLS_UPLOAD_MODES.includes(mode) ? mode : fallback
 }
 
 export function isLegacyMultiProviderDocShape(value: unknown): value is {

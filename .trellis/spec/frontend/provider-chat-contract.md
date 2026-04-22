@@ -30,6 +30,7 @@ This spec is required whenever code changes any of:
 ```ts
 type ProviderId = 'deepseek' | 'openai' | 'minimax' | 'kimi' | 'custom'
 type AddableProviderId = 'openai' | 'minimax' | 'kimi' | 'custom'
+type UtoolsUploadMode = 'local-only' | 'settings-only' | 'all-data'
 
 interface ProviderSettings {
   apiKey: string
@@ -49,6 +50,7 @@ interface SettingsForm {
   deepseek: ProviderSettings
   customModels: AddedModelConfig[]
   theme: ThemeMode
+  utoolsUploadMode: UtoolsUploadMode
 }
 
 interface ActiveProviderSettings extends ProviderSettings {
@@ -65,6 +67,7 @@ buildDefaultSettings(): SettingsForm
 buildDefaultProviderSettings(provider: ProviderId): ProviderSettings
 createAddedModelDraft(provider: AddableProviderId, currentModels: AddedModelConfig[]): AddedModelConfig
 normalizeSettings(settings: SettingsForm): SettingsForm
+normalizeUtoolsUploadMode(mode: UtoolsUploadMode | undefined): UtoolsUploadMode
 getActiveProviderSettings(settings: SettingsForm): ActiveProviderSettings
 getSendSettingsError(settings: SettingsForm): string | null
 getModelConfigOptions(settings: SettingsForm): ModelConfigOption[]
@@ -76,6 +79,10 @@ modelSupportsTemperature(provider: ProviderId, model: string): boolean
 ```ts
 loadSettings(): Promise<SettingsForm>
 saveSettings(settings: SettingsForm): Promise<void>
+loadConversations(): Promise<ConversationDoc[]>
+saveConversation(conversation: ConversationDoc): Promise<ConversationDoc>
+loadSession(): Promise<SessionDoc | null>
+saveSession(session: SessionDoc): Promise<SessionDoc>
 ```
 
 Storage document id:
@@ -104,6 +111,7 @@ streamChatCompletion(
 
 - `activeConfigId = 'deepseek'`
 - `theme = 'light'`
+- `utoolsUploadMode = 'settings-only'`
 - one built-in `deepseek` config seeded from registry defaults
 - `customModels = []`
 
@@ -126,6 +134,7 @@ Migration rules:
 3. previous `openai / minimax / kimi` entries become `customModels` only when they are meaningfully configured
 4. previous `claude` entries are dropped
 5. `activeConfigId` resolves to the migrated custom model when possible, otherwise `deepseek`
+6. legacy docs without an explicit upload mode migrate to `utoolsUploadMode = 'all-data'`
 
 Required non-fallback:
 
@@ -138,6 +147,7 @@ Required non-fallback:
 - invalid or missing `activeConfigId` -> `'deepseek'`
 - malformed `customModels` -> filtered normalized array
 - invalid theme -> default theme
+- invalid or missing `utoolsUploadMode` -> `'settings-only'`
 - invalid temperature -> provider default temperature
 
 Required non-coercion:
@@ -178,6 +188,10 @@ Settings UI is split into exactly three pages:
 
 - selecting the active config from `deepseek + customModels`
 - switching theme
+- switching `utoolsUploadMode` from exactly these labels:
+  - `数据不上传utools`
+  - `上传模型API数据`
+  - `上传模型API以及对话数据`
 
 `DeepSeek` must allow:
 
@@ -194,7 +208,33 @@ Required non-goal:
 - no `Claude` page or preset
 - no runtime “同步模型” flow
 
-#### Contract F: Chat completions endpoint
+#### Contract F: Local mirror and uTools upload routing
+
+Persistence rules:
+
+1. settings always keep a local mirror
+2. browser preview mode uses browser `localStorage` for settings, conversations, and session
+3. `utoolsUploadMode = 'local-only'`:
+   - settings stay local only
+   - conversations stay local only
+   - session stays local only
+   - remote `uTools` settings / conversations / session must be cleared
+4. `utoolsUploadMode = 'settings-only'`:
+   - settings keep a local mirror and also sync to `uTools`
+   - conversations stay local only
+   - session stays local only
+5. `utoolsUploadMode = 'all-data'`:
+   - settings sync to `uTools`
+   - conversations sync to `uTools`
+   - session sync to `uTools`
+   - when switching from local-only / settings-only into all-data, existing local conversations and session must be uploaded once
+
+Required invariant:
+
+- upload mode only changes storage routing, not request payload construction
+- lowering the upload mode must not leave stale remote chat docs behind
+
+#### Contract G: Chat completions endpoint
 
 All providers currently use:
 
@@ -209,7 +249,7 @@ Conditional payload fields:
 - include `temperature` only when `modelSupportsTemperature(provider, model)` is `true`
 - include `reasoning_split: true` only for `provider === 'minimax'`
 
-#### Contract G: Streaming delta parsing
+#### Contract H: Streaming delta parsing
 
 DeepSeek path:
 
@@ -239,7 +279,12 @@ Terminal rules:
 | Storage -> UI | no settings doc | defaults | return built-in DeepSeek |
 | Storage -> UI | flat legacy doc | migrate | deepseek receives legacy values |
 | Storage -> UI | previous multi-provider doc | migrate | deepseek + meaningful custom models |
+| Storage -> UI | browser preview mode | local storage route | load settings / conversations / session from localStorage |
 | UI -> normalized state | deleted active custom model | config id resolution | fallback to `deepseek` |
+| UI -> normalized state | invalid upload mode | upload mode normalization | fallback to `settings-only` |
+| Save settings -> storage | `local-only` selected | route + cleanup | clear remote settings / conversations / session |
+| Save settings -> storage | `settings-only` selected | route split | upload settings only, keep chats local |
+| Save settings -> storage | switch to `all-data` | route + sync | upload local conversations and session to `uTools` |
 | UI -> send | blank active `apiKey/baseUrl/model` | active config only | open settings and block request |
 | Active settings -> request payload | MiniMax active | provider switch | add `reasoning_split: true` |
 | Response -> stream parser | MiniMax cumulative delta | prefix diffing | append suffix once |
@@ -252,18 +297,21 @@ Terminal rules:
 - user keeps DeepSeek as default and adds one OpenAI preset entry for occasional use
 - user deletes the currently active added model and the app falls back to DeepSeek
 - old multi-provider docs migrate OpenAI and MiniMax into added models while dropping Claude
+- user keeps API 配置同步到 `uTools`，但把对话和会话恢复数据留在本地
 
 #### Base
 
 - new install starts with only DeepSeek configured
 - user adds a Kimi preset and edits only `API Key`
 - user changes theme without touching model configs
+- browser preview mode刷新后仍能保留 API Key 与本地对话
 
 #### Bad
 
 - deleting an added model leaves `activeConfigId` pointing at a missing id
 - old untouched preset defaults are all migrated into visible added models
 - request errors still say `"DeepSeek 请求失败"` even when the active config label is custom
+- switching to `local-only` still leaves old conversations留在远端
 
 ### 6. Tests Required
 
@@ -276,7 +324,11 @@ Minimum required automated coverage:
 5. DeepSeek reasoning content is stored separately from final content
 6. MiniMax cumulative content is diffed into suffix deltas
 7. deleting the active added model falls back to `deepseek`
-8. build and tests pass after changing settings structure
+8. browser preview mode round-trips settings via localStorage
+9. `settings-only` uploads settings but not conversations or session
+10. switching to `all-data` uploads existing local conversations and session
+11. switching to `local-only` clears remote settings and chat data
+12. build and tests pass after changing settings structure
 
 ### 7. Wrong vs Correct
 

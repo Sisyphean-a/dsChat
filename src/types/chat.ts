@@ -3,6 +3,7 @@ export type MessageStatus = 'done' | 'streaming' | 'error' | 'interrupted'
 export type ThemeMode = 'light' | 'dark'
 export type ProviderId = 'deepseek' | 'openai' | 'minimax' | 'kimi' | 'custom'
 export type AddableProviderId = Exclude<ProviderId, 'deepseek'>
+export type UtoolsUploadMode = 'local-only' | 'settings-only' | 'all-data'
 
 export interface ChatMessage {
   id: string
@@ -37,6 +38,7 @@ export interface SettingsDoc extends BaseDoc {
   deepseek: ProviderSettings
   customModels: AddedModelConfig[]
   theme: ThemeMode
+  utoolsUploadMode: UtoolsUploadMode
 }
 
 export interface SessionDoc extends BaseDoc {
@@ -59,6 +61,7 @@ export interface SettingsForm {
   deepseek: ProviderSettings
   customModels: AddedModelConfig[]
   theme: ThemeMode
+  utoolsUploadMode: UtoolsUploadMode
 }
 
 export interface ActiveProviderSettings extends ProviderSettings {

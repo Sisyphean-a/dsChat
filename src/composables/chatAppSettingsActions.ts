@@ -1,5 +1,11 @@
 import type { Ref } from 'vue'
-import type { AddableProviderId, ProviderSettings, SettingsForm, ThemeMode } from '../types/chat'
+import type {
+  AddableProviderId,
+  ProviderSettings,
+  SettingsForm,
+  ThemeMode,
+  UtoolsUploadMode,
+} from '../types/chat'
 import { createAddedModelDraft } from '../constants/providers'
 import { getErrorMessage } from './chatAppErrors'
 import { normalizeSettings } from './chatAppSettings'
@@ -30,6 +36,7 @@ export interface ChatAppSettingsActions {
     value: ProviderSettings[keyof ProviderSettings],
   ) => void
   updateTheme: (theme: ThemeMode) => void
+  updateUtoolsUploadMode: (mode: UtoolsUploadMode) => void
 }
 
 interface ChatAppUiState {
@@ -137,6 +144,13 @@ export function createChatAppSettingsActions(
     applyTheme(normalizeSettings(nextSettings).theme)
   }
 
+  function updateUtoolsUploadMode(mode: UtoolsUploadMode): void {
+    settings.value = {
+      ...settings.value,
+      utoolsUploadMode: mode,
+    }
+  }
+
   async function saveSettingsAction(): Promise<void> {
     isSavingSettings.value = true
 
@@ -166,5 +180,6 @@ export function createChatAppSettingsActions(
     updateCustomModelField,
     updateDeepseekField,
     updateTheme,
+    updateUtoolsUploadMode,
   }
 }

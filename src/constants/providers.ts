@@ -6,6 +6,7 @@ import type {
   SettingsForm,
   ThemeMode,
 } from '../types/chat'
+import { DEFAULT_UTOOLS_UPLOAD_MODE } from './storage'
 
 export interface ProviderModelOption {
   value: string
@@ -163,6 +164,7 @@ export function buildDefaultSettings(): SettingsForm {
     customModels: [],
     deepseek: buildDefaultProviderSettings('deepseek'),
     theme: THEME_DEFAULT,
+    utoolsUploadMode: DEFAULT_UTOOLS_UPLOAD_MODE,
   }
 }
 
