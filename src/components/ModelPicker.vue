@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { ProviderModelOption } from '../constants/providers'
+import type { ModelConfigOption } from '../types/chat'
 
 const props = defineProps<{
   disabled: boolean
   modelValue: string
-  options: ProviderModelOption[]
-  providerLabel: string
+  options: ModelConfigOption[]
 }>()
 
 const emit = defineEmits<{
@@ -18,10 +17,10 @@ const isOpen = ref(false)
 
 const currentMeta = computed(() => {
   return props.options.find((option) => option.value === props.modelValue) ?? {
-    description: props.modelValue,
+    badge: '模型',
+    detail: props.modelValue,
     label: props.modelValue,
     shortLabel: props.modelValue,
-    supportsTemperature: true,
     value: props.modelValue,
   }
 })
@@ -59,7 +58,7 @@ onBeforeUnmount(() => {
 <template>
   <div ref="rootRef" class="model-picker" :class="{ disabled: props.disabled, open: isOpen }">
     <button class="picker-trigger" type="button" :disabled="props.disabled" @click="togglePanel">
-      <span class="provider-badge">{{ props.providerLabel }}</span>
+      <span class="provider-badge">{{ currentMeta.badge }}</span>
       <span class="picker-copy">{{ currentMeta.shortLabel }}</span>
       <svg class="picker-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="6 9 12 15 18 9"></polyline>
@@ -76,7 +75,8 @@ onBeforeUnmount(() => {
           type="button"
           @click="selectModel(option.value)"
         >
-          <span>{{ option.label }}</span>
+          <strong>{{ option.label }}</strong>
+          <span>{{ option.detail }}</span>
         </button>
       </div>
     </transition>
@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
 
 .model-picker {
   position: relative;
-  width: 188px;
+  width: 228px;
 }
 
 .picker-trigger {
@@ -106,8 +106,8 @@ onBeforeUnmount(() => {
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 8px;
-  height: 30px;
-  padding: 0 9px;
+  height: 32px;
+  padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-soft);
@@ -143,6 +143,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   font-size: 0.78rem;
   font-weight: 600;
+  text-align: left;
 }
 
 .picker-arrow {
@@ -157,7 +158,7 @@ onBeforeUnmount(() => {
 .picker-panel {
   position: absolute;
   left: 0;
-  right: -26px;
+  right: 0;
   bottom: calc(100% + 8px);
   display: flex;
   flex-direction: column;
@@ -171,21 +172,25 @@ onBeforeUnmount(() => {
 }
 
 .picker-option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   padding: 8px 9px;
   border-radius: 9px;
   text-align: left;
   transition: background 150ms ease, transform 150ms ease;
 }
 
-.picker-option span,
-.picker-option small {
-  display: block;
-}
-
-.picker-option span {
+.picker-option strong {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text);
+}
+
+.picker-option span {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
 .picker-option:hover,
@@ -201,7 +206,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .model-picker {
-    width: 170px;
+    width: 188px;
   }
 }
 </style>

@@ -1,7 +1,8 @@
 import type {
+  AddableProviderId,
+  AddedModelConfig,
   ProviderId,
   ProviderSettings,
-  ProviderSettingsMap,
   SettingsForm,
   ThemeMode,
 } from '../types/chat'
@@ -10,7 +11,6 @@ export interface ProviderModelOption {
   value: string
   label: string
   shortLabel: string
-  description: string
   supportsTemperature: boolean
 }
 
@@ -24,126 +24,95 @@ export interface ProviderDefinition {
   id: ProviderId
   label: string
   shortLabel: string
-  description: string
+  docsUrl: string
   apiKeyPlaceholder: string
+  baseUrlDefault: string
   baseUrlPlaceholder: string
-  models: ProviderModelOption[]
-  notes: string[]
+  defaultModels: ProviderModelOption[]
   temperature: TemperatureRange
 }
 
 const THEME_DEFAULT: ThemeMode = 'light'
 const STANDARD_TEMPERATURE: TemperatureRange = { min: 0, max: 2, defaultValue: 1 }
-const CLAUDE_TEMPERATURE: TemperatureRange = { min: 0, max: 1, defaultValue: 1 }
 const MINIMAX_TEMPERATURE: TemperatureRange = { min: 0.1, max: 1, defaultValue: 1 }
 
-export const DEFAULT_PROVIDER_ID: ProviderId = 'deepseek'
-export const PROVIDER_IDS: ProviderId[] = ['deepseek', 'openai', 'claude', 'minimax']
+export const DEFAULT_CONFIG_ID = 'deepseek'
+export const PROVIDER_IDS: ProviderId[] = ['deepseek', 'openai', 'minimax', 'kimi', 'custom']
+export const ADDABLE_PROVIDER_IDS: AddableProviderId[] = ['openai', 'minimax', 'kimi', 'custom']
 
 export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
+  custom: {
+    id: 'custom',
+    label: '自定义',
+    shortLabel: '自定义',
+    docsUrl: '',
+    apiKeyPlaceholder: 'sk-...',
+    baseUrlDefault: '',
+    baseUrlPlaceholder: 'https://your-api.example.com/v1',
+    defaultModels: [],
+    temperature: STANDARD_TEMPERATURE,
+  },
   deepseek: {
     id: 'deepseek',
     label: 'DeepSeek',
     shortLabel: 'DeepSeek',
-    description: '默认提供商，保留现有深度思考与流式体验。',
+    docsUrl: 'https://api-docs.deepseek.com/',
     apiKeyPlaceholder: 'sk-...',
+    baseUrlDefault: 'https://api.deepseek.com',
     baseUrlPlaceholder: 'https://api.deepseek.com',
-    models: [
-      {
-        value: 'deepseek-chat',
-        label: 'DeepSeek Chat',
-        shortLabel: 'Chat',
-        description: '通用对话与代码生成',
-        supportsTemperature: true,
-      },
-      {
-        value: 'deepseek-reasoner',
-        label: 'DeepSeek Reasoner',
-        shortLabel: 'Reasoner',
-        description: '展示思考过程的推理模型',
-        supportsTemperature: false,
-      },
+    defaultModels: [
+      createModelOption('deepseek-chat', 'DeepSeek Chat', 'Chat', true),
+      createModelOption('deepseek-reasoner', 'DeepSeek Reasoner', 'Reasoner', false),
     ],
-    notes: ['保留现有 `reasoning_content` 展示。'],
     temperature: STANDARD_TEMPERATURE,
   },
-  openai: {
-    id: 'openai',
-    label: 'OpenAI',
-    shortLabel: 'OpenAI',
-    description: '使用 OpenAI Chat Completions 兼容接口接入 ChatGPT 模型。',
+  kimi: {
+    id: 'kimi',
+    label: 'Kimi',
+    shortLabel: 'Kimi',
+    docsUrl: 'https://platform.kimi.com/docs/models',
     apiKeyPlaceholder: 'sk-...',
-    baseUrlPlaceholder: 'https://api.openai.com/v1',
-    models: [
-      {
-        value: 'gpt-4.1-mini',
-        label: 'GPT-4.1 mini',
-        shortLabel: '4.1 mini',
-        description: '轻量默认，适合日常问答',
-        supportsTemperature: true,
-      },
-      {
-        value: 'gpt-4.1',
-        label: 'GPT-4.1',
-        shortLabel: '4.1',
-        description: '更强的通用与代码能力',
-        supportsTemperature: true,
-      },
+    baseUrlDefault: 'https://api.moonshot.cn/v1',
+    baseUrlPlaceholder: 'https://api.moonshot.cn/v1',
+    defaultModels: [
+      createModelOption('kimi-k2.6', 'Kimi K2.6', 'K2.6', true),
+      createModelOption('kimi-k2.5', 'Kimi K2.5', 'K2.5', true),
+      createModelOption('kimi-k2-thinking', 'Kimi K2 Thinking', 'Thinking', true),
+      createModelOption('kimi-k2-thinking-turbo', 'Kimi K2 Thinking Turbo', 'Thinking Turbo', true),
     ],
-    notes: ['默认按官方 `chat/completions` 兼容方式发起请求。'],
     temperature: STANDARD_TEMPERATURE,
-  },
-  claude: {
-    id: 'claude',
-    label: 'Claude',
-    shortLabel: 'Claude',
-    description: '通过 Claude OpenAI compatibility 入口接入 Anthropic 模型。',
-    apiKeyPlaceholder: 'sk-ant-...',
-    baseUrlPlaceholder: 'https://api.anthropic.com/v1',
-    models: [
-      {
-        value: 'claude-sonnet-4-20250514',
-        label: 'Claude Sonnet 4',
-        shortLabel: 'Sonnet 4',
-        description: '默认推荐，速度与质量平衡',
-        supportsTemperature: true,
-      },
-      {
-        value: 'claude-opus-4-20250514',
-        label: 'Claude Opus 4',
-        shortLabel: 'Opus 4',
-        description: '更强的复杂任务能力',
-        supportsTemperature: true,
-      },
-    ],
-    notes: ['Claude 兼容层不会返回可展示的详细思考流。'],
-    temperature: CLAUDE_TEMPERATURE,
   },
   minimax: {
     id: 'minimax',
     label: 'MiniMax',
     shortLabel: 'MiniMax',
-    description: '通过 MiniMax OpenAI compatibility 入口接入文本模型。',
+    docsUrl: 'https://platform.minimaxi.com/docs/guides/text-generation',
     apiKeyPlaceholder: 'sk-...',
+    baseUrlDefault: 'https://api.minimaxi.com/v1',
     baseUrlPlaceholder: 'https://api.minimaxi.com/v1',
-    models: [
-      {
-        value: 'MiniMax-M2.7',
-        label: 'MiniMax M2.7',
-        shortLabel: 'M2.7',
-        description: '默认推荐，支持 reasoning_split',
-        supportsTemperature: true,
-      },
-      {
-        value: 'MiniMax-M2.7-highspeed',
-        label: 'MiniMax M2.7 Highspeed',
-        shortLabel: 'M2.7 HS',
-        description: '更快的高吞吐版本',
-        supportsTemperature: true,
-      },
+    defaultModels: [
+      createModelOption('MiniMax-M2.7', 'MiniMax M2.7', 'M2.7', true),
+      createModelOption('MiniMax-M2.7-highspeed', 'MiniMax M2.7 Highspeed', 'M2.7 HS', true),
+      createModelOption('MiniMax-M2.5', 'MiniMax M2.5', 'M2.5', true),
+      createModelOption('MiniMax-M2.5-highspeed', 'MiniMax M2.5 Highspeed', 'M2.5 HS', true),
     ],
-    notes: ['发送请求时启用 `reasoning_split`，可拆分展示思考内容。'],
     temperature: MINIMAX_TEMPERATURE,
+  },
+  openai: {
+    id: 'openai',
+    label: 'OpenAI',
+    shortLabel: 'OpenAI',
+    docsUrl: 'https://platform.openai.com/docs/models',
+    apiKeyPlaceholder: 'sk-...',
+    baseUrlDefault: 'https://api.openai.com/v1',
+    baseUrlPlaceholder: 'https://api.openai.com/v1',
+    defaultModels: [
+      createModelOption('gpt-5.2', 'GPT-5.2', '5.2', true),
+      createModelOption('gpt-5-mini', 'GPT-5 mini', '5 mini', true),
+      createModelOption('gpt-5-nano', 'GPT-5 nano', '5 nano', true),
+      createModelOption('gpt-4.1', 'GPT-4.1', '4.1', true),
+    ],
+    temperature: STANDARD_TEMPERATURE,
   },
 }
 
@@ -151,20 +120,27 @@ export function isProviderId(value: string): value is ProviderId {
   return PROVIDER_IDS.includes(value as ProviderId)
 }
 
+export function isAddableProviderId(value: string): value is AddableProviderId {
+  return ADDABLE_PROVIDER_IDS.includes(value as AddableProviderId)
+}
+
 export function getProviderDefinition(provider: ProviderId): ProviderDefinition {
   return PROVIDER_REGISTRY[provider]
 }
 
-export function getProviderDefinitions(): ProviderDefinition[] {
-  return PROVIDER_IDS.map((provider) => PROVIDER_REGISTRY[provider])
+export function getAddableProviderDefinitions(): ProviderDefinition[] {
+  return ADDABLE_PROVIDER_IDS.map((provider) => PROVIDER_REGISTRY[provider])
 }
 
 export function getProviderModelOptions(provider: ProviderId): ProviderModelOption[] {
-  return PROVIDER_REGISTRY[provider].models
+  return PROVIDER_REGISTRY[provider].defaultModels
 }
 
-export function findProviderModel(provider: ProviderId, model: string): ProviderModelOption | undefined {
-  return PROVIDER_REGISTRY[provider].models.find((option) => option.value === model.trim())
+export function findProviderModel(
+  provider: ProviderId,
+  model: string,
+): ProviderModelOption | undefined {
+  return PROVIDER_REGISTRY[provider].defaultModels.find((option) => option.value === model.trim())
 }
 
 export function getProviderTemperatureRange(provider: ProviderId): TemperatureRange {
@@ -175,23 +151,66 @@ export function buildDefaultProviderSettings(provider: ProviderId): ProviderSett
   const definition = PROVIDER_REGISTRY[provider]
   return {
     apiKey: '',
-    baseUrl: definition.baseUrlPlaceholder,
-    model: definition.models[0]?.value ?? '',
+    baseUrl: definition.baseUrlDefault,
+    model: definition.defaultModels[0]?.value ?? '',
     temperature: definition.temperature.defaultValue,
   }
 }
 
-export function buildDefaultProviderSettingsMap(): ProviderSettingsMap {
-  return PROVIDER_IDS.reduce<ProviderSettingsMap>((accumulator, provider) => {
-    accumulator[provider] = buildDefaultProviderSettings(provider)
-    return accumulator
-  }, {} as ProviderSettingsMap)
-}
-
 export function buildDefaultSettings(): SettingsForm {
   return {
-    activeProvider: DEFAULT_PROVIDER_ID,
-    providers: buildDefaultProviderSettingsMap(),
+    activeConfigId: DEFAULT_CONFIG_ID,
+    customModels: [],
+    deepseek: buildDefaultProviderSettings('deepseek'),
     theme: THEME_DEFAULT,
+  }
+}
+
+export function createAddedModelDraft(
+  provider: AddableProviderId,
+  currentModels: AddedModelConfig[],
+): AddedModelConfig {
+  return {
+    id: createAddedModelId(provider),
+    name: createAddedModelName(provider, currentModels),
+    provider,
+    ...buildDefaultProviderSettings(provider),
+  }
+}
+
+function createAddedModelId(provider: AddableProviderId): string {
+  const suffix = Math.random().toString(36).slice(2, 8)
+  return `model-${provider}-${Date.now().toString(36)}-${suffix}`
+}
+
+function createAddedModelName(
+  provider: AddableProviderId,
+  currentModels: AddedModelConfig[],
+): string {
+  const baseName = getProviderDefinition(provider).label
+  const currentNames = new Set(currentModels.map((item) => item.name.trim()).filter(Boolean))
+  if (!currentNames.has(baseName)) {
+    return baseName
+  }
+
+  let index = 2
+  while (currentNames.has(`${baseName} ${index}`)) {
+    index += 1
+  }
+
+  return `${baseName} ${index}`
+}
+
+function createModelOption(
+  value: string,
+  label: string,
+  shortLabel: string,
+  supportsTemperature: boolean,
+): ProviderModelOption {
+  return {
+    value,
+    label,
+    shortLabel,
+    supportsTemperature,
   }
 }

@@ -142,9 +142,9 @@ watch(messageScrollKey, () => {
 
       <section v-else class="empty-state">
         <div class="empty-content">
-          <h2>向 {{ app.activeProviderMeta.value.label }} 发起对话</h2>
+          <h2>向 {{ app.activeChatConfig.value.label }} 发起对话</h2>
           <p>
-            会话记录自动展示在左栏。<br />
+            当前默认模型：{{ app.activeChatConfig.value.label }}。<br />
             关闭插件后 1 分钟内重新打开，将恢复当前对话。
           </p>
         </div>
@@ -161,9 +161,8 @@ watch(messageScrollKey, () => {
           <template #actions>
             <ModelPicker
               :disabled="app.isSending.value"
-              :model-value="app.activeProviderSettings.value.model"
+              :model-value="app.activeChatConfig.value.model"
               :options="app.modelOptions.value"
-              :provider-label="app.activeProviderMeta.value.shortLabel"
               @select="handleModelSelect"
             />
           </template>
@@ -176,10 +175,13 @@ watch(messageScrollKey, () => {
       :open="app.isSettingsOpen.value"
       :saving="app.isSavingSettings.value"
       :settings="app.settings.value"
+      @add-custom-model="app.addCustomModel"
       @close="app.closeSettings"
+      @remove-custom-model="app.removeCustomModel"
       @save="app.saveSettings"
-      @select-provider="app.selectActiveProvider"
-      @update-provider-field="app.updateActiveProviderField"
+      @select-active-config="app.selectActiveConfig"
+      @update-custom-model-field="app.updateCustomModelField"
+      @update-deepseek-field="app.updateDeepseekField"
       @update-theme="app.updateTheme"
     />
   </div>

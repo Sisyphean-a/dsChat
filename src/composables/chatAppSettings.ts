@@ -1,57 +1,121 @@
 import { THEME_OPTIONS } from '../constants/app'
 import {
   buildDefaultProviderSettings,
-  buildDefaultProviderSettingsMap,
-  DEFAULT_PROVIDER_ID,
+  DEFAULT_CONFIG_ID,
   findProviderModel,
   getProviderDefinition,
   getProviderTemperatureRange,
-  isProviderId,
-  PROVIDER_IDS,
+  isAddableProviderId,
 } from '../constants/providers'
 import type {
   ActiveProviderSettings,
+  AddedModelConfig,
+  AddableProviderId,
+  ModelConfigOption,
   ProviderId,
   ProviderSettings,
-  ProviderSettingsMap,
   SettingsForm,
 } from '../types/chat'
 
 export function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
-  const activeProvider = normalizeProvider(currentSettings.activeProvider)
+  const customModels = normalizeCustomModels(currentSettings.customModels)
 
   return {
-    activeProvider,
-    providers: normalizeProviderSettingsMap(currentSettings.providers),
+    activeConfigId: normalizeActiveConfigId(currentSettings.activeConfigId, customModels),
+    customModels,
+    deepseek: normalizeProviderSettings('deepseek', currentSettings.deepseek),
     theme: normalizeTheme(currentSettings.theme),
   }
 }
 
 export function getSendSettingsError(currentSettings: SettingsForm): string | null {
   const activeSettings = getActiveProviderSettings(currentSettings)
-  const providerLabel = getProviderDefinition(activeSettings.provider).label
 
   if (!activeSettings.apiKey.trim()) {
-    return `请先在设置面板中填写 ${providerLabel} API Key。`
+    return `请先在设置面板中填写 ${activeSettings.label} API Key。`
   }
 
   if (!activeSettings.baseUrl.trim()) {
-    return `请先在设置面板中填写 ${providerLabel} Base URL。`
+    return `请先在设置面板中填写 ${activeSettings.label} Base URL。`
   }
 
   if (!activeSettings.model.trim()) {
-    return `请先在设置面板中选择 ${providerLabel} 模型。`
+    return `请先在设置面板中选择 ${activeSettings.label} 模型。`
   }
 
   return null
 }
 
 export function getActiveProviderSettings(settings: SettingsForm): ActiveProviderSettings {
-  const provider = normalizeProvider(settings.activeProvider)
-  return {
-    provider,
-    ...normalizeProviderSettings(provider, settings.providers?.[provider]),
+  if (settings.activeConfigId === DEFAULT_CONFIG_ID) {
+    return {
+      configId: DEFAULT_CONFIG_ID,
+      label: getProviderDefinition('deepseek').label,
+      provider: 'deepseek',
+      ...normalizeProviderSettings('deepseek', settings.deepseek),
+    }
   }
+
+  const current = settings.customModels.find((item) => item.id === settings.activeConfigId)
+  if (!current) {
+    return {
+      configId: DEFAULT_CONFIG_ID,
+      label: getProviderDefinition('deepseek').label,
+      provider: 'deepseek',
+      ...normalizeProviderSettings('deepseek', settings.deepseek),
+    }
+  }
+
+  return {
+    configId: current.id,
+    label: current.name.trim() || getProviderDefinition(current.provider).label,
+    provider: current.provider,
+    ...normalizeProviderSettings(current.provider, current),
+  }
+}
+
+export function getModelConfigOptions(settings: SettingsForm): ModelConfigOption[] {
+  const normalizedSettings = normalizeSettings(settings)
+
+  return [
+    {
+      badge: 'DeepSeek',
+      detail: normalizedSettings.deepseek.model || '未设置模型',
+      label: 'DeepSeek',
+      shortLabel: 'DeepSeek',
+      value: DEFAULT_CONFIG_ID,
+    },
+    ...normalizedSettings.customModels.map((item) => ({
+      badge: getProviderDefinition(item.provider).shortLabel,
+      detail: item.model || '未设置模型',
+      label: item.name,
+      shortLabel: item.name,
+      value: item.id,
+    })),
+  ]
+}
+
+export function getActiveModelSelectionOptions(settings: SettingsForm): ModelConfigOption[] {
+  const activeSettings = getActiveProviderSettings(settings)
+  const providerBadge = getProviderDefinition(activeSettings.provider).shortLabel
+  const providerOptions = findProviderOptions(activeSettings.provider)
+  if (!providerOptions.length) {
+    return [{
+      badge: providerBadge,
+      detail: activeSettings.model || '未设置模型',
+      label: activeSettings.model || activeSettings.label,
+      shortLabel: activeSettings.model || activeSettings.label,
+      value: activeSettings.model,
+    }]
+  }
+
+  return providerOptions.map((item) => ({
+    badge: providerBadge,
+    detail: item.value,
+    label: item.label,
+    shortLabel: item.shortLabel,
+    value: item.value,
+  }))
 }
 
 export function modelSupportsTemperature(provider: ProviderId, model: string): boolean {
@@ -59,15 +123,40 @@ export function modelSupportsTemperature(provider: ProviderId, model: string): b
   return matched?.supportsTemperature ?? true
 }
 
-function normalizeProviderSettingsMap(
-  incomingSettings: SettingsForm['providers'] | undefined,
-): ProviderSettingsMap {
-  const defaults = buildDefaultProviderSettingsMap()
+function findProviderOptions(provider: ProviderId) {
+  return getProviderDefinition(provider).defaultModels
+}
 
-  return PROVIDER_IDS.reduce<ProviderSettingsMap>((accumulator, provider) => {
-    accumulator[provider] = normalizeProviderSettings(provider, incomingSettings?.[provider] ?? defaults[provider])
-    return accumulator
-  }, {} as ProviderSettingsMap)
+function normalizeCustomModels(incomingModels: SettingsForm['customModels'] | undefined): AddedModelConfig[] {
+  if (!Array.isArray(incomingModels)) {
+    return []
+  }
+
+  const ids = new Set<string>()
+  const normalized: AddedModelConfig[] = []
+
+  for (const item of incomingModels) {
+    const next = normalizeCustomModel(item)
+    if (ids.has(next.id)) {
+      continue
+    }
+
+    ids.add(next.id)
+    normalized.push(next)
+  }
+
+  return normalized
+}
+
+function normalizeCustomModel(incomingModel: Partial<AddedModelConfig>): AddedModelConfig {
+  const provider = normalizeCustomProvider(incomingModel.provider)
+
+  return {
+    id: incomingModel.id?.trim() || `${provider}-${Math.random().toString(36).slice(2, 8)}`,
+    name: incomingModel.name?.trim() || getProviderDefinition(provider).label,
+    provider,
+    ...normalizeProviderSettings(provider, incomingModel),
+  }
 }
 
 function normalizeProviderSettings(
@@ -108,10 +197,38 @@ function normalizeTemperature(
   return Math.min(range.max, Math.max(range.min, roundedTemperature))
 }
 
-function normalizeProvider(provider: string): ProviderId {
-  return isProviderId(provider) ? provider : DEFAULT_PROVIDER_ID
+function normalizeActiveConfigId(
+  activeConfigId: string | undefined,
+  customModels: AddedModelConfig[],
+): string {
+  if (activeConfigId === DEFAULT_CONFIG_ID) {
+    return DEFAULT_CONFIG_ID
+  }
+
+  return customModels.some((item) => item.id === activeConfigId)
+    ? String(activeConfigId)
+    : DEFAULT_CONFIG_ID
+}
+
+function normalizeCustomProvider(provider: string | undefined): AddableProviderId {
+  return provider && isAddableProviderId(provider) ? provider : 'custom'
 }
 
 function normalizeTheme(theme: SettingsForm['theme']): SettingsForm['theme'] {
   return THEME_OPTIONS.includes(theme) ? theme : THEME_OPTIONS[0]
+}
+
+export function isLegacyMultiProviderDocShape(value: unknown): value is {
+  activeProvider?: string
+  providers?: Record<string, Partial<ProviderSettings>>
+  theme?: SettingsForm['theme']
+} {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+
+  const candidate = value as { activeProvider?: string; providers?: unknown }
+  return typeof candidate.activeProvider === 'string'
+    && typeof candidate.providers === 'object'
+    && candidate.providers !== null
 }

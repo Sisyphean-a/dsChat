@@ -144,10 +144,11 @@ describe('streamChatCompletion', () => {
       [{ id: '1', role: 'user', content: 'test', createdAt: 0, status: 'done' }],
       createSettings(
         {
+          label: 'MiniMax',
+          provider: 'minimax',
           baseUrl: 'https://api.minimaxi.com/v1',
           model: 'MiniMax-M2.7',
         },
-        'minimax',
       ),
       (delta) => {
         deltas.push(delta)
@@ -203,13 +204,12 @@ describe('streamChatCompletion', () => {
 
     await streamChatCompletion(
       [{ id: '1', role: 'user', content: 'test', createdAt: 0, status: 'done' }],
-      createSettings(
-        {
-          baseUrl: 'https://api.minimaxi.com/v1',
-          model: 'MiniMax-M2.7',
-        },
-        'minimax',
-      ),
+      createSettings({
+        label: 'MiniMax',
+        provider: 'minimax',
+        baseUrl: 'https://api.minimaxi.com/v1',
+        model: 'MiniMax-M2.7',
+      }),
       vi.fn(),
     )
 
@@ -220,42 +220,15 @@ describe('streamChatCompletion', () => {
 
 function createSettings(
   overrides: Partial<ActiveProviderSettings> = {},
-  provider: ActiveProviderSettings['provider'] = 'deepseek',
 ): ActiveProviderSettings {
-  const defaults: Record<ActiveProviderSettings['provider'], ActiveProviderSettings> = {
-    claude: {
-      provider: 'claude',
-      apiKey: 'sk-ant-test',
-      baseUrl: 'https://api.anthropic.com/v1',
-      model: 'claude-sonnet-4-20250514',
-      temperature: 1,
-    },
-    deepseek: {
-      provider: 'deepseek',
-      apiKey: 'sk-test',
-      baseUrl: 'https://api.deepseek.com',
-      model: 'deepseek-chat',
-      temperature: 1,
-    },
-    minimax: {
-      provider: 'minimax',
-      apiKey: 'sk-test',
-      baseUrl: 'https://api.minimaxi.com/v1',
-      model: 'MiniMax-M2.7',
-      temperature: 1,
-    },
-    openai: {
-      provider: 'openai',
-      apiKey: 'sk-test',
-      baseUrl: 'https://api.openai.com/v1',
-      model: 'gpt-4.1-mini',
-      temperature: 1,
-    },
-  }
-
   return {
-    ...defaults[provider],
+    configId: 'deepseek',
+    label: 'DeepSeek',
+    provider: 'deepseek',
+    apiKey: 'sk-test',
+    baseUrl: 'https://api.deepseek.com',
+    model: 'deepseek-chat',
+    temperature: 1,
     ...overrides,
-    provider,
   }
 }

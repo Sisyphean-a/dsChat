@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { getProviderDefinition, getProviderModelOptions } from '../constants/providers'
+import { createAddedModelDraft } from '../constants/providers'
 import {
   CHAT_IDLE_RESET_MS,
   DEFAULT_SETTINGS,
@@ -22,9 +22,9 @@ import {
 } from '../services/utools'
 import type {
   ActiveProviderSettings,
+  AddableProviderId,
   ChatMessage,
   ConversationDoc,
-  ProviderId,
   ProviderSettings,
   SessionDoc,
   SettingsForm,
@@ -33,9 +33,15 @@ import type {
 import { shouldResetConversation } from '../utils/session'
 import { buildConversationDoc, cloneMessages, createConversationId, sortConversations } from '../utils/chat'
 import { createChatMessage, finalizeStreamingMessages, updateMessageById } from './chatAppMessages'
-import { getActiveProviderSettings, getSendSettingsError, normalizeSettings } from './chatAppSettings'
+import {
+  getActiveProviderSettings,
+  getActiveModelSelectionOptions,
+  getSendSettingsError,
+  normalizeSettings,
+} from './chatAppSettings'
 
 type SendFailureStage = 'initial-persist' | 'stream' | 'final-persist'
+type CustomModelField = keyof ProviderSettings | 'name'
 
 export function useChatApp() {
   const settings = ref<SettingsForm>(structuredClone(DEFAULT_SETTINGS))
@@ -50,9 +56,8 @@ export function useChatApp() {
   const lastError = ref<string | null>(null)
   const environmentNotice = ref<string | null>(null)
   const isBrowserMode = computed(() => !hasUtools())
-  const activeProviderMeta = computed(() => getProviderDefinition(settings.value.activeProvider))
-  const activeProviderSettings = computed(() => settings.value.providers[settings.value.activeProvider])
-  const modelOptions = computed(() => getProviderModelOptions(settings.value.activeProvider))
+  const activeChatConfig = computed(() => getActiveProviderSettings(settings.value))
+  const modelOptions = computed(() => getActiveModelSelectionOptions(settings.value))
 
   let activeAbortController: AbortController | null = null
   let lifecycleRegistered = false
@@ -85,32 +90,70 @@ export function useChatApp() {
     isSidebarCollapsed.value = !isSidebarCollapsed.value
   }
 
-  function selectActiveProvider(provider: ProviderId): void {
+  function selectActiveConfig(configId: string): void {
     settings.value = {
       ...settings.value,
-      activeProvider: provider,
+      activeConfigId: configId,
     }
   }
 
-  function updateActiveProviderField(
+  function updateDeepseekField(
     field: keyof ProviderSettings,
     value: ProviderSettings[keyof ProviderSettings],
   ): void {
-    const provider = settings.value.activeProvider
     settings.value = {
       ...settings.value,
-      providers: {
-        ...settings.value.providers,
-        [provider]: {
-          ...settings.value.providers[provider],
-          [field]: value,
-        },
+      deepseek: {
+        ...settings.value.deepseek,
+        [field]: value,
       },
     }
   }
 
   function selectActiveModel(model: string): void {
-    updateActiveProviderField('model', model)
+    if (settings.value.activeConfigId === 'deepseek') {
+      updateDeepseekField('model', model)
+      return
+    }
+
+    updateCustomModelField(settings.value.activeConfigId, 'model', model)
+  }
+
+  function addCustomModel(provider: AddableProviderId): void {
+    const nextModel = createAddedModelDraft(provider, settings.value.customModels)
+    settings.value = {
+      ...settings.value,
+      customModels: [...settings.value.customModels, nextModel],
+    }
+  }
+
+  function removeCustomModel(id: string): void {
+    const customModels = settings.value.customModels.filter((item) => item.id !== id)
+    settings.value = {
+      ...settings.value,
+      activeConfigId: settings.value.activeConfigId === id ? 'deepseek' : settings.value.activeConfigId,
+      customModels,
+    }
+  }
+
+  function updateCustomModelField(
+    id: string,
+    field: CustomModelField,
+    value: string | number,
+  ): void {
+    settings.value = {
+      ...settings.value,
+      customModels: settings.value.customModels.map((item) => {
+        if (item.id !== id) {
+          return item
+        }
+
+        return {
+          ...item,
+          [field]: value,
+        }
+      }),
+    }
   }
 
   function updateTheme(theme: ThemeMode): void {
@@ -440,9 +483,9 @@ export function useChatApp() {
   }
 
   return {
+    activeChatConfig,
     activeConversationId,
-    activeProviderMeta,
-    activeProviderSettings,
+    addCustomModel,
     closeSettings,
     conversations,
     deleteConversation,
@@ -458,16 +501,18 @@ export function useChatApp() {
     messages,
     modelOptions,
     openSettings,
+    removeCustomModel,
     saveSettings: saveSettingsAction,
+    selectActiveConfig,
     selectActiveModel,
-    selectActiveProvider,
     selectConversation,
     sendMessage,
     settings,
     stopGenerating,
     startFreshConversation,
     toggleSidebar,
-    updateActiveProviderField,
+    updateCustomModelField,
+    updateDeepseekField,
     updateTheme,
   }
 }

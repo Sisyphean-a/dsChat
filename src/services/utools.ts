@@ -4,12 +4,16 @@ import {
   SESSION_DOC_ID,
   SETTINGS_DOC_ID,
 } from '../constants/app'
-import { isProviderId } from '../constants/providers'
-import { normalizeSettings } from '../composables/chatAppSettings'
+import { buildDefaultProviderSettings, createAddedModelDraft } from '../constants/providers'
+import {
+  isLegacyMultiProviderDocShape,
+  normalizeSettings,
+} from '../composables/chatAppSettings'
 import type {
+  AddableProviderId,
   BaseDoc,
   ConversationDoc,
-  ProviderSettingsMap,
+  ProviderSettings,
   SessionDoc,
   SettingsDoc,
   SettingsForm,
@@ -29,12 +33,19 @@ interface LegacySettingsDoc extends BaseDoc {
   theme?: ThemeMode
 }
 
+type LegacyMultiProviderDoc = BaseDoc & {
+  activeProvider?: string
+  providers?: Record<string, Partial<ProviderSettings>>
+  theme?: ThemeMode
+  type: 'settings'
+}
+
 export function hasUtools(): boolean {
   return typeof window !== 'undefined' && typeof window.utools !== 'undefined'
 }
 
 export async function loadSettings(): Promise<SettingsForm> {
-  const doc = (await getDoc(SETTINGS_DOC_ID)) as SettingsDoc | LegacySettingsDoc | null
+  const doc = (await getDoc(SETTINGS_DOC_ID)) as SettingsDoc | LegacySettingsDoc | LegacyMultiProviderDoc | null
   if (!doc) {
     return structuredClone(DEFAULT_SETTINGS)
   }
@@ -165,40 +176,114 @@ function getUtoolsApi(): UtoolsApi {
   return window.utools
 }
 
-function migrateSettingsDoc(doc: SettingsDoc | LegacySettingsDoc): SettingsForm {
+function migrateSettingsDoc(
+  doc: SettingsDoc | LegacySettingsDoc | LegacyMultiProviderDoc,
+): SettingsForm {
   if (isSettingsDoc(doc)) {
     return {
-      activeProvider: doc.activeProvider,
-      providers: doc.providers,
+      activeConfigId: doc.activeConfigId,
+      customModels: doc.customModels,
+      deepseek: doc.deepseek,
       theme: doc.theme,
     }
   }
 
-  const legacyProviderSettings = {
-    ...DEFAULT_SETTINGS.providers.deepseek,
-    apiKey: doc.apiKey ?? DEFAULT_SETTINGS.providers.deepseek.apiKey,
-    baseUrl: doc.baseUrl ?? DEFAULT_SETTINGS.providers.deepseek.baseUrl,
-    model: doc.model ?? DEFAULT_SETTINGS.providers.deepseek.model,
-    temperature: typeof doc.temperature === 'number'
-      ? doc.temperature
-      : DEFAULT_SETTINGS.providers.deepseek.temperature,
+  if (isLegacyMultiProviderDocShape(doc)) {
+    return migrateLegacyMultiProviderDoc(doc as LegacyMultiProviderDoc)
   }
 
   return {
-    activeProvider: 'deepseek',
-    providers: {
-      ...DEFAULT_SETTINGS.providers,
-      deepseek: legacyProviderSettings,
+    activeConfigId: 'deepseek',
+    customModels: [],
+    deepseek: {
+      ...DEFAULT_SETTINGS.deepseek,
+      apiKey: doc.apiKey ?? DEFAULT_SETTINGS.deepseek.apiKey,
+      baseUrl: doc.baseUrl ?? DEFAULT_SETTINGS.deepseek.baseUrl,
+      model: doc.model ?? DEFAULT_SETTINGS.deepseek.model,
+      temperature: typeof doc.temperature === 'number'
+        ? doc.temperature
+        : DEFAULT_SETTINGS.deepseek.temperature,
     },
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
   }
 }
 
-function isSettingsDoc(doc: SettingsDoc | LegacySettingsDoc): doc is SettingsDoc {
-  return isProviderId(String((doc as SettingsDoc).activeProvider))
-    && isProviderMap((doc as SettingsDoc).providers)
+function migrateLegacyMultiProviderDoc(doc: LegacyMultiProviderDoc): SettingsForm {
+  const deepseek = {
+    ...DEFAULT_SETTINGS.deepseek,
+    ...(doc.providers?.deepseek ?? {}),
+  }
+
+  const customModels = (['openai', 'minimax', 'kimi'] as const)
+    .map((provider) => toLegacyCustomModel(provider, doc.providers?.[provider]))
+    .filter((item) => item !== null)
+
+  const activeConfigId = resolveLegacyActiveConfigId(doc.activeProvider, customModels)
+
+  return {
+    activeConfigId,
+    customModels,
+    deepseek,
+    theme: doc.theme ?? DEFAULT_SETTINGS.theme,
+  }
 }
 
-function isProviderMap(value: unknown): value is ProviderSettingsMap {
-  return typeof value === 'object' && value !== null
+function resolveLegacyActiveConfigId(
+  activeProvider: string | undefined,
+  customModels: SettingsForm['customModels'],
+): string {
+  if (!activeProvider || activeProvider === 'deepseek') {
+    return 'deepseek'
+  }
+
+  const matched = customModels.find((item) => item.provider === activeProvider)
+  return matched?.id ?? 'deepseek'
+}
+
+function toLegacyCustomModel(
+  provider: AddableProviderId,
+  incomingSettings: Partial<ProviderSettings> | undefined,
+): SettingsForm['customModels'][number] | null {
+  if (!incomingSettings || !isMeaningfulProviderSettings(provider, incomingSettings)) {
+    return null
+  }
+
+  const draft = createAddedModelDraft(provider, [])
+  return {
+    ...draft,
+    apiKey: incomingSettings.apiKey ?? draft.apiKey,
+    baseUrl: incomingSettings.baseUrl ?? draft.baseUrl,
+    model: incomingSettings.model ?? draft.model,
+    temperature: typeof incomingSettings.temperature === 'number'
+      ? incomingSettings.temperature
+      : draft.temperature,
+  }
+}
+
+function isMeaningfulProviderSettings(
+  provider: AddableProviderId,
+  incomingSettings: Partial<ProviderSettings>,
+): boolean {
+  if (incomingSettings.apiKey?.trim()) {
+    return true
+  }
+
+  const defaults = buildDefaultProviderSettings(provider)
+  const baseUrl = incomingSettings.baseUrl?.trim()
+  const model = incomingSettings.model?.trim()
+
+  return Boolean(
+    (baseUrl && baseUrl !== defaults.baseUrl)
+    || (model && model !== defaults.model),
+  )
+}
+
+function isSettingsDoc(
+  doc: SettingsDoc | LegacySettingsDoc | LegacyMultiProviderDoc,
+): doc is SettingsDoc {
+  const candidate = doc as Partial<SettingsDoc>
+  return typeof candidate.activeConfigId === 'string'
+    && Array.isArray(candidate.customModels)
+    && typeof candidate.deepseek === 'object'
+    && candidate.deepseek !== null
 }

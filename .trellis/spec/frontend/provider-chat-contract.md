@@ -1,16 +1,16 @@
-# Multi-Provider Settings And Chat Completion Contract
+# DeepSeek-First Settings And Added Models Contract
 
-> Executable contract for the `settings -> normalization -> persistence -> request -> UI` flow.
+> Executable contract for the `settings -> normalization -> migration -> request -> UI` flow.
 
 ---
 
-## Scenario: Multi-provider settings, migration, and request dispatch
+## Scenario: DeepSeek built-in settings plus added model presets
 
 ### 1. Scope / Trigger
 
-- Trigger: the chat app no longer stores a single flat DeepSeek config.
-- Trigger: request dispatch now depends on `activeProvider` and provider-specific normalization.
-- Trigger: persistence must migrate legacy `settings/config` documents into the new structure without breaking existing users.
+- Trigger: settings are no longer modeled as one tab per provider.
+- Trigger: the app now keeps one built-in `DeepSeek` config and a list of user-created added models.
+- Trigger: previous flat DeepSeek docs and the intermediate multi-provider docs must both migrate into the new structure.
 
 This spec is required whenever code changes any of:
 
@@ -28,7 +28,8 @@ This spec is required whenever code changes any of:
 #### Types
 
 ```ts
-type ProviderId = 'deepseek' | 'openai' | 'claude' | 'minimax'
+type ProviderId = 'deepseek' | 'openai' | 'minimax' | 'kimi' | 'custom'
+type AddableProviderId = 'openai' | 'minimax' | 'kimi' | 'custom'
 
 interface ProviderSettings {
   apiKey: string
@@ -37,15 +38,22 @@ interface ProviderSettings {
   temperature: number
 }
 
-type ProviderSettingsMap = Record<ProviderId, ProviderSettings>
+interface AddedModelConfig extends ProviderSettings {
+  id: string
+  name: string
+  provider: AddableProviderId
+}
 
 interface SettingsForm {
-  activeProvider: ProviderId
-  providers: ProviderSettingsMap
+  activeConfigId: string
+  deepseek: ProviderSettings
+  customModels: AddedModelConfig[]
   theme: ThemeMode
 }
 
 interface ActiveProviderSettings extends ProviderSettings {
+  configId: string
+  label: string
   provider: ProviderId
 }
 ```
@@ -55,9 +63,11 @@ interface ActiveProviderSettings extends ProviderSettings {
 ```ts
 buildDefaultSettings(): SettingsForm
 buildDefaultProviderSettings(provider: ProviderId): ProviderSettings
-normalizeSettings(currentSettings: SettingsForm): SettingsForm
+createAddedModelDraft(provider: AddableProviderId, currentModels: AddedModelConfig[]): AddedModelConfig
+normalizeSettings(settings: SettingsForm): SettingsForm
 getActiveProviderSettings(settings: SettingsForm): ActiveProviderSettings
-getSendSettingsError(currentSettings: SettingsForm): string | null
+getSendSettingsError(settings: SettingsForm): string | null
+getModelConfigOptions(settings: SettingsForm): ModelConfigOption[]
 modelSupportsTemperature(provider: ProviderId, model: string): boolean
 ```
 
@@ -77,11 +87,7 @@ SETTINGS_DOC_ID = 'settings/config'
 #### Request layer
 
 ```ts
-requestChatCompletion(
-  messages: ChatMessage[],
-  settings: ActiveProviderSettings,
-): Promise<string>
-
+requestChatCompletion(messages: ChatMessage[], settings: ActiveProviderSettings): Promise<string>
 streamChatCompletion(
   messages: ChatMessage[],
   settings: ActiveProviderSettings,
@@ -96,79 +102,101 @@ streamChatCompletion(
 
 `buildDefaultSettings()` must return:
 
-- `activeProvider = 'deepseek'`
+- `activeConfigId = 'deepseek'`
 - `theme = 'light'`
-- one independent `ProviderSettings` object per provider
-- each provider seeded from `PROVIDER_REGISTRY`
+- one built-in `deepseek` config seeded from registry defaults
+- `customModels = []`
 
 Required invariant:
 
-- switching providers must not overwrite another provider's `apiKey/baseUrl/model/temperature`
+- DeepSeek always exists even when there are zero added models
+- deleting an added model that is currently active must fall back to `deepseek`
 
 #### Contract B: Legacy migration
 
-Legacy persisted document shape:
+Supported legacy shapes:
 
-```ts
-interface LegacySettingsDoc {
-  _id: 'settings/config'
-  type: 'settings'
-  apiKey?: string
-  baseUrl?: string
-  model?: string
-  temperature?: number
-  theme?: ThemeMode
-}
-```
+1. flat DeepSeek-only doc
+2. previous multi-provider doc with `activeProvider` + `providers`
 
-Migration rule:
+Migration rules:
 
-1. map legacy flat fields into `providers.deepseek`
-2. keep all other providers at registry defaults
-3. set `activeProvider = 'deepseek'`
-4. normalize the migrated result before returning it to UI state
+1. flat docs map into `deepseek`
+2. previous multi-provider docs map `providers.deepseek` into `deepseek`
+3. previous `openai / minimax / kimi` entries become `customModels` only when they are meaningfully configured
+4. previous `claude` entries are dropped
+5. `activeConfigId` resolves to the migrated custom model when possible, otherwise `deepseek`
 
-No user action should be required after upgrade.
+Required non-fallback:
+
+- do not create added models just because an old doc stored untouched registry defaults
 
 #### Contract C: Normalization boundary
 
 `normalizeSettings()` is the only place allowed to coerce:
 
-- invalid `activeProvider` -> `DEFAULT_PROVIDER_ID`
-- missing provider entries -> provider defaults
-- non-finite temperature -> provider default temperature
-- out-of-range temperature -> clamp to provider range
-- theme not in `THEME_OPTIONS` -> default theme
+- invalid or missing `activeConfigId` -> `'deepseek'`
+- malformed `customModels` -> filtered normalized array
+- invalid theme -> default theme
+- invalid temperature -> provider default temperature
 
 Required non-coercion:
 
-- blank `baseUrl` must stay blank if the field was explicitly cleared
-- blank `model` must stay blank if the field was explicitly cleared
+- explicit blank `baseUrl` must stay blank
+- explicit blank `model` must stay blank
 
 Reason:
 
-- send-time validation must surface missing config instead of silently falling back
+- send-time validation must surface missing configuration instead of hiding it
 
 #### Contract D: Send-time validation
 
-`getSendSettingsError()` validates only the active provider.
+`getSendSettingsError()` validates only the active config.
 
 Required checks:
 
-1. missing `apiKey` -> `"请先在设置面板中填写 <ProviderLabel> API Key。"`
-2. missing `baseUrl` -> `"请先在设置面板中填写 <ProviderLabel> Base URL。"`
-3. missing `model` -> `"请先在设置面板中选择 <ProviderLabel> 模型。"`
+1. missing `apiKey` -> `"请先在设置面板中填写 <Label> API Key。"`
+2. missing `baseUrl` -> `"请先在设置面板中填写 <Label> Base URL。"`
+3. missing `model` -> `"请先在设置面板中选择 <Label> 模型。"`
 
 The send flow in `useChatApp()` must:
 
 1. normalize settings
-2. compute `activeSettings`
+2. compute `ActiveProviderSettings`
 3. validate
 4. stop send and open settings when validation fails
 
-#### Contract E: Chat completions endpoint
+#### Contract E: Added models UI
 
-All supported providers currently use:
+Settings UI is split into exactly three pages:
+
+1. `基础设置`
+2. `DeepSeek`
+3. `新增模型`
+
+`基础设置` must allow:
+
+- selecting the active config from `deepseek + customModels`
+- switching theme
+
+`DeepSeek` must allow:
+
+- editing only `Base URL / API Key / 模型`
+
+`新增模型` must allow:
+
+- creating entries from presets `OpenAI / MiniMax / Kimi / 自定义`
+- editing `名称 / Base URL / API Key / 模型`
+- deleting added models
+
+Required non-goal:
+
+- no `Claude` page or preset
+- no runtime “同步模型” flow
+
+#### Contract F: Chat completions endpoint
+
+All providers currently use:
 
 ```ts
 POST <baseUrl>/chat/completions
@@ -176,98 +204,79 @@ Authorization: Bearer <apiKey>
 Content-Type: application/json
 ```
 
-Base payload:
-
-```json
-{
-  "messages": [{ "role": "user", "content": "..." }],
-  "model": "provider-model-id",
-  "stream": true
-}
-```
-
-Conditional fields:
+Conditional payload fields:
 
 - include `temperature` only when `modelSupportsTemperature(provider, model)` is `true`
 - include `reasoning_split: true` only for `provider === 'minimax'`
 
-#### Contract F: Streaming delta parsing
+#### Contract G: Streaming delta parsing
 
-DeepSeek / OpenAI / Claude compatible path:
+DeepSeek path:
 
 - answer chunks come from `choices[0].delta.content`
-- DeepSeek reasoning chunks come from `choices[0].delta.reasoning_content`
+- reasoning chunks come from `choices[0].delta.reasoning_content`
 
 MiniMax path:
 
 - answer chunks may be cumulative in `choices[0].delta.content`
 - reasoning chunks may be cumulative in `choices[0].delta.reasoning_details[].text`
-- parser must emit only the suffix delta, not the full cumulative value
+- parser must emit only the suffix delta
+
+Generic path:
+
+- `openai / kimi / custom` use `choices[0].delta.content`
 
 Terminal rules:
 
 - `[DONE]` ends the stream
-- empty final content must throw `"<ProviderLabel> 未返回可用内容。"`
-- `response.ok === false` must throw `"<ProviderLabel> 请求失败：<status> <statusText>"`
+- empty final content must throw `"<Label> 未返回可用内容。"`
+- non-2xx response must throw `"<Label> 请求失败：<status> <statusText>"`
 
 ### 4. Validation & Error Matrix
 
 | Boundary | Input | Validation | Required behavior |
 |---------|------|------------|-------------------|
-| Storage -> UI | no settings doc | use defaults | return `deepseek` as active provider |
-| Storage -> UI | legacy flat doc | migrate + normalize | deepseek gets legacy values, others stay default |
-| UI -> normalized state | invalid provider id | provider whitelist | fallback to `deepseek` |
-| UI -> normalized state | explicit blank baseUrl/model | do not backfill | blank survives to send validation |
-| UI -> send | blank apiKey/baseUrl/model | active provider only | open settings and show error, no request |
-| Active settings -> request payload | model without temperature support | provider model metadata | omit/neutralize `temperature` |
-| Response -> stream parser | cumulative MiniMax delta | prefix diffing | emit suffix only once |
-| Response -> UI | empty final content | trim check | show provider-specific empty-content error |
-| Request -> UI | non-2xx response | status check | show provider-specific failure error |
+| Storage -> UI | no settings doc | defaults | return built-in DeepSeek |
+| Storage -> UI | flat legacy doc | migrate | deepseek receives legacy values |
+| Storage -> UI | previous multi-provider doc | migrate | deepseek + meaningful custom models |
+| UI -> normalized state | deleted active custom model | config id resolution | fallback to `deepseek` |
+| UI -> send | blank active `apiKey/baseUrl/model` | active config only | open settings and block request |
+| Active settings -> request payload | MiniMax active | provider switch | add `reasoning_split: true` |
+| Response -> stream parser | MiniMax cumulative delta | prefix diffing | append suffix once |
+| Response -> UI | empty final content | trim check | show label-specific error |
 
 ### 5. Good / Base / Bad Cases
 
 #### Good
 
-- user configures DeepSeek and OpenAI separately, switches between them, and each provider retains its own key and model
-- legacy DeepSeek-only doc loads into `providers.deepseek` and chat keeps working
-- MiniMax stream returns cumulative content and UI appends only the new suffix
+- user keeps DeepSeek as default and adds one OpenAI preset entry for occasional use
+- user deletes the currently active added model and the app falls back to DeepSeek
+- old multi-provider docs migrate OpenAI and MiniMax into added models while dropping Claude
 
 #### Base
 
-- new install with no settings doc starts on DeepSeek defaults
-- user changes theme only; provider configs remain untouched
-- user changes active provider in settings but does not save; in-memory UI reflects the new active provider immediately
+- new install starts with only DeepSeek configured
+- user adds a Kimi preset and edits only `API Key`
+- user changes theme without touching model configs
 
 #### Bad
 
-- blank `baseUrl` is silently replaced by the default URL during normalization
-- provider switch overwrites the previously configured provider's API key
-- MiniMax cumulative stream is appended as full values, causing duplicated text in the assistant message
-- request layer throws generic `"请求失败"` without provider label or status code
+- deleting an added model leaves `activeConfigId` pointing at a missing id
+- old untouched preset defaults are all migrated into visible added models
+- request errors still say `"DeepSeek 请求失败"` even when the active config label is custom
 
 ### 6. Tests Required
 
-Minimum required tests for this scenario:
+Minimum required automated coverage:
 
-1. legacy flat settings doc migrates into `providers.deepseek`
-   - assert `activeProvider === 'deepseek'`
-   - assert non-DeepSeek providers still use defaults
-2. multi-provider settings round-trip through persistence
-   - assert active provider and selected provider fields survive save/load
-3. send flow validates active provider only
-   - assert blank active-provider `baseUrl` / `model` blocks send and opens settings
-4. send flow uses a normalized active-provider snapshot
-   - assert request layer receives `ActiveProviderSettings`
-5. DeepSeek reasoning content is stored separately from answer content
-6. MiniMax cumulative reasoning/content are diffed into suffix deltas
-7. models without temperature support do not use free temperature payloads
-8. request failures include provider label and HTTP status
-
-Current reference tests:
-
-- `src/composables/useChatApp.spec.ts`
-- `src/services/chatCompletion.spec.ts`
-- `src/services/utools.spec.ts`
+1. flat legacy doc migrates into `deepseek`
+2. previous multi-provider doc migrates into `deepseek + customModels`
+3. active custom config with blank base URL blocks send and opens settings
+4. active custom config is normalized before request dispatch
+5. DeepSeek reasoning content is stored separately from final content
+6. MiniMax cumulative content is diffed into suffix deltas
+7. deleting the active added model falls back to `deepseek`
+8. build and tests pass after changing settings structure
 
 ### 7. Wrong vs Correct
 
@@ -275,68 +284,59 @@ Current reference tests:
 
 ```ts
 return {
-  apiKey: incoming.apiKey?.trim() ?? defaults.apiKey,
-  baseUrl: incoming.baseUrl?.trim() || defaults.baseUrl,
-  model: incoming.model?.trim() || defaults.model,
-  temperature: defaults.temperature,
+  activeConfigId: incoming.activeConfigId ?? firstCustomId,
+  customModels: incoming.customModels ?? [],
 }
 ```
 
 Why wrong:
 
-- explicit blank values are overwritten
-- send-time validation never sees the missing config
-- user mistakes are hidden instead of surfaced
+- can leave `activeConfigId` pointing to a removed config
 
 #### Correct
 
 ```ts
 return {
-  apiKey: incoming.apiKey?.trim() ?? defaults.apiKey,
-  baseUrl: incoming.baseUrl === undefined ? defaults.baseUrl : incoming.baseUrl.trim(),
-  model: incoming.model === undefined ? defaults.model : incoming.model.trim(),
-  temperature: normalizeTemperature(provider, model, incoming.temperature),
+  activeConfigId: customModels.some((item) => item.id === incoming.activeConfigId)
+    ? incoming.activeConfigId
+    : 'deepseek',
+  customModels,
 }
 ```
 
 #### Wrong
 
 ```ts
-if (provider === 'minimax') {
-  return delta.content ?? ''
+if (legacy.providers?.kimi) {
+  customModels.push(createAddedModelDraft('kimi', []))
 }
 ```
 
 Why wrong:
 
-- MiniMax may send cumulative content
-- UI duplicates previously rendered text
+- migrates untouched preset defaults into visible noise
 
 #### Correct
 
 ```ts
-if (provider === 'minimax') {
-  return nextValue.startsWith(currentValue)
-    ? nextValue.slice(currentValue.length)
-    : nextValue
+if (isMeaningfulProviderSettings('kimi', legacy.providers?.kimi ?? {})) {
+  customModels.push(toLegacyCustomModel('kimi', legacy.providers?.kimi))
 }
 ```
 
-### Design Decision: Registry-driven provider metadata
+### Design Decision: Provider becomes preset metadata
 
 Context:
 
-- provider defaults, UI labels, supported models, and temperature ranges must stay aligned
+- the user-facing settings IA is no longer “switch provider and edit everything inside one page”
 
 Decision:
 
-- use `PROVIDER_REGISTRY` in `src/constants/providers.ts` as the single source of truth
+- keep provider metadata only as preset definitions and request behavior
+- use `activeConfigId` as the runtime selection key
 
 Extension rule:
 
-1. add a new `ProviderId`
-2. add its registry entry
-3. ensure `buildDefaultProviderSettingsMap()` seeds it
-4. add request-layer behavior only if its payload or stream format differs
-5. add migration / payload / parsing tests before exposing it in UI
-
+1. new vendor presets must be added as `AddableProviderId`
+2. built-in `deepseek` remains singular and cannot be deleted
+3. only add a new preset when it can be represented by `Base URL / API Key / 模型`

@@ -1,4 +1,3 @@
-import { getProviderDefinition } from '../constants/providers'
 import { modelSupportsTemperature } from '../composables/chatAppSettings'
 import type { ActiveProviderSettings, ChatMessage, ProviderId } from '../types/chat'
 
@@ -46,13 +45,13 @@ export async function requestChatCompletion(
   })
 
   if (!response.ok) {
-    throw new Error(createProviderFailureMessage(settings.provider, response.status, response.statusText))
+    throw new Error(createProviderFailureMessage(settings.label, response.status, response.statusText))
   }
 
   const data = (await response.json()) as ChatCompletionResponse
   const content = data.choices?.[0]?.message?.content?.trim()
   if (!content) {
-    throw new Error(createProviderEmptyMessage(settings.provider))
+    throw new Error(createProviderEmptyMessage(settings.label))
   }
 
   return content
@@ -72,7 +71,7 @@ export async function streamChatCompletion(
   })
 
   if (!response.ok) {
-    throw new Error(createProviderFailureMessage(settings.provider, response.status, response.statusText))
+    throw new Error(createProviderFailureMessage(settings.label, response.status, response.statusText))
   }
 
   if (!response.body) {
@@ -98,7 +97,7 @@ export async function streamChatCompletion(
     for (const event of consumed.events) {
       const next = appendDelta({ content, reasoningContent }, event, onDelta, settings.provider)
       if (next.done) {
-        return finalizeStreamContent(next.content, settings.provider)
+        return finalizeStreamContent(next.content, settings.label)
       }
 
       content = next.content
@@ -112,7 +111,7 @@ export async function streamChatCompletion(
     content = trailing.content
   }
 
-  return finalizeStreamContent(content, settings.provider)
+  return finalizeStreamContent(content, settings.label)
 }
 
 function extractEventPayload(frame: string): string {
@@ -209,9 +208,9 @@ function resolveCumulativeDelta(nextValue: string, currentValue: string): string
     : nextValue
 }
 
-function finalizeStreamContent(content: string, provider: ProviderId): string {
+function finalizeStreamContent(content: string, label: string): string {
   if (!content.trim()) {
-    throw new Error(createProviderEmptyMessage(provider))
+    throw new Error(createProviderEmptyMessage(label))
   }
 
   return content
@@ -246,10 +245,10 @@ function createPayload(messages: ChatMessage[], settings: ActiveProviderSettings
   return payload
 }
 
-function createProviderFailureMessage(provider: ProviderId, status: number, statusText: string): string {
-  return `${getProviderDefinition(provider).label} 请求失败：${status} ${statusText}`
+function createProviderFailureMessage(label: string, status: number, statusText: string): string {
+  return `${label} 请求失败：${status} ${statusText}`
 }
 
-function createProviderEmptyMessage(provider: ProviderId): string {
-  return `${getProviderDefinition(provider).label} 未返回可用内容。`
+function createProviderEmptyMessage(label: string): string {
+  return `${label} 未返回可用内容。`
 }
