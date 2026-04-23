@@ -103,7 +103,7 @@ export function useChatApp() {
     isSending.value = false
 
     if (isBrowserMode.value) {
-      environmentNotice.value = '当前为浏览器预览模式：使用浏览器本地存储保存设置与对话，不接入 uTools 数据库。'
+      // environmentNotice.value = '当前为浏览器预览模式：使用浏览器本地存储保存设置与对话，不接入 uTools 数据库。'
       return
     }
 

@@ -57,7 +57,7 @@ Examples from the chat feature:
 
 - `MessageBubble` receives a full `ChatMessage`
 - `ModelPicker` receives `modelValue`, `options`, `disabled`
-- `ChatComposer` receives `modelValue`, `disabled`, `isSending`
+- `ChatComposer` receives `modelValue`, `sendDisabled`, `isSending`
 
 Do not pass persistence services or request builders into presentational components.
 
@@ -121,6 +121,7 @@ Required chat composer behavior:
 
 - sending state swaps the send button into a stop button
 - stop action emits an explicit `stop` event
+- sending state must still allow textarea editing; only send submission stays blocked
 
 Example:
 

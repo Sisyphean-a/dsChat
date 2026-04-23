@@ -18,7 +18,12 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
   const lockedAnchorOffsetTop = ref<number | null>(null)
   const isProgrammaticAdjustment = ref(false)
   const resizeObserver = createResizeObserver(() => {
-    syncLockedScrollPosition()
+    if (releasedForStreamingMessageId.value === currentStreamingMessageId.value) {
+      syncLockedScrollPosition()
+      return
+    }
+
+    syncAutoFollowScrollPosition()
   })
 
   const currentStreamingMessageId = computed(() => {
@@ -185,12 +190,16 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
       return
     }
 
-    isProgrammaticAdjustment.value = true
-    element.scrollTop += delta
-    previousScrollTop.value = element.scrollTop
-    queueMicrotask(() => {
-      isProgrammaticAdjustment.value = false
-    })
+    applyProgrammaticScrollTop(element.scrollTop + delta)
+  }
+
+  function syncAutoFollowScrollPosition(): void {
+    const element = messageListRef.value
+    if (!element || !currentStreamingMessageId.value) {
+      return
+    }
+
+    applyProgrammaticScrollTop(element.scrollHeight)
   }
 
   async function observeMessageItems(): Promise<void> {
@@ -233,6 +242,20 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
   function resetAnchorSnapshot(): void {
     lockedAnchorMessageId.value = null
     lockedAnchorOffsetTop.value = null
+  }
+
+  function applyProgrammaticScrollTop(nextScrollTop: number): void {
+    const element = messageListRef.value
+    if (!element) {
+      return
+    }
+
+    isProgrammaticAdjustment.value = true
+    element.scrollTop = nextScrollTop
+    previousScrollTop.value = element.scrollTop
+    queueMicrotask(() => {
+      isProgrammaticAdjustment.value = false
+    })
   }
 }
 

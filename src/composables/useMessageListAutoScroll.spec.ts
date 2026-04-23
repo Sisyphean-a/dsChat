@@ -275,6 +275,29 @@ describe('useMessageListAutoScroll', () => {
 
     expect(list.scrollTop).toBe(1610)
   })
+
+  it('keeps auto-follow pinned to bottom when message height grows after delayed markdown layout changes', async () => {
+    const activeConversationId = ref<string | null>('c1')
+    const messages = ref<ChatMessage[]>(createStreamingMessages('a'))
+    const autoScroll = useMessageListAutoScroll({
+      activeConversationId,
+      messages,
+    })
+
+    const list = createMessageListElement({
+      clientHeight: 500,
+      scrollHeight: 2000,
+      scrollTop: 2000,
+    })
+    autoScroll.messageListRef.value = list
+    await flushWatchers()
+
+    setScrollHeight(list, 2180)
+    resizeObserverCallback?.([], {} as ResizeObserver)
+    await flushWatchers()
+
+    expect(list.scrollTop).toBe(2180)
+  })
 })
 
 function createStreamingMessages(content: string): ChatMessage[] {

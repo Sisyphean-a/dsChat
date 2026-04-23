@@ -1,9 +1,9 @@
 <script setup lang="ts">
 
 const props = defineProps<{
-  disabled: boolean
   isSending: boolean
   modelValue: string
+  sendDisabled: boolean
 }>()
 
 const emit = defineEmits<{
@@ -12,10 +12,16 @@ const emit = defineEmits<{
   stop: []
 }>()
 
+function handleSubmit(): void {
+  if (!props.sendDisabled && props.modelValue.trim() !== '') {
+    emit('send')
+  }
+}
+
 function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
-    if (!props.disabled && props.modelValue.trim() !== '') {
+    if (!props.sendDisabled && props.modelValue.trim() !== '') {
       emit('send')
     }
   }
@@ -30,10 +36,9 @@ function adjustHeight(event: Event) {
 </script>
 
 <template>
-  <form class="composer-form" @submit.prevent="emit('send')">
-    <div class="input-wrapper" :class="{ 'is-disabled': props.disabled }">
+  <form class="composer-form" @submit.prevent="handleSubmit">
+    <div class="input-wrapper">
       <textarea
-        :disabled="props.disabled"
         :value="props.modelValue"
         placeholder="给 DeepSeek 发送消息..."
         rows="1"
@@ -60,7 +65,7 @@ function adjustHeight(event: Event) {
           v-else
           class="send-button"
           type="submit"
-          :disabled="props.disabled || !props.modelValue.trim()"
+          :disabled="props.sendDisabled || !props.modelValue.trim()"
           title="发送 (Enter)"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -95,10 +100,6 @@ function adjustHeight(event: Event) {
   border-color: var(--accent);
   box-shadow: 0 10px 24px rgba(16, 163, 127, 0.12);
   transform: translateY(-1px);
-}
-
-.input-wrapper.is-disabled {
-  background: var(--bg-hover);
 }
 
 textarea {

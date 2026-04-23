@@ -128,8 +128,8 @@ onMounted(() => {
       <div class="composer-container">
         <ChatComposer
           v-model="app.draftMessage.value"
-          :disabled="app.isSending.value"
           :is-sending="app.isSending.value"
+          :send-disabled="app.isSending.value"
           @send="app.sendMessage"
           @stop="app.stopGenerating"
         >

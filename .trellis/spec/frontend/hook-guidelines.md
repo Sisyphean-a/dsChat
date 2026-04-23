@@ -62,6 +62,8 @@ For streaming message list auto-follow:
 2. lock on upward user intent (`wheel` up or upward `scrollTop` delta)
 3. unlock only on explicit return-to-bottom condition
 4. keep `wheel` intent listener at capture phase to reduce event-order ambiguity
+5. when auto-follow is still unlocked, delayed layout-height changes from markdown segmentation / code highlighting must also keep the list pinned to bottom
+6. when auto-follow is locked, those same delayed height changes must preserve the locked anchor instead of snapping back to bottom
 
 This avoids probabilistic behavior under fast wheel input.
 
