@@ -287,6 +287,17 @@ describe('useChatApp', () => {
     expect(app.settings.value.activeConfigId).toBe(customId)
   })
 
+  it('allows renaming custom provider display names', async () => {
+    const app = useChatApp()
+    await app.initialize()
+    app.addCustomModel('custom')
+
+    const customId = app.settings.value.customModels[0]?.id as string
+    app.updateCustomModelField(customId, 'name', '公司内部网关')
+
+    expect(app.settings.value.customModels[0]?.name).toBe('公司内部网关')
+  })
+
   it('exposes deepseek model options for quick switching and updates the active model', async () => {
     const app = useChatApp()
     await app.initialize()
@@ -312,6 +323,22 @@ describe('useChatApp', () => {
 
     app.removeCustomModelOption(customId, 'gpt-custom-1')
     expect(app.settings.value.customModels[0]?.modelOptions).not.toContain('gpt-custom-1')
+  })
+
+  it('allows editing custom model options', async () => {
+    const app = useChatApp()
+    await app.initialize()
+    app.addCustomModel('openai')
+
+    const customId = app.settings.value.customModels[0]?.id as string
+    app.addCustomModelOption(customId, 'gpt-custom-1')
+    app.updateCustomModelField(customId, 'model', 'gpt-custom-1')
+
+    app.renameCustomModelOption(customId, 'gpt-custom-1', 'gpt-custom-2')
+
+    expect(app.settings.value.customModels[0]?.modelOptions).toContain('gpt-custom-2')
+    expect(app.settings.value.customModels[0]?.modelOptions).not.toContain('gpt-custom-1')
+    expect(app.settings.value.customModels[0]?.model).toBe('gpt-custom-2')
   })
 
   it('blocks sending when the active custom model base url is blank', async () => {

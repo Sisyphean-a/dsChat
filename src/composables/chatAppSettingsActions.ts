@@ -27,6 +27,7 @@ export interface ChatAppSettingsActions {
   addCustomModelOption: (id: string, option: string) => void
   closeSettings: () => void
   openSettings: () => void
+  renameCustomModelOption: (id: string, fromOption: string, toOption: string) => void
   removeCustomModel: (id: string) => void
   removeCustomModelOption: (id: string, option: string) => void
   saveSettingsAction: () => Promise<void>
@@ -188,6 +189,29 @@ export function createChatAppSettingsActions(
     }
   }
 
+  function renameCustomModelOption(id: string, fromOption: string, toOption: string): void {
+    const from = fromOption.trim()
+    const to = toOption.trim()
+    if (!from || !to || from === to) {
+      return
+    }
+
+    settings.value = {
+      ...settings.value,
+      customModels: settings.value.customModels.map((item) => {
+        if (item.id !== id) {
+          return item
+        }
+
+        return {
+          ...item,
+          model: item.model === from ? to : item.model,
+          modelOptions: replaceModelOption(item.modelOptions, from, to),
+        }
+      }),
+    }
+  }
+
   function removeCustomModel(id: string): void {
     const customModels = settings.value.customModels.filter((item) => item.id !== id)
     settings.value = {
@@ -235,6 +259,7 @@ export function createChatAppSettingsActions(
     addCustomModelOption,
     closeSettings,
     openSettings,
+    renameCustomModelOption,
     removeCustomModel,
     removeCustomModelOption,
     saveSettingsAction,
@@ -255,4 +280,32 @@ function appendModelOption(current: string[], model: string): string[] {
   }
 
   return [...current, value]
+}
+
+function replaceModelOption(current: string[], fromOption: string, toOption: string): string[] {
+  const from = fromOption.trim()
+  const to = toOption.trim()
+  if (!from || !to || from === to) {
+    return current
+  }
+
+  const nextOptions: string[] = []
+  const visited = new Set<string>()
+
+  for (const item of current) {
+    const value = item.trim()
+    if (!value) {
+      continue
+    }
+
+    const nextValue = value === from ? to : value
+    if (visited.has(nextValue)) {
+      continue
+    }
+
+    visited.add(nextValue)
+    nextOptions.push(nextValue)
+  }
+
+  return nextOptions
 }

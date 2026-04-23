@@ -26,6 +26,18 @@ const currentMeta = computed(() => {
   }
 })
 
+function normalizeOptionText(value: string): string {
+  return value.trim().toLowerCase().replace(/[\s\-_.\/]+/g, '')
+}
+
+function shouldShowDetail(option: ModelConfigOption): boolean {
+  if (!option.detail.trim()) {
+    return false
+  }
+
+  return normalizeOptionText(option.label) !== normalizeOptionText(option.detail)
+}
+
 function togglePanel(): void {
   if (props.disabled) {
     return
@@ -80,7 +92,7 @@ onBeforeUnmount(() => {
           @click="selectModel(option.value)"
         >
           <strong>{{ option.label }}</strong>
-          <span>{{ option.detail }}</span>
+          <span v-if="shouldShowDetail(option)">{{ option.detail }}</span>
         </button>
       </div>
     </transition>

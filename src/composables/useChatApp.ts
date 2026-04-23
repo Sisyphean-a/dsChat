@@ -234,6 +234,7 @@ export function useChatApp() {
     messages,
     modelOptions,
     openSettings: settingsActions.openSettings,
+    renameCustomModelOption: settingsActions.renameCustomModelOption,
     removeCustomModel: settingsActions.removeCustomModel,
     removeCustomModelOption: settingsActions.removeCustomModelOption,
     saveSettings: saveSettingsAction,

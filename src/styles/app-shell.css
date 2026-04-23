@@ -40,6 +40,12 @@
   max-width: 50%;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .action-btn {
   padding: 4px;
   display: flex;

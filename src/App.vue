@@ -66,12 +66,20 @@ onMounted(() => {
 
     <main class="chat-stage">
       <header class="chat-header">
-        <button class="ghost-button action-btn" type="button" @click="app.toggleSidebar" title="历史会话">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="9" y1="3" x2="9" y2="21"></line>
-          </svg>
-        </button>
+        <div class="header-actions">
+          <button class="ghost-button action-btn" type="button" @click="app.toggleSidebar" title="历史会话">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+          </button>
+          <button class="ghost-button action-btn" type="button" :disabled="app.isSending.value" @click="app.startFreshConversation" title="新对话">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+        </div>
         
         <span class="chat-title">{{ currentTitle }}</span>
         
@@ -161,6 +169,7 @@ onMounted(() => {
       @close="app.closeSettings"
       @remove-custom-model="app.removeCustomModel"
       @remove-custom-model-option="app.removeCustomModelOption"
+      @rename-custom-model-option="app.renameCustomModelOption"
       @save="app.saveSettings"
       @update-custom-model-field="app.updateCustomModelField"
       @update-deepseek-field="app.updateDeepseekField"

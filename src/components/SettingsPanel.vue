@@ -32,6 +32,7 @@ const emit = defineEmits<{
   close: []
   removeCustomModel: [id: string]
   removeCustomModelOption: [id: string, option: string]
+  renameCustomModelOption: [id: string, from: string, to: string]
   save: []
   updateCustomModelField: [id: string, field: CustomModelField, value: string | number]
   updateDeepseekField: [field: ProviderEditableField, value: string | number]
@@ -144,7 +145,7 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
             >
               <div class="provider-head">
                 <input
-                  class="transparent-input"
+                  class="provider-name-input"
                   :value="item.name"
                   placeholder="未命名模型"
                   type="text"
@@ -173,6 +174,7 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
                   placeholder="输入模型 ID"
                   @add-option="emit('addCustomModelOption', item.id, $event)"
                   @remove-option="emit('removeCustomModelOption', item.id, $event)"
+                  @rename-option="emit('renameCustomModelOption', item.id, $event.from, $event.to)"
                   @select="emit('updateCustomModelField', item.id, 'model', $event)"
                 />
               </div>
@@ -367,20 +369,18 @@ button {
   color: var(--text);
 }
 
-.transparent-input {
-  font-size: 1rem;
-  font-weight: 600;
+.provider-name-input {
+  width: 100%;
+  max-width: 240px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
   color: var(--text);
-  background: transparent;
-  border: none;
+  padding: 6px 10px;
+  font-size: 0.85rem;
   outline: none;
-  padding: 0;
-  flex: 1;
-  min-width: 0;
-}
-
-.transparent-input::placeholder {
-  color: var(--text-muted);
+  box-sizing: border-box;
+  font-family: var(--font-mono, inherit);
 }
 
 .danger-text {
@@ -402,7 +402,7 @@ button {
   align-items: start;
 }
 
-input:not(.transparent-input),
+input:not(.provider-name-input),
 .storage-select {
   width: 100%;
   padding: 8px 12px;

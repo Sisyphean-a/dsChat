@@ -11,6 +11,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   addOption: [value: string]
+  renameOption: [payload: { from: string; to: string }]
   removeOption: [value: string]
   select: [value: string]
 }>()
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 const rootRef = ref<HTMLElement | null>(null)
 const isOpen = ref(false)
 const draftOption = ref('')
+const editingFrom = ref<string | null>(null)
 
 const normalizedOptions = computed(() => {
   const visited = new Set<string>()
@@ -65,13 +67,35 @@ function submitOption(): void {
     return
   }
 
+  if (editingFrom.value) {
+    const from = editingFrom.value
+    emit('renameOption', { from, to: value })
+    if (props.modelValue === from) {
+      emit('select', value)
+    }
+    clearDraft()
+    return
+  }
+
   emit('addOption', value)
   emit('select', value)
-  draftOption.value = ''
+  clearDraft()
 }
 
 function removeOption(model: string): void {
+  if (editingFrom.value === model) {
+    clearDraft()
+  }
   emit('removeOption', model)
+}
+
+function editOption(model: string): void {
+  if (!props.allowManage) {
+    return
+  }
+
+  editingFrom.value = model
+  draftOption.value = model
 }
 
 function updateModel(event: Event): void {
@@ -84,6 +108,12 @@ function closeOnOutside(event: MouseEvent): void {
   }
 
   isOpen.value = false
+  clearDraft()
+}
+
+function clearDraft(): void {
+  draftOption.value = ''
+  editingFrom.value = null
 }
 
 onMounted(() => {
@@ -120,11 +150,23 @@ onBeforeUnmount(() => {
           <input
             v-model="draftOption"
             class="picker-manage-input"
-            placeholder="新增模型 ID"
+            :placeholder="editingFrom ? '编辑模型 ID' : '新增模型 ID'"
             type="text"
             @keydown.enter.prevent="submitOption"
           />
-          <button class="picker-manage-button" type="button" @click="submitOption">添加</button>
+          <div class="picker-manage-actions">
+            <button class="picker-manage-button" type="button" @click="submitOption">
+              {{ editingFrom ? '保存' : '添加' }}
+            </button>
+            <button
+              v-if="editingFrom"
+              class="picker-manage-cancel"
+              type="button"
+              @click="clearDraft"
+            >
+              取消
+            </button>
+          </div>
         </div>
 
         <div v-if="normalizedOptions.length" class="picker-options">
@@ -136,16 +178,23 @@ onBeforeUnmount(() => {
           >
             <button class="picker-option-main" type="button" @click="selectModel(option)">
               <strong>{{ option }}</strong>
-              <span>{{ option }}</span>
             </button>
-            <button
-              v-if="props.allowManage"
-              class="picker-option-remove"
-              type="button"
-              @click.stop="removeOption(option)"
-            >
-              删除
-            </button>
+            <div v-if="props.allowManage" class="picker-option-actions">
+              <button
+                class="picker-option-edit"
+                type="button"
+                @click.stop="editOption(option)"
+              >
+                编辑
+              </button>
+              <button
+                class="picker-option-remove"
+                type="button"
+                @click.stop="removeOption(option)"
+              >
+                删除
+              </button>
+            </div>
           </div>
         </div>
         <div v-else class="picker-empty">暂无模型</div>
@@ -248,6 +297,12 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 
+.picker-manage-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .picker-manage-input {
   width: 100%;
   border: 1px solid var(--border);
@@ -268,6 +323,15 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: var(--text);
   background: var(--bg-soft);
+}
+
+.picker-manage-cancel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  height: 30px;
 }
 
 .picker-options {
@@ -303,24 +367,37 @@ onBeforeUnmount(() => {
   color: var(--text);
 }
 
-.picker-option span {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-}
-
 .picker-option:hover .picker-option-main,
 .picker-option.active .picker-option-main {
   background: var(--bg-hover);
   transform: translateY(-1px);
 }
 
+.picker-option-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.picker-option-edit,
 .picker-option-remove {
   padding: 0 6px;
   font-size: 0.7rem;
-  color: var(--danger);
   border-radius: 6px;
   height: 24px;
+}
+
+.picker-option-edit {
+  color: var(--text-muted);
+}
+
+.picker-option-edit:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.picker-option-remove {
+  color: var(--danger);
 }
 
 .picker-option-remove:hover {
