@@ -120,7 +120,7 @@ export async function saveConversation(conversation: ConversationDoc): Promise<C
 export async function deleteConversation(conversation: ConversationDoc): Promise<void> {
   await removeLocalDoc(conversation._id)
 
-  if (hasUtools()) {
+  if (await shouldUseRemoteConversationStorage()) {
     await removeRemoteDoc(conversation._id)
   }
 }

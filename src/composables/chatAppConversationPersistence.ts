@@ -11,6 +11,7 @@ import {
 interface ChatAppConversationPersistenceOptions {
   activeConversationId: Ref<string | null>
   conversations: Ref<ConversationDoc[]>
+  deleteConversationDoc: (conversation: ConversationDoc) => Promise<void>
   messages: Ref<ChatMessage[]>
   saveConversation: (conversation: ConversationDoc) => Promise<ConversationDoc>
   saveSession: (session: SessionDoc) => Promise<SessionDoc>
@@ -18,6 +19,7 @@ interface ChatAppConversationPersistenceOptions {
 
 export interface ChatAppConversationPersistenceActions {
   applyGeneratedConversationTitle: (conversationId: string, title: string) => Promise<void>
+  deleteConversation: (conversationId: string) => Promise<void>
   persistConversation: () => Promise<void>
   persistSession: (conversationId: string | null) => Promise<void>
 }
@@ -28,6 +30,7 @@ export function createChatAppConversationPersistence(
   const {
     activeConversationId,
     conversations,
+    deleteConversationDoc,
     messages,
     saveConversation,
     saveSession,
@@ -69,6 +72,26 @@ export function createChatAppConversationPersistence(
         title,
       })
       mergeConversation(saved)
+    })
+  }
+
+  async function deleteConversation(conversationId: string): Promise<void> {
+    await runConversationWrite(conversationId, async () => {
+      const target = conversations.value.find((conversation) => conversation.id === conversationId)
+      if (!target) {
+        return
+      }
+
+      await deleteConversationDoc(cloneConversationDoc(target))
+      conversations.value = conversations.value.filter((conversation) => conversation.id !== conversationId)
+
+      if (activeConversationId.value !== conversationId) {
+        return
+      }
+
+      activeConversationId.value = null
+      messages.value = []
+      await persistSession(null)
     })
   }
 
@@ -117,6 +140,7 @@ export function createChatAppConversationPersistence(
 
   return {
     applyGeneratedConversationTitle,
+    deleteConversation,
     persistConversation,
     persistSession,
   }

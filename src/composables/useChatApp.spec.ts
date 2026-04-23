@@ -468,6 +468,54 @@ describe('useChatApp', () => {
     expect(app.conversations.value).toEqual([])
   })
 
+  it('does not restore a deleted conversation when a delayed title save resolves later', async () => {
+    vi.mocked(hasUtools).mockReturnValue(true)
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+    vi.mocked(streamChatCompletion).mockResolvedValue('流式回复')
+
+    const deferredTitle = createDeferred<string>()
+    const delayedTitleSave = createDeferred<void>()
+    const revisionStore = createRevisionedDocStore()
+    vi.mocked(requestConversationTitle).mockImplementation(() => deferredTitle.promise)
+    vi.mocked(saveConversation).mockImplementation(async (conversation) => {
+      if (conversation.title === '延迟标题') {
+        await delayedTitleSave.promise
+      }
+
+      return revisionStore.save(conversation)
+    })
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '删除后不应复活'
+
+    await app.sendMessage()
+
+    const conversationId = app.conversations.value[0]?.id
+    expect(conversationId).toBeTruthy()
+
+    deferredTitle.resolve('延迟标题')
+
+    await vi.waitFor(() => {
+      expect(saveConversation).toHaveBeenCalledWith(expect.objectContaining({
+        id: conversationId,
+        title: '延迟标题',
+      }))
+    })
+
+    const deletePromise = app.deleteConversation(conversationId as string)
+    delayedTitleSave.resolve()
+    await deletePromise
+
+    await vi.waitFor(() => {
+      expect(app.conversations.value).toEqual([])
+    })
+  })
+
   it('marks the assistant message as interrupted when stop is triggered during streaming', async () => {
     vi.mocked(loadSettings).mockResolvedValue(createSettings({
       deepseek: {
@@ -504,6 +552,51 @@ describe('useChatApp', () => {
     expect(app.isSending.value).toBe(false)
     expect(app.messages.value[1]?.status).toBe('interrupted')
     expect(app.messages.value[1]?.content).toBe('已停止生成。')
+  })
+
+  it('stops the active stream and still deletes the conversation when delete is pressed during sending', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+
+    vi.mocked(streamChatCompletion).mockImplementation(
+      async (_messages, _settings, _onDelta, signal) =>
+        new Promise((_resolve, reject) => {
+          if (signal?.aborted) {
+            reject(createAbortError())
+            return
+          }
+
+          signal?.addEventListener('abort', () => {
+            reject(createAbortError())
+          })
+        }),
+    )
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '删除当前生成中的对话'
+
+    const sending = app.sendMessage()
+    await vi.waitFor(() => {
+      expect(app.isSending.value).toBe(true)
+      expect(app.activeConversationId.value).toBeTruthy()
+      expect(app.conversations.value).toHaveLength(1)
+    })
+
+    const conversationId = app.activeConversationId.value as string
+    await app.deleteConversation(conversationId)
+    await sending
+
+    expect(deleteConversation).toHaveBeenCalledWith(expect.objectContaining({
+      id: conversationId,
+    }))
+    expect(app.isSending.value).toBe(false)
+    expect(app.activeConversationId.value).toBeNull()
+    expect(app.messages.value).toEqual([])
+    expect(app.conversations.value).toEqual([])
   })
 })
 

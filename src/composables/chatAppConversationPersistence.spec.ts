@@ -21,6 +21,7 @@ describe('createChatAppConversationPersistence', () => {
     const persistence = createChatAppConversationPersistence({
       activeConversationId,
       conversations,
+      deleteConversationDoc: vi.fn().mockResolvedValue(undefined),
       messages,
       saveConversation,
       saveSession: vi.fn(async (session: SessionDoc) => session),
@@ -57,6 +58,7 @@ describe('createChatAppConversationPersistence', () => {
     const persistence = createChatAppConversationPersistence({
       activeConversationId,
       conversations,
+      deleteConversationDoc: vi.fn().mockResolvedValue(undefined),
       messages,
       saveConversation: (conversation) => revisionStore.save(conversation),
       saveSession: vi.fn(async (session: SessionDoc) => session),
@@ -83,6 +85,53 @@ describe('createChatAppConversationPersistence', () => {
 
     expect(conversations.value[0]?.title).toBe('大语言模型简介')
     expect(conversations.value[0]?.messages[1]?.content).toBe('大语言模型是基于海量语料训练的生成模型')
+  })
+
+  it('serializes deletion behind an in-flight title write for the same conversation', async () => {
+    const activeConversationId = ref('conversation-1')
+    const conversations = ref<ConversationDoc[]>([])
+    const messages = ref<ChatMessage[]>([
+      createMessage('user', '解释一下什么是大语言模型'),
+      createMessage('assistant', ''),
+    ])
+
+    const titleSaveStarted = createDeferred<void>()
+    const releaseTitleSave = createDeferred<void>()
+    const deleteConversationDoc = vi.fn().mockResolvedValue(undefined)
+    const revisionStore = createConcurrentRevisionedStore(async ({ callIndex, title }) => {
+      if (callIndex === 2 && title === '大语言模型简介') {
+        titleSaveStarted.resolve()
+        await releaseTitleSave.promise
+      }
+    })
+
+    const persistence = createChatAppConversationPersistence({
+      activeConversationId,
+      conversations,
+      deleteConversationDoc,
+      messages,
+      saveConversation: (conversation) => revisionStore.save(conversation),
+      saveSession: vi.fn(async (session: SessionDoc) => session),
+    })
+
+    await persistence.persistConversation()
+
+    const applyTitlePromise = persistence.applyGeneratedConversationTitle('conversation-1', '大语言模型简介')
+    await titleSaveStarted.promise
+
+    const deletePromise = persistence.deleteConversation('conversation-1')
+    releaseTitleSave.resolve()
+
+    await applyTitlePromise
+    await deletePromise
+
+    expect(deleteConversationDoc).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'conversation-1',
+      title: '大语言模型简介',
+    }))
+    expect(activeConversationId.value).toBeNull()
+    expect(messages.value).toEqual([])
+    expect(conversations.value).toEqual([])
   })
 })
 
@@ -115,7 +164,7 @@ function createDeferred<T>(): {
 }
 
 function createConcurrentRevisionedStore(
-  beforeCommit: (context: { callIndex: number; docId: string }) => Promise<void>,
+  beforeCommit: (context: { callIndex: number; docId: string; title?: string }) => Promise<void>,
 ) {
   const docs = new Map<string, { _id: string; _rev?: string }>()
   const inFlightRevisions = new Map<string, string | undefined>()
@@ -137,6 +186,7 @@ function createConcurrentRevisionedStore(
         await beforeCommit({
           callIndex,
           docId: doc._id,
+          title: 'title' in doc && typeof doc.title === 'string' ? doc.title : undefined,
         })
 
         const latest = docs.get(doc._id)

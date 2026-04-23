@@ -56,6 +56,7 @@ onMounted(() => {
       :collapsed="app.isSidebarCollapsed.value"
       :conversations="app.conversations.value"
       :disabled="app.isSending.value"
+      :delete-disabled="false"
       @delete-conversation="app.deleteConversation"
       @new-conversation="app.startFreshConversation"
       @open-settings="app.openSettings"

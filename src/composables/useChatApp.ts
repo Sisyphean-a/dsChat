@@ -69,6 +69,7 @@ export function useChatApp() {
   const conversationPersistence = createChatAppConversationPersistence({
     activeConversationId,
     conversations,
+    deleteConversationDoc,
     messages,
     saveConversation,
     saveSession,
@@ -134,25 +135,11 @@ export function useChatApp() {
   }
 
   async function deleteConversation(id: string): Promise<void> {
-    if (isSending.value) {
-      return
+    if (isSending.value && activeConversationId.value === id) {
+      await sendActions.stopGenerating()
     }
 
-    const target = conversations.value.find((conversation) => conversation.id === id)
-    if (!target) {
-      return
-    }
-
-    await deleteConversationDoc(target)
-    conversations.value = conversations.value.filter((conversation) => conversation.id !== id)
-
-    if (activeConversationId.value !== id) {
-      return
-    }
-
-    activeConversationId.value = null
-    messages.value = []
-    await conversationPersistence.persistSession(null)
+    await conversationPersistence.deleteConversation(id)
   }
 
   async function restoreSession(): Promise<void> {

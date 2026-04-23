@@ -7,6 +7,7 @@ const props = defineProps<{
   collapsed: boolean
   conversations: ConversationDoc[]
   disabled: boolean
+  deleteDisabled: boolean
 }>()
 
 const emit = defineEmits<{
@@ -70,7 +71,7 @@ function formatTime(timestamp: number): string {
             <button
               class="history-delete ghost-button"
               type="button"
-              :disabled="props.disabled"
+              :disabled="props.deleteDisabled"
               title="删除对话"
               @click="emit('deleteConversation', conversation.id)"
             >

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildDefaultSettings, createAddedModelDraft } from '../constants/providers'
 import type { BaseDoc, ConversationDoc, SessionDoc } from '../types/chat'
 import {
+  deleteConversation,
   loadConversations,
   loadSession,
   loadSettings,
@@ -97,6 +98,37 @@ describe('utools storage routing', () => {
     expect(remote.docs.has('settings/config')).toBe(true)
     expect(remote.docs.has('conversation/c-1')).toBe(true)
     expect(remote.docs.has('session/runtime')).toBe(true)
+  })
+
+  it('deletes local conversations without touching remote storage in settings-only mode', async () => {
+    const remote = installMockUtools()
+    const settings = buildDefaultSettings()
+    settings.utoolsUploadMode = 'settings-only'
+
+    await saveSettings(settings)
+    await saveConversation(createConversation('c-1', '本地会话'))
+
+    await deleteConversation(createConversation('c-1', '本地会话'))
+
+    expect(remote.promises.remove).toHaveBeenCalledTimes(0)
+    await expect(loadConversations()).resolves.toEqual([])
+  })
+
+  it('deletes mirrored conversations from remote storage in all-data mode', async () => {
+    const remote = installMockUtools()
+    const settings = buildDefaultSettings()
+    settings.utoolsUploadMode = 'all-data'
+
+    await saveSettings(settings)
+    await saveConversation(createConversation('c-1', '远端会话'))
+
+    expect(remote.docs.has('conversation/c-1')).toBe(true)
+
+    await deleteConversation(createConversation('c-1', '远端会话'))
+
+    expect(remote.promises.remove).toHaveBeenCalledWith('conversation/c-1')
+    expect(remote.docs.has('conversation/c-1')).toBe(false)
+    await expect(loadConversations()).resolves.toEqual([])
   })
 
   it('clears remote settings and chat data when switching to local-only', async () => {
