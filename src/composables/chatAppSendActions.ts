@@ -3,6 +3,7 @@ import type { StreamDelta } from '../services/chatCompletion'
 import type {
   ActiveProviderSettings,
   ChatMessage,
+  MessageAttachment,
   SettingsForm,
 } from '../types/chat'
 import { createConversationId } from '../utils/chat'
@@ -23,6 +24,7 @@ interface ChatAppSendActionsOptions {
   settings: Ref<SettingsForm>
   activeConversationId: Ref<string | null>
   messages: Ref<ChatMessage[]>
+  pendingAttachments: Ref<MessageAttachment[]>
   draftMessage: Ref<string>
   isSending: Ref<boolean>
   lastError: Ref<string | null>
@@ -64,6 +66,7 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
     settings,
     activeConversationId,
     messages,
+    pendingAttachments,
     draftMessage,
     isSending,
     lastError,
@@ -80,6 +83,7 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
 
   async function sendMessage(): Promise<void> {
     const prepared = prepareSendRequest({
+      pendingAttachments,
       draftMessage,
       isSending,
       settings,
@@ -90,7 +94,7 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
       return
     }
 
-    const reply = startStreamingReply(prepared.content)
+    const reply = startStreamingReply(prepared.content, prepared.attachments)
     try {
       reply.failureStage = 'initial-persist'
       await persistConversation()
@@ -174,7 +178,7 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
     await interruptActiveSend(stoppedResponseMessage)
   }
 
-  function startStreamingReply(content: string): StreamingReply {
+  function startStreamingReply(content: string, attachments: MessageAttachment[]): StreamingReply {
     const isNewConversation = !activeConversationId.value
     if (!activeConversationId.value) {
       activeConversationId.value = createConversationId()
@@ -182,11 +186,12 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
     }
 
     const conversationId = activeConversationId.value as string
-    const userMessage = createChatMessage('user', content)
+    const userMessage = createChatMessage('user', content, attachments)
     const assistantMessage = createChatMessage('assistant', '')
     messages.value = [...messages.value, userMessage, assistantMessage]
 
     draftMessage.value = ''
+    pendingAttachments.value = []
     lastError.value = null
     isSending.value = true
     setAbortController(new AbortController())

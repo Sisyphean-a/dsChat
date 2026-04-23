@@ -216,6 +216,91 @@ describe('streamChatCompletion', () => {
     const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
     expect(body.reasoning_split).toBe(true)
   })
+
+  it('shows a clear message when provider rejects image_url payload', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        error: {
+          message: 'Failed to deserialize the JSON body into the target type: messages[0]: unknown variant `image_url`, expected `text` at line 1 column 17702',
+          type: 'invalid_request_error',
+        },
+      }), {
+        status: 400,
+        statusText: 'Bad Request',
+      })),
+    )
+
+    await expect(
+      streamChatCompletion(
+        [{
+          id: '1',
+          role: 'user',
+          content: '图里是什么',
+          attachments: [{
+            id: 'img-1',
+            type: 'image',
+            name: 'demo.png',
+            mimeType: 'image/png',
+            size: 100,
+            width: 10,
+            height: 10,
+            dataUrl: 'data:image/png;base64,abc',
+          }],
+          createdAt: 0,
+          status: 'done',
+        }],
+        createSettings(),
+        vi.fn(),
+      ),
+    ).rejects.toThrow('DeepSeek 当前模型仅支持文本输入，不支持图片。请切换支持图片的供应商后再发送。')
+  })
+
+  it('sends multimodal content when user message contains image attachments', async () => {
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"已收到"}}]}\n\ndata: [DONE]\n\n'))
+          controller.close()
+        },
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await streamChatCompletion(
+      [{
+        id: '1',
+        role: 'user',
+        content: '请分析图片',
+        attachments: [{
+          id: 'img-1',
+          type: 'image',
+          name: 'demo.png',
+          mimeType: 'image/png',
+          size: 100,
+          width: 10,
+          height: 10,
+          dataUrl: 'data:image/png;base64,abc',
+        }],
+        createdAt: 0,
+        status: 'done',
+      }],
+      createSettings(),
+      vi.fn(),
+    )
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
+    expect(body.messages[0]).toEqual({
+      role: 'user',
+      content: [
+        { type: 'text', text: '请分析图片' },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
+      ],
+    })
+  })
 })
 
 function createSettings(

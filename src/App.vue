@@ -136,8 +136,12 @@ onMounted(() => {
       <div class="composer-container">
         <ChatComposer
           v-model="app.draftMessage.value"
+          :attachments="app.pendingAttachments.value"
+          :can-send="app.canSendMessage.value"
           :is-sending="app.isSending.value"
           :send-disabled="app.isSending.value"
+          @add-images="app.addPendingImages"
+          @remove-attachment="app.removePendingAttachment"
           @send="app.sendMessage"
           @stop="app.stopGenerating"
         >

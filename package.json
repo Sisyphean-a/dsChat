@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "browser-image-compression": "^2.0.2",
     "dompurify": "^3.4.0",
     "highlight.js": "^11.11.1",
     "marked": "^18.0.2",

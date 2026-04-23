@@ -3,9 +3,11 @@ import {
   CHAT_IDLE_RESET_MS,
   DEFAULT_SETTINGS,
   INTERRUPTED_RESPONSE_MESSAGE,
+  MAX_IMAGE_ATTACHMENTS,
   SESSION_DOC_ID,
   STOPPED_RESPONSE_MESSAGE,
 } from '../constants/app'
+import { prepareImageAttachment } from '../services/messageAttachments'
 import { requestConversationTitle } from '../services/conversationTitle'
 import { streamChatCompletion } from '../services/chatCompletion'
 import { applyTheme } from '../services/theme'
@@ -22,6 +24,7 @@ import {
 import type {
   ChatMessage,
   ConversationDoc,
+  MessageAttachment,
   ProviderSettings,
   SettingsForm,
 } from '../types/chat'
@@ -43,6 +46,7 @@ export function useChatApp() {
   const activeConversationId = ref<string | null>(null)
   const messages = ref<ChatMessage[]>([])
   const draftMessage = ref('')
+  const pendingAttachments = ref<MessageAttachment[]>([])
   const isSettingsOpen = ref(false)
   const isSidebarCollapsed = ref(true)
   const isSending = ref(false)
@@ -52,6 +56,9 @@ export function useChatApp() {
   const isBrowserMode = computed(() => !hasUtools())
   const activeChatConfig = computed(() => getActiveProviderSettings(settings.value))
   const modelOptions = computed(() => getActiveModelSelectionOptions(settings.value))
+  const canSendMessage = computed(() => {
+    return Boolean(draftMessage.value.trim()) || pendingAttachments.value.length > 0
+  })
 
   let activeAbortController: AbortController | null = null
   let lifecycleRegistered = false
@@ -85,6 +92,7 @@ export function useChatApp() {
     lastError,
     messages,
     openSettings: settingsActions.openSettings,
+    pendingAttachments,
     persistConversation: conversationPersistence.persistConversation,
     requestConversationTitle,
     setAbortController: (controller) => {
@@ -100,6 +108,7 @@ export function useChatApp() {
     applyTheme(settings.value.theme)
     conversations.value = await loadConversations()
     messages.value = []
+    pendingAttachments.value = []
     isSending.value = false
 
     if (isBrowserMode.value) {
@@ -118,6 +127,7 @@ export function useChatApp() {
 
     activeConversationId.value = null
     messages.value = []
+    pendingAttachments.value = []
     lastError.value = null
   }
 
@@ -131,7 +141,44 @@ export function useChatApp() {
       return
     }
 
+    pendingAttachments.value = []
     void activateConversation(target)
+  }
+
+  async function addPendingImages(files: File[]): Promise<void> {
+    if (!files.length) {
+      return
+    }
+
+    const availableSlots = MAX_IMAGE_ATTACHMENTS - pendingAttachments.value.length
+    if (availableSlots <= 0) {
+      lastError.value = `单条消息最多可添加 ${MAX_IMAGE_ATTACHMENTS} 张图片。`
+      return
+    }
+
+    const selectedFiles = files.slice(0, availableSlots)
+    const nextAttachments = [...pendingAttachments.value]
+    try {
+      for (const file of selectedFiles) {
+        const attachment = await prepareImageAttachment(file)
+        nextAttachments.push(attachment)
+      }
+    } catch (error) {
+      lastError.value = getErrorMessage(error, '图片处理失败。')
+      return
+    }
+
+    if (files.length > availableSlots) {
+      lastError.value = `已达到上限：单条消息最多 ${MAX_IMAGE_ATTACHMENTS} 张。`
+    } else {
+      lastError.value = null
+    }
+
+    pendingAttachments.value = nextAttachments
+  }
+
+  function removePendingAttachment(id: string): void {
+    pendingAttachments.value = pendingAttachments.value.filter((item) => item.id !== id)
   }
 
   async function deleteConversation(id: string): Promise<void> {
@@ -219,6 +266,8 @@ export function useChatApp() {
     activeConversationId,
     addCustomModel: settingsActions.addCustomModel,
     addCustomModelOption: settingsActions.addCustomModelOption,
+    addPendingImages,
+    canSendMessage,
     closeSettings: settingsActions.closeSettings,
     conversations,
     deleteConversation,
@@ -234,9 +283,11 @@ export function useChatApp() {
     messages,
     modelOptions,
     openSettings: settingsActions.openSettings,
+    pendingAttachments,
     renameCustomModelOption: settingsActions.renameCustomModelOption,
     removeCustomModel: settingsActions.removeCustomModel,
     removeCustomModelOption: settingsActions.removeCustomModelOption,
+    removePendingAttachment,
     saveSettings: saveSettingsAction,
     selectActiveConfig: settingsActions.selectActiveConfig,
     selectActiveModel: settingsActions.selectActiveModel,

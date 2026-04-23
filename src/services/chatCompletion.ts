@@ -18,6 +18,20 @@ interface ChatCompletionResponse {
   choices?: ChatChoice[]
 }
 
+interface ChatCompletionTextPart {
+  type: 'text'
+  text: string
+}
+
+interface ChatCompletionImagePart {
+  type: 'image_url'
+  image_url: {
+    url: string
+  }
+}
+
+type ChatCompletionMessageContent = string | Array<ChatCompletionTextPart | ChatCompletionImagePart>
+
 export interface StreamDelta {
   content?: string
   reasoningContent?: string
@@ -45,7 +59,12 @@ export async function requestChatCompletion(
   })
 
   if (!response.ok) {
-    throw new Error(createProviderFailureMessage(settings.label, response.status, response.statusText))
+    throw new Error(await createProviderFailureMessage(
+      settings.label,
+      response.status,
+      response.statusText,
+      response,
+    ))
   }
 
   const data = (await response.json()) as ChatCompletionResponse
@@ -71,7 +90,12 @@ export async function streamChatCompletion(
   })
 
   if (!response.ok) {
-    throw new Error(createProviderFailureMessage(settings.label, response.status, response.statusText))
+    throw new Error(await createProviderFailureMessage(
+      settings.label,
+      response.status,
+      response.statusText,
+      response,
+    ))
   }
 
   if (!response.body) {
@@ -229,7 +253,10 @@ function createHeaders(settings: ActiveProviderSettings): HeadersInit {
 
 function createPayload(messages: ChatMessage[], settings: ActiveProviderSettings, stream: boolean): Record<string, unknown> {
   const payload: Record<string, unknown> = {
-    messages: messages.map(({ content, role }) => ({ content, role })),
+    messages: messages.map(({ content, role, attachments }) => ({
+      content: createMessageContent(content, attachments?.map((item) => ({ ...item })) ?? []),
+      role,
+    })),
     model: settings.model,
     stream,
   }
@@ -245,10 +272,79 @@ function createPayload(messages: ChatMessage[], settings: ActiveProviderSettings
   return payload
 }
 
-function createProviderFailureMessage(label: string, status: number, statusText: string): string {
-  return `${label} 请求失败：${status} ${statusText}`
+async function createProviderFailureMessage(
+  label: string,
+  status: number,
+  statusText: string,
+  response?: Response,
+): Promise<string> {
+  const detail = response ? await readProviderFailureDetail(response) : ''
+  if (containsImageInputUnsupportedError(detail)) {
+    return `${label} 当前模型仅支持文本输入，不支持图片。请切换支持图片的供应商后再发送。`
+  }
+
+  const normalizedStatusText = statusText.trim()
+  if (!detail) {
+    return normalizedStatusText
+      ? `${label} 请求失败：${status} ${normalizedStatusText}`
+      : `${label} 请求失败：${status}`
+  }
+
+  return `${label} 请求失败：${status} ${detail}`
 }
 
 function createProviderEmptyMessage(label: string): string {
   return `${label} 未返回可用内容。`
+}
+
+function createMessageContent(content: string, attachments: ChatMessage['attachments']): ChatCompletionMessageContent {
+  if (!attachments?.length) {
+    return content
+  }
+
+  const parts: Array<ChatCompletionTextPart | ChatCompletionImagePart> = []
+  if (content.trim()) {
+    parts.push({
+      type: 'text',
+      text: content,
+    })
+  }
+
+  for (const item of attachments) {
+    if (item.type !== 'image') {
+      continue
+    }
+
+    parts.push({
+      type: 'image_url',
+      image_url: {
+        url: item.dataUrl,
+      },
+    })
+  }
+
+  if (!parts.length) {
+    return content
+  }
+
+  return parts
+}
+
+async function readProviderFailureDetail(response: Response): Promise<string> {
+  try {
+    const payload = await response.clone().json() as {
+      error?: { message?: string | null }
+      message?: string | null
+    }
+    const message = payload.error?.message ?? payload.message ?? ''
+    return typeof message === 'string' ? message.trim() : ''
+  } catch {
+    return ''
+  }
+}
+
+function containsImageInputUnsupportedError(detail: string): boolean {
+  const normalized = detail.toLowerCase()
+  return normalized.includes('unknown variant `image_url`')
+    && normalized.includes('expected `text`')
 }

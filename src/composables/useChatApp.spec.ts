@@ -312,6 +312,78 @@ describe('useChatApp', () => {
     expect(app.settings.value.deepseek.model).toBe('deepseek-reasoner')
   })
 
+  it('supports sending image-only messages on non-deepseek providers', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+    vi.mocked(streamChatCompletion).mockResolvedValue('已收到图片')
+
+    const app = useChatApp()
+    await app.initialize()
+    app.addCustomModel('openai')
+    const openaiId = app.settings.value.customModels[0]?.id as string
+    app.updateCustomModelField(openaiId, 'apiKey', 'sk-openai')
+    app.selectActiveConfig(openaiId)
+    app.pendingAttachments.value = [{
+      id: 'img-1',
+      type: 'image',
+      name: 'demo.png',
+      mimeType: 'image/png',
+      size: 128,
+      width: 10,
+      height: 10,
+      dataUrl: 'data:image/png;base64,abc',
+    }]
+
+    await app.sendMessage()
+
+    expect(streamChatCompletion).toHaveBeenCalledWith(
+      [expect.objectContaining({
+        role: 'user',
+        content: '',
+        attachments: [expect.objectContaining({
+          id: 'img-1',
+        })],
+      })],
+      expect.objectContaining({
+        provider: 'openai',
+      }),
+      expect.any(Function),
+      expect.any(AbortSignal),
+    )
+    expect(app.pendingAttachments.value).toEqual([])
+  })
+
+  it('shows a clear error when sending images with deepseek', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+
+    const app = useChatApp()
+    await app.initialize()
+    app.pendingAttachments.value = [{
+      id: 'img-1',
+      type: 'image',
+      name: 'demo.png',
+      mimeType: 'image/png',
+      size: 128,
+      width: 10,
+      height: 10,
+      dataUrl: 'data:image/png;base64,abc',
+    }]
+    app.draftMessage.value = '这是啥图'
+
+    await app.sendMessage()
+
+    expect(app.lastError.value).toBe('DeepSeek 当前模型仅支持文本输入，不支持图片。请切换支持图片的供应商后再发送。')
+    expect(app.isSettingsOpen.value).toBe(true)
+    expect(streamChatCompletion).not.toHaveBeenCalled()
+  })
+
   it('allows adding and removing custom model options', async () => {
     const app = useChatApp()
     await app.initialize()

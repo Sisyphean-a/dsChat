@@ -5,10 +5,24 @@ export type ProviderId = 'deepseek' | 'openai' | 'minimax' | 'kimi' | 'custom'
 export type AddableProviderId = Exclude<ProviderId, 'deepseek'>
 export type UtoolsUploadMode = 'local-only' | 'settings-only' | 'all-data'
 
+export interface ImageAttachment {
+  id: string
+  type: 'image'
+  name: string
+  mimeType: string
+  size: number
+  width: number
+  height: number
+  dataUrl: string
+}
+
+export type MessageAttachment = ImageAttachment
+
 export interface ChatMessage {
   id: string
   role: ChatRole
   content: string
+  attachments?: MessageAttachment[]
   reasoningContent?: string
   createdAt: number
   status: MessageStatus

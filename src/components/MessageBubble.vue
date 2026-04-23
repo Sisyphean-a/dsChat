@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import AssistantMessageContent from './AssistantMessageContent.vue'
 import { useBufferedTextStream } from '../composables/useBufferedTextStream'
-import type { ChatMessage } from '../types/chat'
+import type { ChatMessage, MessageAttachment } from '../types/chat'
 
 const props = defineProps<{
   message: ChatMessage
@@ -11,6 +11,7 @@ const props = defineProps<{
 const isReasoningExpanded = ref(false)
 const isAssistantMessage = computed(() => props.message.role === 'assistant')
 const isStreamingStatus = computed(() => props.message.status === 'streaming')
+const previewAttachment = ref<MessageAttachment | null>(null)
 
 const bubbleClass = computed(() => ({
   bubble: true,
@@ -53,9 +54,21 @@ const reasoningLabel = computed(() => {
   return inReasoningStage.value ? '思考中...' : '思考过程'
 })
 
+const imageAttachments = computed(() => {
+  return (props.message.attachments ?? []).filter((item) => item.type === 'image')
+})
+
 function toggleReasoning(): void {
   if (!hasReasoning.value) return
   isReasoningExpanded.value = !isReasoningExpanded.value
+}
+
+function openImagePreview(attachment: MessageAttachment): void {
+  previewAttachment.value = attachment
+}
+
+function closeImagePreview(): void {
+  previewAttachment.value = null
 }
 
 watch(inReasoningStage, (next, prev) => {
@@ -102,11 +115,41 @@ watch(inReasoningStage, (next, prev) => {
       :content="displayedContent"
       :reveal-active="isAnswerRevealActive"
     />
+    <div v-if="imageAttachments.length" class="message-images">
+      <button
+        v-for="attachment in imageAttachments"
+        :key="attachment.id"
+        class="message-image-button"
+        type="button"
+        @click="openImagePreview(attachment)"
+      >
+        <img
+          class="message-image-thumb"
+          :src="attachment.dataUrl"
+          :alt="attachment.name"
+        />
+      </button>
+    </div>
     <p v-if="props.message.role === 'user'" class="plain-body">{{ props.message.content }}</p>
 
     <span v-if="props.message.status === 'streaming'" class="message-status">生成中...</span>
     <span v-else-if="props.message.status === 'interrupted'" class="message-status">已中止</span>
     <span v-else-if="props.message.status === 'error'" class="message-status">请求失败</span>
+
+    <div
+      v-if="previewAttachment"
+      class="preview-overlay"
+      @click.self="closeImagePreview"
+    >
+      <div class="preview-panel">
+        <img
+          class="preview-image"
+          :src="previewAttachment.dataUrl"
+          :alt="previewAttachment.name"
+        />
+        <button class="preview-close" type="button" @click="closeImagePreview">关闭</button>
+      </div>
+    </div>
   </article>
 </template>
 
@@ -203,6 +246,69 @@ watch(inReasoningStage, (next, prev) => {
   white-space: pre-wrap;
   line-height: 1.6;
   font-size: 0.95rem;
+}
+
+.message-images {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  overflow-x: auto;
+}
+
+.message-image-button {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  flex: none;
+}
+
+.message-image-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(0, 0, 0, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.preview-panel {
+  max-width: min(680px, 100%);
+  max-height: calc(100vh - 80px);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: calc(100vh - 180px);
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.preview-close {
+  align-self: flex-end;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 0.78rem;
 }
 
 @keyframes reveal {

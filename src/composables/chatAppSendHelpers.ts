@@ -3,18 +3,21 @@ import type { StreamDelta } from '../services/chatCompletion'
 import type {
   ActiveProviderSettings,
   ChatMessage,
+  MessageAttachment,
   SettingsForm,
 } from '../types/chat'
-import { buildConversationTitle } from '../utils/chat'
+import { buildConversationTitle, cloneMessageAttachments } from '../utils/chat'
 import { getErrorMessage } from './chatAppErrors'
 import { getActiveProviderSettings, getSendSettingsError, normalizeSettings } from './chatAppSettings'
 
 export interface SendPreparation {
   activeSettings: ActiveProviderSettings
+  attachments: MessageAttachment[]
   content: string
 }
 
 interface PrepareSendRequestOptions {
+  pendingAttachments: Ref<MessageAttachment[]>
   draftMessage: Ref<string>
   isSending: Ref<boolean>
   settings: Ref<SettingsForm>
@@ -69,6 +72,7 @@ export function prepareSendRequest(
   options: PrepareSendRequestOptions,
 ): SendPreparation | null {
   const {
+    pendingAttachments,
     draftMessage,
     isSending,
     settings,
@@ -77,13 +81,15 @@ export function prepareSendRequest(
   } = options
 
   const content = draftMessage.value.trim()
-  if (!content || isSending.value) {
+  const attachments = cloneMessageAttachments(pendingAttachments.value)
+  if ((!content && !attachments.length) || isSending.value) {
     return null
   }
 
   const normalizedSettings = normalizeSettings(settings.value)
   const activeSettings = getActiveProviderSettings(normalizedSettings)
   const settingsError = getSendSettingsError(normalizedSettings)
+  const imageInputError = getImageInputSupportError(activeSettings, attachments)
 
   if (settingsError) {
     lastError.value = settingsError
@@ -91,8 +97,15 @@ export function prepareSendRequest(
     return null
   }
 
+  if (imageInputError) {
+    lastError.value = imageInputError
+    openSettings()
+    return null
+  }
+
   return {
     activeSettings,
+    attachments,
     content,
   }
 }
@@ -272,4 +285,19 @@ async function resolveTitleWithFallback(
       status: 'done',
     },
   ])
+}
+
+function getImageInputSupportError(
+  settings: ActiveProviderSettings,
+  attachments: MessageAttachment[],
+): string | null {
+  if (!attachments.length) {
+    return null
+  }
+
+  if (settings.provider === 'deepseek') {
+    return 'DeepSeek 当前模型仅支持文本输入，不支持图片。请切换支持图片的供应商后再发送。'
+  }
+
+  return null
 }

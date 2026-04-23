@@ -1,4 +1,4 @@
-import type { ChatMessage, ConversationDoc } from '../types/chat'
+import type { ChatMessage, ConversationDoc, MessageAttachment } from '../types/chat'
 import { CONVERSATION_PREFIX } from '../constants/app'
 
 export function createMessageId(): string {
@@ -6,6 +6,10 @@ export function createMessageId(): string {
 }
 
 export function createConversationId(): string {
+  return crypto.randomUUID()
+}
+
+export function createAttachmentId(): string {
   return crypto.randomUUID()
 }
 
@@ -40,6 +44,13 @@ export function buildConversationDoc(
 export function cloneMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages.map((message) => ({
     ...message,
+    attachments: message.attachments ? cloneMessageAttachments(message.attachments) : undefined,
+  }))
+}
+
+export function cloneMessageAttachments(attachments: MessageAttachment[]): MessageAttachment[] {
+  return attachments.map((item) => ({
+    ...item,
   }))
 }
 

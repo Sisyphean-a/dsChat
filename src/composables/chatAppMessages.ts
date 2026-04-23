@@ -1,11 +1,20 @@
-import type { ChatMessage } from '../types/chat'
+import type { ChatMessage, MessageAttachment } from '../types/chat'
 import { createMessageId } from '../utils/chat'
 
-export function createChatMessage(role: ChatMessage['role'], content: string): ChatMessage {
+export function createChatMessage(
+  role: ChatMessage['role'],
+  content: string,
+  attachments: MessageAttachment[] = [],
+): ChatMessage {
+  const normalizedAttachments = attachments.length
+    ? attachments.map((item) => ({ ...item }))
+    : undefined
+
   return {
     id: createMessageId(),
     role,
     content,
+    attachments: normalizedAttachments,
     createdAt: Date.now(),
     status: role === 'assistant' && !content ? 'streaming' : 'done',
   }
