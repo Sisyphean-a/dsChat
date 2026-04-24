@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { StreamDelta } from '../services/chatCompletion'
+import type { ChatRequestOptions, StreamDelta } from '../services/chatCompletion'
 import type {
   ActiveProviderSettings,
   ChatMessage,
@@ -35,6 +35,7 @@ interface ChatAppSendActionsOptions {
     settings: ActiveProviderSettings,
     onDelta: (delta: StreamDelta) => void,
     signal?: AbortSignal,
+    requestOptions?: ChatRequestOptions,
   ) => Promise<string>
   requestConversationTitle: (
     settings: ActiveProviderSettings,
@@ -44,6 +45,7 @@ interface ChatAppSendActionsOptions {
   openSettings: () => void
   persistConversation: () => Promise<void>
   getAbortController: () => AbortController | null
+  getThinkingEnabled: (provider: ActiveProviderSettings['provider']) => boolean
   setAbortController: (controller: AbortController | null) => void
 }
 
@@ -78,6 +80,7 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
     openSettings,
     persistConversation,
     getAbortController,
+    getThinkingEnabled,
     setAbortController,
   } = options
 
@@ -87,6 +90,7 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
       draftMessage,
       isSending,
       settings,
+      getThinkingEnabled,
       openSettings,
       lastError,
     })
@@ -116,6 +120,7 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
         activeSettings: prepared.activeSettings,
         streamChatCompletion,
         getAbortController,
+        thinkingEnabled: prepared.thinkingEnabled,
       })
 
       reply.failureStage = 'final-persist'

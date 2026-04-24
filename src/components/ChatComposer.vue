@@ -8,11 +8,14 @@ const props = defineProps<{
   isSending: boolean
   modelValue: string
   sendDisabled: boolean
+  showThinkingToggle: boolean
+  thinkingEnabled: boolean
 }>()
 
 const emit = defineEmits<{
   addImages: [files: File[]]
   removeAttachment: [id: string]
+  updateThinkingEnabled: [value: boolean]
   'update:modelValue': [value: string]
   send: []
   stop: []
@@ -96,6 +99,10 @@ function openPreview(attachment: MessageAttachment): void {
 
 function closePreview(): void {
   previewAttachment.value = null
+}
+
+function toggleThinking(): void {
+  emit('updateThinkingEnabled', !props.thinkingEnabled)
 }
 
 function normalizeClipboardFile(file: File): File {
@@ -183,6 +190,16 @@ function mimeTypeToExtension(mimeType: string): string {
             type="file"
             @change="handleImageInput"
           />
+          <button
+            v-if="props.showThinkingToggle"
+            class="thinking-toggle"
+            :class="{ active: props.thinkingEnabled }"
+            type="button"
+            :disabled="props.sendDisabled"
+            @click="toggleThinking"
+          >
+            {{ props.thinkingEnabled ? '思考开' : '思考关' }}
+          </button>
           <slot name="actions"></slot>
         </div>
         <button
@@ -302,6 +319,29 @@ textarea::placeholder {
 }
 
 .image-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.thinking-toggle {
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.thinking-toggle.active {
+  border-color: rgba(16, 163, 127, 0.28);
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.thinking-toggle:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

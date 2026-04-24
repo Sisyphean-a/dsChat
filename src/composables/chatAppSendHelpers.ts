@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { StreamDelta } from '../services/chatCompletion'
+import type { ChatRequestOptions, StreamDelta } from '../services/chatCompletion'
 import type {
   ActiveProviderSettings,
   ChatMessage,
@@ -14,6 +14,7 @@ export interface SendPreparation {
   activeSettings: ActiveProviderSettings
   attachments: MessageAttachment[]
   content: string
+  thinkingEnabled: boolean
 }
 
 interface PrepareSendRequestOptions {
@@ -21,6 +22,7 @@ interface PrepareSendRequestOptions {
   draftMessage: Ref<string>
   isSending: Ref<boolean>
   settings: Ref<SettingsForm>
+  getThinkingEnabled: (provider: ActiveProviderSettings['provider']) => boolean
   openSettings: () => void
   lastError: Ref<string | null>
 }
@@ -35,8 +37,10 @@ interface StreamAssistantReplyOptions {
     settings: ActiveProviderSettings,
     onDelta: (delta: StreamDelta) => void,
     signal?: AbortSignal,
+    requestOptions?: ChatRequestOptions,
   ) => Promise<string>
   getAbortController: () => AbortController | null
+  thinkingEnabled: boolean
 }
 
 interface HandleInterruptedReplyOptions {
@@ -76,6 +80,7 @@ export function prepareSendRequest(
     draftMessage,
     isSending,
     settings,
+    getThinkingEnabled,
     openSettings,
     lastError,
   } = options
@@ -88,6 +93,7 @@ export function prepareSendRequest(
 
   const normalizedSettings = normalizeSettings(settings.value)
   const activeSettings = getActiveProviderSettings(normalizedSettings)
+  const thinkingEnabled = getThinkingEnabled(activeSettings.provider)
   const settingsError = getSendSettingsError(normalizedSettings)
   const imageInputError = getImageInputSupportError(activeSettings, attachments)
 
@@ -107,6 +113,7 @@ export function prepareSendRequest(
     activeSettings,
     attachments,
     content,
+    thinkingEnabled,
   }
 }
 
@@ -119,6 +126,7 @@ export async function streamAssistantReply(
     activeSettings,
     streamChatCompletion,
     getAbortController,
+    thinkingEnabled,
   } = options
   let { assistantIndex } = options
 
@@ -131,6 +139,7 @@ export async function streamAssistantReply(
       })
     },
     getAbortController()?.signal,
+    { thinkingEnabled },
   )
 
   return assistantIndex
@@ -297,6 +306,10 @@ function getImageInputSupportError(
 
   if (settings.provider === 'deepseek') {
     return 'DeepSeek 当前模型仅支持文本输入，不支持图片。请切换支持图片的供应商后再发送。'
+  }
+
+  if (settings.provider === 'minimax') {
+    return 'MiniMax 当前文本模型不支持图片输入。请切换支持图片的供应商后再发送。'
   }
 
   return null

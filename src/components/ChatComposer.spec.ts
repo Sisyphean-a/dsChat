@@ -12,6 +12,8 @@ describe('ChatComposer', () => {
         isSending: true,
         modelValue: '正在输入',
         sendDisabled: true,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
       },
     })
 
@@ -31,6 +33,8 @@ describe('ChatComposer', () => {
         isSending: true,
         modelValue: '等待响应',
         sendDisabled: true,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
       },
     })
 
@@ -61,6 +65,8 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: '',
         sendDisabled: false,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
       },
     })
 
@@ -77,6 +83,8 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: '',
         sendDisabled: false,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
       },
     })
 
@@ -93,5 +101,23 @@ describe('ChatComposer', () => {
     })
 
     expect(wrapper.emitted('addImages')).toEqual([[[imageFile]]])
+  })
+
+  it('emits thinking toggle updates', async () => {
+    const wrapper = mount(ChatComposer, {
+      props: {
+        attachments: [],
+        canSend: true,
+        isSending: false,
+        modelValue: 'hi',
+        sendDisabled: false,
+        showThinkingToggle: true,
+        thinkingEnabled: true,
+      },
+    })
+
+    await wrapper.get('.thinking-toggle').trigger('click')
+
+    expect(wrapper.emitted('updateThinkingEnabled')).toEqual([[false]])
   })
 })

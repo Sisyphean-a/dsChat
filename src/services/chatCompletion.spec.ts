@@ -217,6 +217,68 @@ describe('streamChatCompletion', () => {
     expect(body.reasoning_split).toBe(true)
   })
 
+  it('allows turning minimax thinking mode off via reasoning_split=false', async () => {
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"好"}}]}\n\ndata: [DONE]\n\n'))
+          controller.close()
+        },
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await streamChatCompletion(
+      [{ id: '1', role: 'user', content: 'test', createdAt: 0, status: 'done' }],
+      createSettings({
+        label: 'MiniMax',
+        provider: 'minimax',
+        baseUrl: 'https://api.minimaxi.com/v1',
+        model: 'MiniMax-M2.7',
+      }),
+      vi.fn(),
+      undefined,
+      { thinkingEnabled: false },
+    )
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
+    expect(body.reasoning_split).toBe(false)
+  })
+
+  it('passes kimi thinking switch payload', async () => {
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"好"}}]}\n\ndata: [DONE]\n\n'))
+          controller.close()
+        },
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await streamChatCompletion(
+      [{ id: '1', role: 'user', content: 'test', createdAt: 0, status: 'done' }],
+      createSettings({
+        label: 'Kimi',
+        provider: 'kimi',
+        baseUrl: 'https://api.moonshot.cn/v1',
+        model: 'kimi-k2.5',
+      }),
+      vi.fn(),
+      undefined,
+      { thinkingEnabled: false },
+    )
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
+    expect(body.thinking).toEqual({ type: 'disabled' })
+  })
+
   it('shows a clear message when provider rejects image_url payload', async () => {
     vi.stubGlobal(
       'fetch',

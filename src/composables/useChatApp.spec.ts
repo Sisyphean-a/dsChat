@@ -352,6 +352,7 @@ describe('useChatApp', () => {
       }),
       expect.any(Function),
       expect.any(AbortSignal),
+      { thinkingEnabled: true },
     )
     expect(app.pendingAttachments.value).toEqual([])
   })
@@ -395,6 +396,37 @@ describe('useChatApp', () => {
 
     app.removeCustomModelOption(customId, 'gpt-custom-1')
     expect(app.settings.value.customModels[0]?.modelOptions).not.toContain('gpt-custom-1')
+  })
+
+  it('passes thinkingEnabled=false when kimi thinking switch is closed', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+    vi.mocked(streamChatCompletion).mockResolvedValue('你好')
+
+    const app = useChatApp()
+    await app.initialize()
+    app.addCustomModel('kimi')
+    const kimiId = app.settings.value.customModels[0]?.id as string
+    app.updateCustomModelField(kimiId, 'apiKey', 'sk-kimi')
+    app.selectActiveConfig(kimiId)
+    expect(app.showThinkingToggle.value).toBe(true)
+
+    app.updateActiveThinkingEnabled(false)
+    app.draftMessage.value = '你好'
+    await app.sendMessage()
+
+    expect(streamChatCompletion).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        provider: 'kimi',
+      }),
+      expect.any(Function),
+      expect.any(AbortSignal),
+      { thinkingEnabled: false },
+    )
   })
 
   it('allows editing custom model options', async () => {
@@ -469,6 +501,7 @@ describe('useChatApp', () => {
       },
       expect.any(Function),
       expect.any(AbortSignal),
+      { thinkingEnabled: true },
     )
   })
 

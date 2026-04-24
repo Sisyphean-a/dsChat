@@ -139,9 +139,12 @@ onMounted(() => {
           :attachments="app.pendingAttachments.value"
           :can-send="app.canSendMessage.value"
           :is-sending="app.isSending.value"
+          :show-thinking-toggle="app.showThinkingToggle.value"
+          :thinking-enabled="app.thinkingEnabled.value"
           :send-disabled="app.isSending.value"
           @add-images="app.addPendingImages"
           @remove-attachment="app.removePendingAttachment"
+          @update-thinking-enabled="app.updateActiveThinkingEnabled"
           @send="app.sendMessage"
           @stop="app.stopGenerating"
         >

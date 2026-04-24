@@ -37,6 +37,10 @@ export interface StreamDelta {
   reasoningContent?: string
 }
 
+export interface ChatRequestOptions {
+  thinkingEnabled?: boolean
+}
+
 const DONE_EVENT = '[DONE]'
 
 export function consumeSseBuffer(buffer: string): { events: string[]; rest: string } {
@@ -51,9 +55,10 @@ export function consumeSseBuffer(buffer: string): { events: string[]; rest: stri
 export async function requestChatCompletion(
   messages: ChatMessage[],
   settings: ActiveProviderSettings,
+  requestOptions?: ChatRequestOptions,
 ): Promise<string> {
   const response = await fetch(createChatUrl(settings.baseUrl), {
-    body: JSON.stringify(createPayload(messages, settings, false)),
+    body: JSON.stringify(createPayload(messages, settings, false, requestOptions)),
     headers: createHeaders(settings),
     method: 'POST',
   })
@@ -81,9 +86,10 @@ export async function streamChatCompletion(
   settings: ActiveProviderSettings,
   onDelta: (delta: StreamDelta) => void,
   signal?: AbortSignal,
+  requestOptions?: ChatRequestOptions,
 ): Promise<string> {
   const response = await fetch(createChatUrl(settings.baseUrl), {
-    body: JSON.stringify(createPayload(messages, settings, true)),
+    body: JSON.stringify(createPayload(messages, settings, true, requestOptions)),
     headers: createHeaders(settings),
     method: 'POST',
     signal,
@@ -251,7 +257,12 @@ function createHeaders(settings: ActiveProviderSettings): HeadersInit {
   }
 }
 
-function createPayload(messages: ChatMessage[], settings: ActiveProviderSettings, stream: boolean): Record<string, unknown> {
+function createPayload(
+  messages: ChatMessage[],
+  settings: ActiveProviderSettings,
+  stream: boolean,
+  requestOptions?: ChatRequestOptions,
+): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     messages: messages.map(({ content, role, attachments }) => ({
       content: createMessageContent(content, attachments?.map((item) => ({ ...item })) ?? []),
@@ -266,7 +277,13 @@ function createPayload(messages: ChatMessage[], settings: ActiveProviderSettings
   }
 
   if (settings.provider === 'minimax') {
-    payload.reasoning_split = true
+    payload.reasoning_split = requestOptions?.thinkingEnabled ?? true
+  }
+
+  if (settings.provider === 'kimi') {
+    payload.thinking = {
+      type: (requestOptions?.thinkingEnabled ?? true) ? 'enabled' : 'disabled',
+    }
   }
 
   return payload

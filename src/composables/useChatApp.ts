@@ -25,6 +25,7 @@ import type {
   ChatMessage,
   ConversationDoc,
   MessageAttachment,
+  ProviderId,
   ProviderSettings,
   SettingsForm,
 } from '../types/chat'
@@ -46,6 +47,10 @@ export function useChatApp() {
   const activeConversationId = ref<string | null>(null)
   const messages = ref<ChatMessage[]>([])
   const draftMessage = ref('')
+  const providerThinking = ref<{ kimi: boolean; minimax: boolean }>({
+    kimi: true,
+    minimax: true,
+  })
   const pendingAttachments = ref<MessageAttachment[]>([])
   const isSettingsOpen = ref(false)
   const isSidebarCollapsed = ref(true)
@@ -58,6 +63,13 @@ export function useChatApp() {
   const modelOptions = computed(() => getActiveModelSelectionOptions(settings.value))
   const canSendMessage = computed(() => {
     return Boolean(draftMessage.value.trim()) || pendingAttachments.value.length > 0
+  })
+  const showThinkingToggle = computed(() => {
+    const provider = activeChatConfig.value.provider
+    return provider === 'kimi' || provider === 'minimax'
+  })
+  const thinkingEnabled = computed(() => {
+    return resolveThinkingEnabled(activeChatConfig.value.provider)
   })
 
   let activeAbortController: AbortController | null = null
@@ -95,6 +107,7 @@ export function useChatApp() {
     pendingAttachments,
     persistConversation: conversationPersistence.persistConversation,
     requestConversationTitle,
+    getThinkingEnabled: resolveThinkingEnabled,
     setAbortController: (controller) => {
       activeAbortController = controller
     },
@@ -181,6 +194,24 @@ export function useChatApp() {
     pendingAttachments.value = pendingAttachments.value.filter((item) => item.id !== id)
   }
 
+  function updateActiveThinkingEnabled(enabled: boolean): void {
+    const provider = activeChatConfig.value.provider
+    if (provider === 'kimi') {
+      providerThinking.value = {
+        ...providerThinking.value,
+        kimi: enabled,
+      }
+      return
+    }
+
+    if (provider === 'minimax') {
+      providerThinking.value = {
+        ...providerThinking.value,
+        minimax: enabled,
+      }
+    }
+  }
+
   async function deleteConversation(id: string): Promise<void> {
     if (isSending.value && activeConversationId.value === id) {
       await sendActions.stopGenerating()
@@ -261,6 +292,18 @@ export function useChatApp() {
     return settingsActions.saveSettingsAction()
   }
 
+  function resolveThinkingEnabled(provider: ProviderId): boolean {
+    if (provider === 'kimi') {
+      return providerThinking.value.kimi
+    }
+
+    if (provider === 'minimax') {
+      return providerThinking.value.minimax
+    }
+
+    return true
+  }
+
   return {
     activeChatConfig,
     activeConversationId,
@@ -284,6 +327,8 @@ export function useChatApp() {
     modelOptions,
     openSettings: settingsActions.openSettings,
     pendingAttachments,
+    showThinkingToggle,
+    thinkingEnabled,
     renameCustomModelOption: settingsActions.renameCustomModelOption,
     removeCustomModel: settingsActions.removeCustomModel,
     removeCustomModelOption: settingsActions.removeCustomModelOption,
@@ -299,6 +344,7 @@ export function useChatApp() {
     toggleSidebar: settingsActions.toggleSidebar,
     updateCustomModelField: settingsActions.updateCustomModelField,
     updateDeepseekField,
+    updateActiveThinkingEnabled,
     updateTheme: settingsActions.updateTheme,
     updateUtoolsUploadMode: settingsActions.updateUtoolsUploadMode,
   }
