@@ -252,6 +252,8 @@ describe('useChatApp', () => {
     app.updateDeepseekField('apiKey', '  sk-test  ')
     app.updateDeepseekField('baseUrl', '  https://api.deepseek.com/  ')
     app.updateDeepseekField('model', '  deepseek-v4-flash  ')
+    app.updateFontSize('large')
+    app.updateActiveThinkingEnabled(false)
     app.updateTheme('dark')
 
     await app.saveSettings()
@@ -264,6 +266,12 @@ describe('useChatApp', () => {
         model: 'deepseek-v4-flash',
         modelOptions: expect.any(Array),
         temperature: 1,
+      },
+      fontSize: 'large',
+      providerThinking: {
+        deepseek: false,
+        kimi: true,
+        minimax: true,
       },
       theme: 'dark',
     }))
@@ -456,6 +464,27 @@ describe('useChatApp', () => {
       expect.any(AbortSignal),
       { thinkingEnabled: false },
     )
+  })
+
+  it('restores the persisted thinking switch for the active provider', async () => {
+    const kimiModel = createAddedModelDraft('kimi', [])
+    kimiModel.apiKey = 'sk-kimi'
+
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      activeConfigId: kimiModel.id,
+      customModels: [kimiModel],
+      providerThinking: {
+        deepseek: true,
+        kimi: false,
+        minimax: true,
+      },
+    }))
+
+    const app = useChatApp()
+    await app.initialize()
+
+    expect(app.showThinkingToggle.value).toBe(true)
+    expect(app.thinkingEnabled.value).toBe(false)
   })
 
   it('allows editing custom model options', async () => {

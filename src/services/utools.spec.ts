@@ -36,6 +36,12 @@ describe('utools storage routing', () => {
     const settings = await loadSettings()
 
     expect(settings.activeConfigId).toBe('deepseek')
+    expect(settings.fontSize).toBe('medium')
+    expect(settings.providerThinking).toEqual({
+      deepseek: true,
+      kimi: true,
+      minimax: true,
+    })
     expect(settings.theme).toBe('dark')
     expect(settings.utoolsUploadMode).toBe('all-data')
     expect(settings.deepseek).toEqual({
@@ -50,6 +56,8 @@ describe('utools storage routing', () => {
 
   it('persists settings in localStorage when utools is unavailable', async () => {
     const settings = buildDefaultSettings()
+    settings.fontSize = 'large'
+    settings.providerThinking.deepseek = false
     settings.theme = 'dark'
     settings.deepseek.apiKey = 'sk-local'
     settings.utoolsUploadMode = 'local-only'
@@ -57,6 +65,8 @@ describe('utools storage routing', () => {
     await saveSettings(settings)
     const loaded = await loadSettings()
 
+    expect(loaded.fontSize).toBe('large')
+    expect(loaded.providerThinking.deepseek).toBe(false)
     expect(loaded.theme).toBe('dark')
     expect(loaded.deepseek.apiKey).toBe('sk-local')
     expect(loaded.utoolsUploadMode).toBe('local-only')
@@ -209,6 +219,8 @@ describe('utools storage routing', () => {
     openaiModel.model = 'gpt-4.1'
 
     settings.activeConfigId = openaiModel.id
+    settings.fontSize = 'large'
+    settings.providerThinking.kimi = false
     settings.theme = 'dark'
     settings.utoolsUploadMode = 'local-only'
     settings.customModels = [openaiModel]
@@ -217,6 +229,8 @@ describe('utools storage routing', () => {
     const loaded = await loadSettings()
 
     expect(loaded.activeConfigId).toBe(openaiModel.id)
+    expect(loaded.fontSize).toBe('large')
+    expect(loaded.providerThinking.kimi).toBe(false)
     expect(loaded.theme).toBe('dark')
     expect(loaded.utoolsUploadMode).toBe('local-only')
     expect(loaded.customModels[0]).toEqual({

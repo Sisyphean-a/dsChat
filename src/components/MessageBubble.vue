@@ -156,7 +156,7 @@ watch(inReasoningStage, (next, prev) => {
 <style scoped>
 .bubble {
   max-width: min(85%, 720px);
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   animation: reveal 200ms ease;
@@ -194,7 +194,7 @@ watch(inReasoningStage, (next, prev) => {
 }
 
 .reasoning-block {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   border: 1px solid rgba(16, 163, 127, 0.12);
   border-radius: 10px;
   background: rgba(16, 163, 127, 0.04);
@@ -252,7 +252,7 @@ watch(inReasoningStage, (next, prev) => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   overflow-x: auto;
 }
 

@@ -1,4 +1,4 @@
-import { THEME_OPTIONS } from '../constants/app'
+import { FONT_SIZE_OPTIONS, THEME_OPTIONS } from '../constants/app'
 import {
   buildDefaultProviderSettings,
   DEFAULT_CONFIG_ID,
@@ -15,9 +15,11 @@ import type {
   ActiveProviderSettings,
   AddedModelConfig,
   AddableProviderId,
+  FontSizeMode,
   ModelConfigOption,
   ProviderId,
   ProviderSettings,
+  ProviderThinkingSettings,
   SettingsForm,
 } from '../types/chat'
 
@@ -28,6 +30,8 @@ export function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
     activeConfigId: normalizeActiveConfigId(currentSettings.activeConfigId, customModels),
     customModels,
     deepseek: normalizeProviderSettings('deepseek', currentSettings.deepseek),
+    fontSize: normalizeFontSize(currentSettings.fontSize),
+    providerThinking: normalizeProviderThinking(currentSettings.providerThinking),
     theme: normalizeTheme(currentSettings.theme),
     utoolsUploadMode: normalizeUtoolsUploadMode(currentSettings.utoolsUploadMode),
   }
@@ -257,6 +261,20 @@ function normalizeTheme(theme: SettingsForm['theme']): SettingsForm['theme'] {
   return THEME_OPTIONS.includes(theme) ? theme : THEME_OPTIONS[0]
 }
 
+function normalizeFontSize(fontSize: SettingsForm['fontSize']): SettingsForm['fontSize'] {
+  return FONT_SIZE_OPTIONS.includes(fontSize) ? fontSize : FONT_SIZE_OPTIONS[0]
+}
+
+function normalizeProviderThinking(
+  providerThinking: SettingsForm['providerThinking'] | undefined,
+): ProviderThinkingSettings {
+  return {
+    deepseek: providerThinking?.deepseek ?? true,
+    kimi: providerThinking?.kimi ?? true,
+    minimax: providerThinking?.minimax ?? true,
+  }
+}
+
 export function normalizeUtoolsUploadMode(
   mode: SettingsForm['utoolsUploadMode'] | undefined,
   fallback = DEFAULT_UTOOLS_UPLOAD_MODE,
@@ -266,7 +284,9 @@ export function normalizeUtoolsUploadMode(
 
 export function isLegacyMultiProviderDocShape(value: unknown): value is {
   activeProvider?: string
+  fontSize?: FontSizeMode
   providers?: Record<string, Partial<ProviderSettings>>
+  providerThinking?: Partial<ProviderThinkingSettings>
   theme?: SettingsForm['theme']
 } {
   if (typeof value !== 'object' || value === null) {

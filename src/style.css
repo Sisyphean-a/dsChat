@@ -36,6 +36,18 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  font-size: 16px;
+}
+
+html[data-font-size='large'] {
+  font-size: 18px;
+}
+
+html[data-font-size='x-large'] {
+  font-size: 20px;
+}
+
 [data-theme='dark'] {
   --bg: #111418;
   --bg-soft: #161b21;
@@ -131,7 +143,8 @@ pre {
 
 .hljs-keyword,
 .hljs-selector-tag,
-.hljs-subst {
+.hljs-subst,
+.hljs-meta {
   color: var(--syntax-keyword);
 }
 
@@ -142,21 +155,24 @@ pre {
 }
 
 .hljs-number,
-.hljs-literal {
+.hljs-literal,
+.hljs-symbol {
   color: var(--syntax-number);
 }
 
 .hljs-title,
 .hljs-section,
 .hljs-name,
-.hljs-built_in {
+.hljs-built_in,
+.hljs-function .hljs-title {
   color: var(--syntax-title);
 }
 
 .hljs-variable,
 .hljs-template-variable,
 .hljs-attr,
-.hljs-attribute {
+.hljs-attribute,
+.hljs-params {
   color: var(--syntax-variable);
 }
 

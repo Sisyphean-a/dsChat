@@ -3,15 +3,12 @@ import {
   CHAT_IDLE_RESET_MS,
   DEFAULT_SETTINGS,
   INTERRUPTED_RESPONSE_MESSAGE,
-  MAX_IMAGE_ATTACHMENTS,
   SESSION_DOC_ID,
   STOPPED_RESPONSE_MESSAGE,
 } from '../constants/app'
-import { supportsDeepseekThinking } from '../constants/providers'
-import { prepareImageAttachment } from '../services/messageAttachments'
 import { requestConversationTitle } from '../services/conversationTitle'
 import { streamChatCompletion } from '../services/chatCompletion'
-import { applyTheme } from '../services/theme'
+import { applyAppearance } from '../services/theme'
 import {
   deleteConversation as deleteConversationDoc,
   hasUtools,
@@ -32,14 +29,21 @@ import type {
 } from '../types/chat'
 import { shouldResetConversation } from '../utils/session'
 import { cloneMessages } from '../utils/chat'
+import { preparePendingImages } from './chatAppAttachments'
 import { finalizeStreamingMessages } from './chatAppMessages'
 import { createChatAppConversationPersistence } from './chatAppConversationPersistence'
 import { getErrorMessage } from './chatAppErrors'
+import {
+  resolveThinkingEnabled as getThinkingEnabledForProvider,
+  resolveThinkingProvider,
+  shouldShowThinkingToggle,
+} from './chatAppThinking'
 import { createChatAppSendActions } from './chatAppSendActions'
 import { createChatAppSettingsActions } from './chatAppSettingsActions'
 import {
   getActiveProviderSettings,
   getActiveModelSelectionOptions,
+  normalizeSettings,
 } from './chatAppSettings'
 
 export function useChatApp() {
@@ -48,11 +52,6 @@ export function useChatApp() {
   const activeConversationId = ref<string | null>(null)
   const messages = ref<ChatMessage[]>([])
   const draftMessage = ref('')
-  const providerThinking = ref<{ deepseek: boolean; kimi: boolean; minimax: boolean }>({
-    deepseek: true,
-    kimi: true,
-    minimax: true,
-  })
   const pendingAttachments = ref<MessageAttachment[]>([])
   const isSettingsOpen = ref(false)
   const isSidebarCollapsed = ref(true)
@@ -80,7 +79,7 @@ export function useChatApp() {
   let lifecycleRegistered = false
 
   const settingsActions = createChatAppSettingsActions({
-    applyTheme,
+    applyAppearance,
     isSavingSettings,
     isSettingsOpen,
     isSidebarCollapsed,
@@ -110,11 +109,11 @@ export function useChatApp() {
     openSettings: settingsActions.openSettings,
     pendingAttachments,
     persistConversation: conversationPersistence.persistConversation,
-    requestConversationTitle,
-    getThinkingEnabled: resolveThinkingEnabled,
-    setAbortController: (controller) => {
-      activeAbortController = controller
-    },
+      requestConversationTitle,
+      getThinkingEnabled: (provider) => getThinkingEnabledForProvider(settings.value, provider),
+      setAbortController: (controller) => {
+        activeAbortController = controller
+      },
     settings,
     stoppedResponseMessage: STOPPED_RESPONSE_MESSAGE,
     streamChatCompletion,
@@ -122,7 +121,10 @@ export function useChatApp() {
 
   async function initialize(): Promise<void> {
     settings.value = await loadSettings()
-    applyTheme(settings.value.theme)
+    applyAppearance({
+      fontSize: settings.value.fontSize,
+      theme: settings.value.theme,
+    })
     conversations.value = await loadConversations()
     messages.value = []
     pendingAttachments.value = []
@@ -163,35 +165,12 @@ export function useChatApp() {
   }
 
   async function addPendingImages(files: File[]): Promise<void> {
-    if (!files.length) {
-      return
-    }
-
-    const availableSlots = MAX_IMAGE_ATTACHMENTS - pendingAttachments.value.length
-    if (availableSlots <= 0) {
-      lastError.value = `单条消息最多可添加 ${MAX_IMAGE_ATTACHMENTS} 张图片。`
-      return
-    }
-
-    const selectedFiles = files.slice(0, availableSlots)
-    const nextAttachments = [...pendingAttachments.value]
-    try {
-      for (const file of selectedFiles) {
-        const attachment = await prepareImageAttachment(file)
-        nextAttachments.push(attachment)
-      }
-    } catch (error) {
-      lastError.value = getErrorMessage(error, '图片处理失败。')
-      return
-    }
-
-    if (files.length > availableSlots) {
-      lastError.value = `已达到上限：单条消息最多 ${MAX_IMAGE_ATTACHMENTS} 张。`
-    } else {
-      lastError.value = null
-    }
-
-    pendingAttachments.value = nextAttachments
+    const prepared = await preparePendingImages({
+      files,
+      pendingAttachments: pendingAttachments.value,
+    })
+    pendingAttachments.value = prepared.nextAttachments
+    lastError.value = prepared.error
   }
 
   function removePendingAttachment(id: string): void {
@@ -200,28 +179,13 @@ export function useChatApp() {
 
   function updateActiveThinkingEnabled(enabled: boolean): void {
     const provider = activeChatConfig.value.provider
-    if (provider === 'kimi') {
-      providerThinking.value = {
-        ...providerThinking.value,
-        kimi: enabled,
-      }
+    const target = resolveThinkingProvider(provider)
+    if (!target) {
       return
     }
 
-    if (provider === 'minimax') {
-      providerThinking.value = {
-        ...providerThinking.value,
-        minimax: enabled,
-      }
-      return
-    }
-
-    if (provider === 'deepseek') {
-      providerThinking.value = {
-        ...providerThinking.value,
-        deepseek: enabled,
-      }
-    }
+    settingsActions.updateProviderThinking(target, enabled)
+    void persistPreferenceChange()
   }
 
   async function deleteConversation(id: string): Promise<void> {
@@ -305,19 +269,22 @@ export function useChatApp() {
   }
 
   function resolveThinkingEnabled(provider: ProviderId): boolean {
-    if (provider === 'deepseek') {
-      return providerThinking.value.deepseek
-    }
+    return getThinkingEnabledForProvider(settings.value, provider)
+  }
 
-    if (provider === 'kimi') {
-      return providerThinking.value.kimi
+  async function persistPreferenceChange(): Promise<void> {
+    try {
+      const normalizedSettings = getNormalizedSettings()
+      settings.value = normalizedSettings
+      await saveSettingsDoc(normalizedSettings)
+      lastError.value = null
+    } catch (error) {
+      lastError.value = getErrorMessage(error, '设置保存失败。')
     }
+  }
 
-    if (provider === 'minimax') {
-      return providerThinking.value.minimax
-    }
-
-    return true
+  function getNormalizedSettings(): SettingsForm {
+    return normalizeSettings(settings.value)
   }
 
   return {
@@ -361,15 +328,8 @@ export function useChatApp() {
     updateCustomModelField: settingsActions.updateCustomModelField,
     updateDeepseekField,
     updateActiveThinkingEnabled,
+    updateFontSize: settingsActions.updateFontSize,
     updateTheme: settingsActions.updateTheme,
     updateUtoolsUploadMode: settingsActions.updateUtoolsUploadMode,
   }
-}
-
-function shouldShowThinkingToggle(provider: ProviderId, model: string): boolean {
-  if (provider === 'deepseek') {
-    return supportsDeepseekThinking(model)
-  }
-
-  return provider === 'kimi' || provider === 'minimax'
 }

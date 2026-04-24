@@ -1,4 +1,4 @@
-import type { SettingsForm, ThemeMode } from '../types/chat'
+import type { FontSizeMode, SettingsForm, ThemeMode } from '../types/chat'
 import { buildDefaultSettings } from './providers'
 
 export const CHAT_IDLE_RESET_MS = 60_000
@@ -13,5 +13,6 @@ export const MAX_IMAGE_OUTPUT_BYTES = 2.5 * 1024 * 1024
 export const MAX_IMAGE_EDGE = 1_600
 
 export const THEME_OPTIONS: ThemeMode[] = ['light', 'dark']
+export const FONT_SIZE_OPTIONS: FontSizeMode[] = ['medium', 'large', 'x-large']
 
 export const DEFAULT_SETTINGS: SettingsForm = buildDefaultSettings()

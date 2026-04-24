@@ -3,7 +3,9 @@ import { buildDefaultProviderSettings, createAddedModelDraft } from '../constant
 import { isLegacyMultiProviderDocShape, normalizeUtoolsUploadMode } from '../composables/chatAppSettings'
 import type {
   AddableProviderId,
+  FontSizeMode,
   ProviderSettings,
+  ProviderThinkingSettings,
   SettingsDoc,
   SettingsForm,
   ThemeMode,
@@ -18,6 +20,8 @@ export interface LegacySettingsDoc {
   baseUrl?: string
   model?: string
   temperature?: number
+  fontSize?: FontSizeMode
+  providerThinking?: Partial<ProviderThinkingSettings>
   theme?: ThemeMode
 }
 
@@ -25,7 +29,9 @@ export type LegacyMultiProviderDoc = {
   _id: string
   _rev?: string
   activeProvider?: string
+  fontSize?: FontSizeMode
   providers?: Record<string, Partial<ProviderSettings>>
+  providerThinking?: Partial<ProviderThinkingSettings>
   theme?: ThemeMode
   type: 'settings'
 }
@@ -41,6 +47,8 @@ export function migrateSettingsDoc(
       activeConfigId: doc.activeConfigId,
       customModels: doc.customModels,
       deepseek: doc.deepseek,
+      fontSize: doc.fontSize,
+      providerThinking: doc.providerThinking,
       theme: doc.theme,
       utoolsUploadMode: normalizeUtoolsUploadMode(doc.utoolsUploadMode, legacyUploadModeFallback),
     }
@@ -66,6 +74,11 @@ export function migrateSettingsDoc(
       temperature: typeof doc.temperature === 'number'
         ? doc.temperature
         : DEFAULT_SETTINGS.deepseek.temperature,
+    },
+    fontSize: doc.fontSize ?? DEFAULT_SETTINGS.fontSize,
+    providerThinking: {
+      ...DEFAULT_SETTINGS.providerThinking,
+      ...(doc.providerThinking ?? {}),
     },
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
     utoolsUploadMode: legacyUploadModeFallback,
@@ -94,6 +107,11 @@ function migrateLegacyMultiProviderDoc(
     activeConfigId: resolveLegacyActiveConfigId(doc.activeProvider, customModels),
     customModels,
     deepseek,
+    fontSize: doc.fontSize ?? DEFAULT_SETTINGS.fontSize,
+    providerThinking: {
+      ...DEFAULT_SETTINGS.providerThinking,
+      ...(doc.providerThinking ?? {}),
+    },
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
     utoolsUploadMode: legacyUploadModeFallback,
   }

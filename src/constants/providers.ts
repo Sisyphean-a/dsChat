@@ -1,8 +1,10 @@
 import type {
   AddableProviderId,
   AddedModelConfig,
+  FontSizeMode,
   ProviderId,
   ProviderSettings,
+  ProviderThinkingSettings,
   SettingsForm,
   ThemeMode,
 } from '../types/chat'
@@ -34,6 +36,12 @@ export interface ProviderDefinition {
 }
 
 const THEME_DEFAULT: ThemeMode = 'light'
+const FONT_SIZE_DEFAULT: FontSizeMode = 'medium'
+const DEFAULT_PROVIDER_THINKING: ProviderThinkingSettings = {
+  deepseek: true,
+  kimi: true,
+  minimax: true,
+}
 const STANDARD_TEMPERATURE: TemperatureRange = { min: 0, max: 2, defaultValue: 1 }
 const MINIMAX_TEMPERATURE: TemperatureRange = { min: 0.1, max: 1, defaultValue: 1 }
 const DEEPSEEK_THINKING_MODELS = ['deepseek-v4-flash', 'deepseek-v4-pro', 'deepseek-chat'] as const
@@ -173,6 +181,10 @@ export function buildDefaultSettings(): SettingsForm {
     activeConfigId: DEFAULT_CONFIG_ID,
     customModels: [],
     deepseek: buildDefaultProviderSettings('deepseek'),
+    fontSize: FONT_SIZE_DEFAULT,
+    providerThinking: {
+      ...DEFAULT_PROVIDER_THINKING,
+    },
     theme: THEME_DEFAULT,
     utoolsUploadMode: DEFAULT_UTOOLS_UPLOAD_MODE,
   }

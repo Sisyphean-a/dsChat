@@ -1,13 +1,16 @@
 import type { Ref } from 'vue'
 import type {
   AddableProviderId,
+  FontSizeMode,
   ProviderSettings,
+  ProviderThinkingSettings,
   SettingsForm,
   ThemeMode,
   UtoolsUploadMode,
 } from '../types/chat'
 import { createAddedModelDraft } from '../constants/providers'
 import { getErrorMessage } from './chatAppErrors'
+import { appendModelOption, replaceModelOption } from './chatAppModelOptions'
 import { normalizeSettings } from './chatAppSettings'
 
 type ProviderEditableField = Exclude<keyof ProviderSettings, 'modelOptions'>
@@ -18,7 +21,7 @@ interface ChatAppSettingsActionsOptions {
   isSavingSettings: Ref<boolean>
   isSettingsOpen: Ref<boolean>
   lastError: Ref<string | null>
-  applyTheme: (theme: ThemeMode) => void
+  applyAppearance: (appearance: { fontSize: FontSizeMode; theme: ThemeMode }) => void
   saveSettings: (settings: SettingsForm) => Promise<void>
 }
 
@@ -39,6 +42,11 @@ export interface ChatAppSettingsActions {
     field: ProviderEditableField,
     value: ProviderSettings[ProviderEditableField],
   ) => void
+  updateFontSize: (fontSize: FontSizeMode) => void
+  updateProviderThinking: (
+    provider: keyof ProviderThinkingSettings,
+    enabled: boolean,
+  ) => void
   updateTheme: (theme: ThemeMode) => void
   updateUtoolsUploadMode: (mode: UtoolsUploadMode) => void
 }
@@ -57,7 +65,7 @@ export function createChatAppSettingsActions(
     isSettingsOpen,
     isSidebarCollapsed,
     lastError,
-    applyTheme,
+    applyAppearance,
     saveSettings,
   } = options
 
@@ -227,7 +235,37 @@ export function createChatAppSettingsActions(
       theme,
     }
     settings.value = nextSettings
-    applyTheme(normalizeSettings(nextSettings).theme)
+    const normalized = normalizeSettings(nextSettings)
+    applyAppearance({
+      fontSize: normalized.fontSize,
+      theme: normalized.theme,
+    })
+  }
+
+  function updateFontSize(fontSize: FontSizeMode): void {
+    const nextSettings = {
+      ...settings.value,
+      fontSize,
+    }
+    settings.value = nextSettings
+    const normalized = normalizeSettings(nextSettings)
+    applyAppearance({
+      fontSize: normalized.fontSize,
+      theme: normalized.theme,
+    })
+  }
+
+  function updateProviderThinking(
+    provider: keyof ProviderThinkingSettings,
+    enabled: boolean,
+  ): void {
+    settings.value = {
+      ...settings.value,
+      providerThinking: {
+        ...settings.value.providerThinking,
+        [provider]: enabled,
+      },
+    }
   }
 
   function updateUtoolsUploadMode(mode: UtoolsUploadMode): void {
@@ -243,7 +281,10 @@ export function createChatAppSettingsActions(
     try {
       const normalizedSettings = normalizeSettings(settings.value)
       settings.value = normalizedSettings
-      applyTheme(normalizedSettings.theme)
+      applyAppearance({
+        fontSize: normalizedSettings.fontSize,
+        theme: normalizedSettings.theme,
+      })
       await saveSettings(normalizedSettings)
       isSettingsOpen.value = false
       lastError.value = null
@@ -268,44 +309,9 @@ export function createChatAppSettingsActions(
     toggleSidebar,
     updateCustomModelField,
     updateDeepseekField,
+    updateFontSize,
+    updateProviderThinking,
     updateTheme,
     updateUtoolsUploadMode,
   }
-}
-
-function appendModelOption(current: string[], model: string): string[] {
-  const value = model.trim()
-  if (!value || current.includes(value)) {
-    return current
-  }
-
-  return [...current, value]
-}
-
-function replaceModelOption(current: string[], fromOption: string, toOption: string): string[] {
-  const from = fromOption.trim()
-  const to = toOption.trim()
-  if (!from || !to || from === to) {
-    return current
-  }
-
-  const nextOptions: string[] = []
-  const visited = new Set<string>()
-
-  for (const item of current) {
-    const value = item.trim()
-    if (!value) {
-      continue
-    }
-
-    const nextValue = value === from ? to : value
-    if (visited.has(nextValue)) {
-      continue
-    }
-
-    visited.add(nextValue)
-    nextOptions.push(nextValue)
-  }
-
-  return nextOptions
 }

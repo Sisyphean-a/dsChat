@@ -1,5 +1,6 @@
 export type ChatRole = 'user' | 'assistant' | 'system'
 export type MessageStatus = 'done' | 'streaming' | 'error' | 'interrupted'
+export type FontSizeMode = 'medium' | 'large' | 'x-large'
 export type ThemeMode = 'light' | 'dark'
 export type ProviderId = 'deepseek' | 'openai' | 'minimax' | 'kimi' | 'custom'
 export type AddableProviderId = Exclude<ProviderId, 'deepseek'>
@@ -47,11 +48,19 @@ export interface AddedModelConfig extends ProviderSettings {
   provider: AddableProviderId
 }
 
+export interface ProviderThinkingSettings {
+  deepseek: boolean
+  kimi: boolean
+  minimax: boolean
+}
+
 export interface SettingsDoc extends BaseDoc {
   type: 'settings'
   activeConfigId: string
   deepseek: ProviderSettings
   customModels: AddedModelConfig[]
+  fontSize: FontSizeMode
+  providerThinking: ProviderThinkingSettings
   theme: ThemeMode
   utoolsUploadMode: UtoolsUploadMode
 }
@@ -75,6 +84,8 @@ export interface SettingsForm {
   activeConfigId: string
   deepseek: ProviderSettings
   customModels: AddedModelConfig[]
+  fontSize: FontSizeMode
+  providerThinking: ProviderThinkingSettings
   theme: ThemeMode
   utoolsUploadMode: UtoolsUploadMode
 }

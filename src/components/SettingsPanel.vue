@@ -9,6 +9,7 @@ import {
 } from '../constants/providers'
 import type {
   AddableProviderId,
+  FontSizeMode,
   ModelConfigOption,
   ProviderSettings,
   SettingsForm,
@@ -34,6 +35,7 @@ const emit = defineEmits<{
   removeCustomModelOption: [id: string, option: string]
   renameCustomModelOption: [id: string, from: string, to: string]
   save: []
+  updateFontSize: [fontSize: FontSizeMode]
   updateCustomModelField: [id: string, field: CustomModelField, value: string | number]
   updateDeepseekField: [field: ProviderEditableField, value: string | number]
   updateTheme: [theme: ThemeMode]
@@ -43,6 +45,11 @@ const emit = defineEmits<{
 const themeCards: Array<{ label: string; value: ThemeMode }> = [
   { label: '浅色', value: 'light' },
   { label: '夜色', value: 'dark' },
+]
+const fontSizeCards: Array<{ description: string; label: string; value: FontSizeMode }> = [
+  { description: '默认信息密度', label: '标准', value: 'medium' },
+  { description: '更易读，适合多数人', label: '大号', value: 'large' },
+  { description: '尽量放大正文和代码', label: '特大', value: 'x-large' },
 ]
 
 const addableProviders = getAddableProviderDefinitions()
@@ -90,6 +97,19 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
                 @click="emit('updateTheme', theme.value)"
               >
                 {{ theme.label }}
+              </button>
+            </div>
+            <div class="font-size-grid">
+              <button
+                v-for="fontSize in fontSizeCards"
+                :key="fontSize.value"
+                class="font-size-card"
+                :class="{ active: props.settings.fontSize === fontSize.value }"
+                type="button"
+                @click="emit('updateFontSize', fontSize.value)"
+              >
+                <span class="font-size-card-label">{{ fontSize.label }}</span>
+                <span class="font-size-card-detail">{{ fontSize.description }}</span>
               </button>
             </div>
           </section>
@@ -197,272 +217,4 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
     </div>
   </transition>
 </template>
-
-<style scoped>
-.settings-fade-enter-active,
-.settings-fade-leave-active {
-  transition: opacity 200ms ease;
-}
-
-.settings-fade-enter-active .settings-panel,
-.settings-fade-leave-active .settings-panel {
-  transition: opacity 200ms ease, transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.settings-fade-enter-from,
-.settings-fade-leave-to {
-  opacity: 0;
-}
-
-.settings-fade-enter-from .settings-panel,
-.settings-fade-leave-to .settings-panel {
-  opacity: 0;
-  transform: translateY(12px) scale(0.98);
-}
-
-.settings-overlay {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 100;
-}
-
-.settings-panel {
-  width: min(700px, 100%);
-  max-height: calc(100vh - 40px);
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-}
-
-.settings-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.settings-header h2 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-button {
-  cursor: pointer;
-  border: none;
-  background: none;
-  font-family: inherit;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-.ghost-action {
-  padding: 6px 14px;
-  border-radius: 8px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.ghost-action:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
-.primary-action {
-  padding: 6px 18px;
-  border-radius: 8px;
-  background: var(--text);
-  color: var(--bg);
-  font-weight: 600;
-}
-
-.primary-action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.settings-body {
-  padding: 16px 20px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.setting-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.setting-group h3 {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
-
-.theme-toggle {
-  display: inline-flex;
-  background: var(--bg-soft);
-  padding: 4px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-}
-
-.theme-toggle button {
-  padding: 4px 16px;
-  border-radius: 8px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.theme-toggle button.active {
-  background: var(--bg);
-  color: var(--text);
-}
-
-.hint-row {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.provider-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 12px;
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
-}
-
-.provider-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.provider-head h4 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.provider-name-input {
-  width: 100%;
-  max-width: 240px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
-  padding: 6px 10px;
-  font-size: 0.85rem;
-  outline: none;
-  box-sizing: border-box;
-  font-family: var(--font-mono, inherit);
-}
-
-.danger-text {
-  color: var(--danger);
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 6px;
-}
-
-.danger-text:hover {
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.field-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1.4fr;
-  gap: 12px;
-  align-items: start;
-}
-
-input:not(.provider-name-input),
-.storage-select {
-  width: 100%;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  font-size: 0.85rem;
-  outline: none;
-  box-sizing: border-box;
-  font-family: var(--font-mono, inherit);
-}
-
-.storage-select {
-  font-family: inherit;
-}
-
-.storage-picker {
-  width: 100%;
-  max-width: none;
-  min-width: 0;
-  flex: none;
-}
-
-.add-provider-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
-}
-
-.add-button {
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px dashed var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.add-button:hover {
-  border-color: var(--text);
-  color: var(--text);
-  background: var(--bg-soft);
-}
-
-@media (max-width: 700px) {
-  .field-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-panel {
-    border-radius: 16px 16px 0 0;
-    max-height: 90vh;
-    align-self: end;
-  }
-
-  .settings-overlay {
-    align-items: end;
-    padding: 0;
-  }
-}
-</style>
+<style scoped src="../styles/settings-panel.css"></style>

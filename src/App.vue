@@ -180,6 +180,7 @@ onMounted(() => {
       @save="app.saveSettings"
       @update-custom-model-field="app.updateCustomModelField"
       @update-deepseek-field="app.updateDeepseekField"
+      @update-font-size="app.updateFontSize"
       @update-theme="app.updateTheme"
       @update-utools-upload-mode="app.updateUtoolsUploadMode"
     />
