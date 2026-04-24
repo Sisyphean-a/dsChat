@@ -58,9 +58,11 @@ export function migrateSettingsDoc(
       apiKey: doc.apiKey ?? DEFAULT_SETTINGS.deepseek.apiKey,
       baseUrl: doc.baseUrl ?? DEFAULT_SETTINGS.deepseek.baseUrl,
       model: doc.model ?? DEFAULT_SETTINGS.deepseek.model,
-      modelOptions: buildLegacyModelOptions(DEFAULT_SETTINGS.deepseek, {
-        model: doc.model,
-      }),
+      modelOptions: buildLegacyModelOptions(
+        DEFAULT_SETTINGS.deepseek,
+        { model: doc.model },
+        { appendCurrentModel: false },
+      ),
       temperature: typeof doc.temperature === 'number'
         ? doc.temperature
         : DEFAULT_SETTINGS.deepseek.temperature,
@@ -78,7 +80,11 @@ function migrateLegacyMultiProviderDoc(
   const deepseek = {
     ...deepseekDefaults,
     ...(doc.providers?.deepseek ?? {}),
-    modelOptions: buildLegacyModelOptions(deepseekDefaults, doc.providers?.deepseek),
+    modelOptions: buildLegacyModelOptions(
+      deepseekDefaults,
+      doc.providers?.deepseek,
+      { appendCurrentModel: false },
+    ),
   }
   const customModels = (['openai', 'minimax', 'kimi'] as const)
     .map((provider) => toLegacyCustomModel(provider, doc.providers?.[provider]))
@@ -128,13 +134,14 @@ function toLegacyCustomModel(
 function buildLegacyModelOptions(
   defaults: ProviderSettings,
   incoming: Partial<ProviderSettings> | undefined,
+  options?: { appendCurrentModel?: boolean },
 ): string[] {
   const source = Array.isArray(incoming?.modelOptions)
     ? incoming.modelOptions
     : defaults.modelOptions
   const normalized = [...new Set(source.map((item) => item.trim()).filter(Boolean))]
   const model = incoming?.model?.trim()
-  if (!model || normalized.includes(model)) {
+  if (!model || normalized.includes(model) || options?.appendCurrentModel === false) {
     return normalized
   }
 

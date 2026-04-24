@@ -36,6 +36,7 @@ export interface ProviderDefinition {
 const THEME_DEFAULT: ThemeMode = 'light'
 const STANDARD_TEMPERATURE: TemperatureRange = { min: 0, max: 2, defaultValue: 1 }
 const MINIMAX_TEMPERATURE: TemperatureRange = { min: 0.1, max: 1, defaultValue: 1 }
+const DEEPSEEK_THINKING_MODELS = ['deepseek-v4-flash', 'deepseek-v4-pro', 'deepseek-chat'] as const
 
 export const DEFAULT_CONFIG_ID = 'deepseek'
 export const PROVIDER_IDS: ProviderId[] = ['deepseek', 'openai', 'minimax', 'kimi', 'custom']
@@ -62,8 +63,8 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     baseUrlDefault: 'https://api.deepseek.com',
     baseUrlPlaceholder: 'https://api.deepseek.com',
     defaultModels: [
-      createModelOption('deepseek-chat', 'DeepSeek Chat', 'Chat', true),
-      createModelOption('deepseek-reasoner', 'DeepSeek Reasoner', 'Reasoner', false),
+      createModelOption('deepseek-v4-flash', 'DeepSeek V4 Flash', 'V4 Flash', true),
+      createModelOption('deepseek-v4-pro', 'DeepSeek V4 Pro', 'V4 Pro', true),
     ],
     temperature: STANDARD_TEMPERATURE,
   },
@@ -150,6 +151,10 @@ export function findProviderModel(
 
 export function getProviderTemperatureRange(provider: ProviderId): TemperatureRange {
   return PROVIDER_REGISTRY[provider].temperature
+}
+
+export function supportsDeepseekThinking(model: string): boolean {
+  return DEEPSEEK_THINKING_MODELS.includes(model.trim() as (typeof DEEPSEEK_THINKING_MODELS)[number])
 }
 
 export function buildDefaultProviderSettings(provider: ProviderId): ProviderSettings {

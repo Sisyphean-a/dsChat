@@ -1,3 +1,4 @@
+import { supportsDeepseekThinking } from '../constants/providers'
 import { modelSupportsTemperature } from '../composables/chatAppSettings'
 import type { ActiveProviderSettings, ChatMessage, ProviderId } from '../types/chat'
 
@@ -272,8 +273,14 @@ function createPayload(
     stream,
   }
 
-  if (modelSupportsTemperature(settings.provider, settings.model)) {
+  if (shouldIncludeTemperature(settings, requestOptions)) {
     payload.temperature = settings.temperature
+  }
+
+  if (settings.provider === 'deepseek' && supportsDeepseekThinking(settings.model)) {
+    payload.thinking = {
+      type: (requestOptions?.thinkingEnabled ?? true) ? 'enabled' : 'disabled',
+    }
   }
 
   if (settings.provider === 'minimax') {
@@ -287,6 +294,25 @@ function createPayload(
   }
 
   return payload
+}
+
+function shouldIncludeTemperature(
+  settings: ActiveProviderSettings,
+  requestOptions?: ChatRequestOptions,
+): boolean {
+  if (!modelSupportsTemperature(settings.provider, settings.model)) {
+    return false
+  }
+
+  if (settings.provider !== 'deepseek') {
+    return true
+  }
+
+  if (!supportsDeepseekThinking(settings.model)) {
+    return true
+  }
+
+  return (requestOptions?.thinkingEnabled ?? true) === false
 }
 
 async function createProviderFailureMessage(

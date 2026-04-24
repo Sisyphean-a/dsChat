@@ -7,6 +7,7 @@ import {
   SESSION_DOC_ID,
   STOPPED_RESPONSE_MESSAGE,
 } from '../constants/app'
+import { supportsDeepseekThinking } from '../constants/providers'
 import { prepareImageAttachment } from '../services/messageAttachments'
 import { requestConversationTitle } from '../services/conversationTitle'
 import { streamChatCompletion } from '../services/chatCompletion'
@@ -47,7 +48,8 @@ export function useChatApp() {
   const activeConversationId = ref<string | null>(null)
   const messages = ref<ChatMessage[]>([])
   const draftMessage = ref('')
-  const providerThinking = ref<{ kimi: boolean; minimax: boolean }>({
+  const providerThinking = ref<{ deepseek: boolean; kimi: boolean; minimax: boolean }>({
+    deepseek: true,
     kimi: true,
     minimax: true,
   })
@@ -65,8 +67,10 @@ export function useChatApp() {
     return Boolean(draftMessage.value.trim()) || pendingAttachments.value.length > 0
   })
   const showThinkingToggle = computed(() => {
-    const provider = activeChatConfig.value.provider
-    return provider === 'kimi' || provider === 'minimax'
+    return shouldShowThinkingToggle(
+      activeChatConfig.value.provider,
+      activeChatConfig.value.model,
+    )
   })
   const thinkingEnabled = computed(() => {
     return resolveThinkingEnabled(activeChatConfig.value.provider)
@@ -209,6 +213,14 @@ export function useChatApp() {
         ...providerThinking.value,
         minimax: enabled,
       }
+      return
+    }
+
+    if (provider === 'deepseek') {
+      providerThinking.value = {
+        ...providerThinking.value,
+        deepseek: enabled,
+      }
     }
   }
 
@@ -293,6 +305,10 @@ export function useChatApp() {
   }
 
   function resolveThinkingEnabled(provider: ProviderId): boolean {
+    if (provider === 'deepseek') {
+      return providerThinking.value.deepseek
+    }
+
     if (provider === 'kimi') {
       return providerThinking.value.kimi
     }
@@ -348,4 +364,12 @@ export function useChatApp() {
     updateTheme: settingsActions.updateTheme,
     updateUtoolsUploadMode: settingsActions.updateUtoolsUploadMode,
   }
+}
+
+function shouldShowThinkingToggle(provider: ProviderId, model: string): boolean {
+  if (provider === 'deepseek') {
+    return supportsDeepseekThinking(model)
+  }
+
+  return provider === 'kimi' || provider === 'minimax'
 }

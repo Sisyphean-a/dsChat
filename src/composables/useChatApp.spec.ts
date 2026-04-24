@@ -134,7 +134,7 @@ describe('useChatApp', () => {
           provider: 'deepseek',
           apiKey: 'sk-test',
           baseUrl: 'https://api.deepseek.com',
-          model: 'deepseek-chat',
+          model: 'deepseek-v4-flash',
           modelOptions: expect.any(Array),
           temperature: 1,
         }),
@@ -251,7 +251,7 @@ describe('useChatApp', () => {
 
     app.updateDeepseekField('apiKey', '  sk-test  ')
     app.updateDeepseekField('baseUrl', '  https://api.deepseek.com/  ')
-    app.updateDeepseekField('model', '  deepseek-chat  ')
+    app.updateDeepseekField('model', '  deepseek-v4-flash  ')
     app.updateTheme('dark')
 
     await app.saveSettings()
@@ -261,7 +261,7 @@ describe('useChatApp', () => {
       deepseek: {
         apiKey: 'sk-test',
         baseUrl: 'https://api.deepseek.com/',
-        model: 'deepseek-chat',
+        model: 'deepseek-v4-flash',
         modelOptions: expect.any(Array),
         temperature: 1,
       },
@@ -303,8 +303,8 @@ describe('useChatApp', () => {
     await app.initialize()
 
     expect(app.modelOptions.value.map((item) => item.value)).toEqual([
-      'deepseek-chat',
-      'deepseek-reasoner',
+      'deepseek-v4-flash',
+      'deepseek-v4-pro',
     ])
 
     app.selectActiveModel('deepseek-reasoner')
@@ -422,6 +422,35 @@ describe('useChatApp', () => {
       expect.any(Array),
       expect.objectContaining({
         provider: 'kimi',
+      }),
+      expect.any(Function),
+      expect.any(AbortSignal),
+      { thinkingEnabled: false },
+    )
+  })
+
+  it('shows deepseek thinking toggle on v4 models and passes thinkingEnabled=false after closing it', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+        model: 'deepseek-v4-flash',
+      },
+    }))
+    vi.mocked(streamChatCompletion).mockResolvedValue('你好')
+
+    const app = useChatApp()
+    await app.initialize()
+    expect(app.showThinkingToggle.value).toBe(true)
+
+    app.updateActiveThinkingEnabled(false)
+    app.draftMessage.value = '你好'
+    await app.sendMessage()
+
+    expect(streamChatCompletion).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        provider: 'deepseek',
+        model: 'deepseek-v4-flash',
       }),
       expect.any(Function),
       expect.any(AbortSignal),

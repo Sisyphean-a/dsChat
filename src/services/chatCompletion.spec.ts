@@ -180,11 +180,69 @@ describe('streamChatCompletion', () => {
 
     await streamChatCompletion(
       [{ id: '1', role: 'user', content: 'test', createdAt: 0, status: 'done' }],
-      createSettings({ temperature: 1.4 }),
+      createSettings({
+        label: 'OpenAI',
+        provider: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-4.1',
+        temperature: 1.4,
+      }),
       vi.fn(),
     )
 
     const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
+    expect(body.temperature).toBe(1.4)
+  })
+
+  it('passes deepseek thinking payload and omits temperature while thinking is enabled', async () => {
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"好"}}]}\n\ndata: [DONE]\n\n'))
+          controller.close()
+        },
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await streamChatCompletion(
+      [{ id: '1', role: 'user', content: 'test', createdAt: 0, status: 'done' }],
+      createSettings({ model: 'deepseek-v4-flash', temperature: 1.4 }),
+      vi.fn(),
+    )
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
+    expect(body.thinking).toEqual({ type: 'enabled' })
+    expect(body.temperature).toBeUndefined()
+  })
+
+  it('keeps deepseek temperature only when thinking mode is disabled', async () => {
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"好"}}]}\n\ndata: [DONE]\n\n'))
+          controller.close()
+        },
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await streamChatCompletion(
+      [{ id: '1', role: 'user', content: 'test', createdAt: 0, status: 'done' }],
+      createSettings({ model: 'deepseek-v4-flash', temperature: 1.4 }),
+      vi.fn(),
+      undefined,
+      { thinkingEnabled: false },
+    )
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
+    expect(body.thinking).toEqual({ type: 'disabled' })
     expect(body.temperature).toBe(1.4)
   })
 
@@ -374,8 +432,8 @@ function createSettings(
     provider: 'deepseek',
     apiKey: 'sk-test',
     baseUrl: 'https://api.deepseek.com',
-    model: 'deepseek-chat',
-    modelOptions: ['deepseek-chat', 'deepseek-reasoner'],
+    model: 'deepseek-v4-flash',
+    modelOptions: ['deepseek-v4-flash', 'deepseek-v4-pro'],
     temperature: 1,
   }
 

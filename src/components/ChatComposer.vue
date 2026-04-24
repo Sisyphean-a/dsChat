@@ -101,8 +101,8 @@ function closePreview(): void {
   previewAttachment.value = null
 }
 
-function toggleThinking(): void {
-  emit('updateThinkingEnabled', !props.thinkingEnabled)
+function handleThinkingChange(event: Event): void {
+  emit('updateThinkingEnabled', (event.target as HTMLInputElement).checked)
 }
 
 function normalizeClipboardFile(file: File): File {
@@ -190,16 +190,23 @@ function mimeTypeToExtension(mimeType: string): string {
             type="file"
             @change="handleImageInput"
           />
-          <button
+          <label
             v-if="props.showThinkingToggle"
             class="thinking-toggle"
-            :class="{ active: props.thinkingEnabled }"
-            type="button"
-            :disabled="props.sendDisabled"
-            @click="toggleThinking"
+            :class="{ disabled: props.sendDisabled }"
           >
-            {{ props.thinkingEnabled ? '思考开' : '思考关' }}
-          </button>
+            <input
+              class="thinking-toggle-input"
+              type="checkbox"
+              :checked="props.thinkingEnabled"
+              :disabled="props.sendDisabled"
+              @change="handleThinkingChange"
+            />
+            <span class="thinking-toggle-track" aria-hidden="true">
+              <span class="thinking-toggle-thumb"></span>
+            </span>
+            <span class="thinking-toggle-text">思考</span>
+          </label>
           <slot name="actions"></slot>
         </div>
         <button
@@ -324,26 +331,66 @@ textarea::placeholder {
 }
 
 .thinking-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   height: 28px;
-  padding: 0 8px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--bg-soft);
+  padding: 0 2px 0 0;
+  cursor: pointer;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   font-weight: 600;
   white-space: nowrap;
 }
 
-.thinking-toggle.active {
-  border-color: rgba(16, 163, 127, 0.28);
-  color: var(--text);
-  background: var(--bg-hover);
-}
-
-.thinking-toggle:disabled {
+.thinking-toggle.disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.thinking-toggle-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.thinking-toggle-track {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--bg-active);
+  border: 1px solid var(--border);
+  transition: background 180ms ease, border-color 180ms ease;
+}
+
+.thinking-toggle-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+  transition: transform 180ms ease;
+}
+
+.thinking-toggle-input:checked + .thinking-toggle-track {
+  background: rgba(16, 163, 127, 0.18);
+  border-color: rgba(16, 163, 127, 0.35);
+}
+
+.thinking-toggle-input:checked + .thinking-toggle-track .thinking-toggle-thumb {
+  transform: translateX(14px);
+}
+
+.thinking-toggle-input:focus-visible + .thinking-toggle-track {
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.18);
+}
+
+.thinking-toggle-text {
+  color: var(--text);
 }
 
 .hidden-file-input {

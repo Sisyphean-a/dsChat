@@ -116,7 +116,7 @@ describe('ChatComposer', () => {
       },
     })
 
-    await wrapper.get('.thinking-toggle').trigger('click')
+    await wrapper.get('.thinking-toggle-input').setValue(false)
 
     expect(wrapper.emitted('updateThinkingEnabled')).toEqual([[false]])
   })
