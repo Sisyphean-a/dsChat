@@ -1,7 +1,0 @@
-{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "设置结构与 useChatApp 状态编排"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Vue 组件边界与模型选择器/设置面板改造"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "异步发送流、持久化与测试覆盖"}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "提供商元数据与模型元数据单一来源"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "提供商配置跨常量/类型/服务/composable/组件流动"}

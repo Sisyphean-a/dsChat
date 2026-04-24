@@ -1,4 +1,0 @@
-{"file": ".agents/skills/finish-work/SKILL.md", "reason": "Finish work checklist"}
-{"file": ".agents/skills/check/SKILL.md", "reason": "Code quality check spec"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "校验异步行为与测试要求"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "检查设置迁移与请求层边界"}

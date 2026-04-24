@@ -1,8 +1,0 @@
-{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "MessageBubble 与 App 结构改造需保持组件边界清晰"}
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "流式消息状态与持久化边界不能破坏"}
-{"file": ".trellis/spec/frontend/type-safety.md", "reason": "新增流式渲染状态需保持类型边界明确"}
-{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "流式渲染与自动滚动状态机改造"}
-{"file": ".trellis/spec/frontend/style-baseline.md", "reason": "消息列表与气泡样式增强要保持当前视觉基线"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "不能回退现有聊天交互与滚动可控性"}
