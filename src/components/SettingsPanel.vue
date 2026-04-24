@@ -46,10 +46,10 @@ const themeCards: Array<{ label: string; value: ThemeMode }> = [
   { label: '浅色', value: 'light' },
   { label: '夜色', value: 'dark' },
 ]
-const fontSizeCards: Array<{ description: string; label: string; value: FontSizeMode }> = [
-  { description: '默认信息密度', label: '标准', value: 'medium' },
-  { description: '更易读，适合多数人', label: '大号', value: 'large' },
-  { description: '尽量放大正文和代码', label: '特大', value: 'x-large' },
+const fontSizeCards: Array<{ label: string; value: FontSizeMode }> = [
+  { label: '标准', value: 'medium' },
+  { label: '大号', value: 'large' },
+  { label: '特大', value: 'x-large' },
 ]
 
 const addableProviders = getAddableProviderDefinitions()
@@ -99,18 +99,19 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
                 {{ theme.label }}
               </button>
             </div>
-            <div class="font-size-grid">
-              <button
-                v-for="fontSize in fontSizeCards"
-                :key="fontSize.value"
-                class="font-size-card"
-                :class="{ active: props.settings.fontSize === fontSize.value }"
-                type="button"
-                @click="emit('updateFontSize', fontSize.value)"
-              >
-                <span class="font-size-card-label">{{ fontSize.label }}</span>
-                <span class="font-size-card-detail">{{ fontSize.description }}</span>
-              </button>
+            <div class="inline-setting-row">
+              <span class="inline-setting-label">字体大小</span>
+              <div class="font-size-toggle" role="group" aria-label="字体大小">
+                <button
+                  v-for="fontSize in fontSizeCards"
+                  :key="fontSize.value"
+                  :class="{ active: props.settings.fontSize === fontSize.value }"
+                  type="button"
+                  @click="emit('updateFontSize', fontSize.value)"
+                >
+                  {{ fontSize.label }}
+                </button>
+              </div>
             </div>
           </section>
 

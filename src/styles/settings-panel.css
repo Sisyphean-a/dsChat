@@ -139,37 +139,40 @@ button {
   color: var(--text);
 }
 
-.font-size-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.font-size-card {
+.inline-setting-row {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-soft);
+  align-items: center;
+  gap: 12px;
+}
+
+.inline-setting-label {
+  flex: none;
   color: var(--text-muted);
-  text-align: left;
-}
-
-.font-size-card.active {
-  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 55%, var(--bg));
-  color: var(--text);
-}
-
-.font-size-card-label {
+  font-size: 0.84rem;
   font-weight: 600;
 }
 
-.font-size-card-detail {
-  line-height: 1.45;
-  font-size: 0.76rem;
+.font-size-toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.font-size-toggle button {
+  min-width: 72px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.font-size-toggle button.active {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--bg));
+  color: var(--text);
 }
 
 .hint-row {
@@ -280,9 +283,13 @@ input:not(.provider-name-input),
 }
 
 @media (max-width: 700px) {
-  .field-grid,
-  .font-size-grid {
+  .field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .inline-setting-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .settings-panel {
