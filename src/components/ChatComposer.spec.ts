@@ -137,7 +137,7 @@ describe('ChatComposer', () => {
 
     const textareaWrapper = wrapper.get('textarea')
     const textarea = textareaWrapper.element as HTMLTextAreaElement
-    let mockScrollHeight = 180
+    let mockScrollHeight = 260
 
     Object.defineProperty(textarea, 'scrollHeight', {
       configurable: true,
@@ -146,12 +146,14 @@ describe('ChatComposer', () => {
 
     textarea.value = 'line\n'.repeat(20)
     await textareaWrapper.trigger('input')
-    expect(textarea.style.height).toBe('180px')
+    expect(textarea.style.height).toBe('200px')
+    expect(textarea.style.overflowY).toBe('auto')
 
-    mockScrollHeight = 180
+    mockScrollHeight = 260
     await wrapper.setProps({ modelValue: '' })
     await nextTick()
 
-    expect(textarea.style.height).toBe('42px')
+    expect(textarea.style.height).toBe('44px')
+    expect(textarea.style.overflowY).toBe('hidden')
   })
 })

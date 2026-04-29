@@ -25,7 +25,7 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const previewAttachment = ref<MessageAttachment | null>(null)
 const hasAttachments = computed(() => props.attachments.length > 0)
-const MIN_TEXTAREA_HEIGHT = 42
+const MIN_TEXTAREA_HEIGHT = 44
 const MAX_TEXTAREA_HEIGHT = 200
 
 function handleSubmit(): void {
@@ -50,13 +50,16 @@ function adjustHeight(event: Event): void {
 
 function resizeTextarea(target: HTMLTextAreaElement): void {
   if (!target.value.trim()) {
+    target.style.overflowY = 'hidden'
     target.style.height = `${MIN_TEXTAREA_HEIGHT}px`
     return
   }
 
   target.style.height = 'auto'
+  const exceedsMaxHeight = target.scrollHeight > MAX_TEXTAREA_HEIGHT
   const newHeight = Math.max(Math.min(target.scrollHeight, MAX_TEXTAREA_HEIGHT), MIN_TEXTAREA_HEIGHT)
   target.style.height = `${newHeight}px`
+  target.style.overflowY = exceedsMaxHeight ? 'auto' : 'hidden'
 }
 
 function syncTextareaHeight(): void {

@@ -17,11 +17,11 @@ watch(() => segments.value.map((segment) => `${segment.id}:${segment.kind}:${seg
 }, { immediate: true })
 
 async function applyHighlight(): Promise<void> {
+  await nextTick()
   if (!containerRef.value) {
     return
   }
 
-  await nextTick()
   await highlightCodeBlocks(containerRef.value)
 }
 
@@ -96,6 +96,7 @@ if (getCurrentScope()) {
 }
 
 .markdown-segment :deep(pre) {
+  position: relative;
   overflow: auto;
   padding: 14px 16px;
   border-radius: 12px;
@@ -103,6 +104,73 @@ if (getCurrentScope()) {
   border: 1px solid var(--code-border);
   font-size: 0.85rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.markdown-segment :deep(.code-copy-button) {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  right: 8px;
+  height: 20px;
+  min-width: 34px;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, var(--text-muted));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-soft) 72%, var(--bg));
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-1px);
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, opacity 150ms ease, transform 150ms ease;
+}
+
+.markdown-segment :deep(pre:hover .code-copy-button),
+.markdown-segment :deep(pre:focus-within .code-copy-button),
+.markdown-segment :deep(.code-copy-button:focus-visible),
+.markdown-segment :deep(.code-copy-button[data-copy-state='success']),
+.markdown-segment :deep(.code-copy-button[data-copy-state='error']) {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.markdown-segment :deep(.code-copy-button:hover) {
+  color: color-mix(in srgb, var(--text) 92%, var(--text-muted));
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 48%, var(--bg));
+}
+
+.markdown-segment :deep(.code-copy-button:focus-visible) {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 75%, transparent);
+}
+
+.markdown-segment :deep(.code-copy-button[data-copy-state='success']) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 88%, var(--bg));
+  color: color-mix(in srgb, var(--accent-strong) 75%, var(--text));
+}
+
+.markdown-segment :deep(.code-copy-button[data-copy-state='error']) {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg));
+  color: var(--danger);
+}
+
+.markdown-segment :deep(.code-copy-status) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .code-segment :deep(pre) {

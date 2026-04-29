@@ -39,7 +39,18 @@ const LANGUAGE_ALIASES: Record<string, string> = {
   zsh: 'bash',
 }
 
+type CopyButtonState = 'idle' | 'success' | 'error'
+
 let highlighterPromise: Promise<HighlightJsInstance> | null = null
+const copyResetTimers = new WeakMap<HTMLButtonElement, number>()
+const COPY_RESET_DELAY_MS = 1600
+const COPY_BUTTON_CLASS = 'code-copy-button'
+const COPY_STATUS_CLASS = 'code-copy-status'
+const COPY_BUTTON_TEXT: Record<CopyButtonState, string> = {
+  idle: '复制',
+  success: '已复制',
+  error: '复制失败',
+}
 
 export function renderMarkdown(content: string): string {
   return DOMPurify.sanitize(marked.parse(content) as string)
@@ -67,6 +78,7 @@ export async function highlightCodeBlocks(container: HTMLElement): Promise<void>
       block.dataset.language = result.language
     }
     block.innerHTML = result.value
+    upsertCopyButton(block, normalizeCopySource(source))
   })
 }
 
@@ -127,4 +139,118 @@ function resolveRequestedLanguage(className: string): string | null {
 
   const normalized = match[1].toLowerCase()
   return LANGUAGE_ALIASES[normalized] ?? normalized
+}
+
+function normalizeCopySource(source: string): string {
+  return source.replace(/\r?\n$/, '')
+}
+
+function upsertCopyButton(block: HTMLElement, source: string): void {
+  const pre = block.closest('pre')
+  if (!pre) {
+    return
+  }
+
+  const button = ensureCopyButton(pre)
+  ensureCopyStatusNode(pre)
+  button.dataset.copySource = source
+}
+
+function ensureCopyButton(pre: HTMLPreElement): HTMLButtonElement {
+  const existed = pre.querySelector<HTMLButtonElement>(`:scope > .${COPY_BUTTON_CLASS}`)
+  if (existed) {
+    return existed
+  }
+
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = COPY_BUTTON_CLASS
+  button.setAttribute('aria-label', '复制代码')
+  button.dataset.copyState = 'idle'
+  button.dataset.copySource = ''
+  button.textContent = COPY_BUTTON_TEXT.idle
+  button.addEventListener('click', () => {
+    void handleCopyClick(button)
+  })
+  pre.append(button)
+  return button
+}
+
+function ensureCopyStatusNode(pre: HTMLPreElement): HTMLSpanElement {
+  const existed = pre.querySelector<HTMLSpanElement>(`:scope > .${COPY_STATUS_CLASS}`)
+  if (existed) {
+    return existed
+  }
+
+  const status = document.createElement('span')
+  status.className = COPY_STATUS_CLASS
+  status.setAttribute('role', 'status')
+  status.setAttribute('aria-live', 'polite')
+  status.setAttribute('aria-atomic', 'true')
+  pre.append(status)
+  return status
+}
+
+async function handleCopyClick(button: HTMLButtonElement): Promise<void> {
+  const source = button.dataset.copySource ?? ''
+  if (!source.trim()) {
+    setCopyButtonState(button, 'error')
+    announceCopyStatus(button, '当前代码块为空，无法复制。')
+    scheduleCopyButtonReset(button)
+    return
+  }
+
+  try {
+    await copyText(source)
+    setCopyButtonState(button, 'success')
+    announceCopyStatus(button, '代码已复制到剪贴板。')
+  } catch (error) {
+    console.error('Copy code failed.', error)
+    setCopyButtonState(button, 'error')
+    announceCopyStatus(button, '复制失败，请检查剪贴板权限。')
+  }
+
+  scheduleCopyButtonReset(button)
+}
+
+async function copyText(text: string): Promise<void> {
+  if (!navigator.clipboard?.writeText) {
+    throw new Error('Clipboard API is not available.')
+  }
+
+  await navigator.clipboard.writeText(text)
+}
+
+function setCopyButtonState(button: HTMLButtonElement, state: CopyButtonState): void {
+  button.dataset.copyState = state
+  button.textContent = COPY_BUTTON_TEXT[state]
+}
+
+function announceCopyStatus(button: HTMLButtonElement, message: string): void {
+  const pre = button.parentElement
+  if (!pre) {
+    return
+  }
+
+  const status = pre.querySelector<HTMLSpanElement>(`:scope > .${COPY_STATUS_CLASS}`)
+  if (!status) {
+    return
+  }
+
+  status.textContent = message
+}
+
+function scheduleCopyButtonReset(button: HTMLButtonElement): void {
+  const activeTimer = copyResetTimers.get(button)
+  if (activeTimer) {
+    window.clearTimeout(activeTimer)
+  }
+
+  const timerId = window.setTimeout(() => {
+    setCopyButtonState(button, 'idle')
+    announceCopyStatus(button, '')
+    copyResetTimers.delete(button)
+  }, COPY_RESET_DELAY_MS)
+
+  copyResetTimers.set(button, timerId)
 }
