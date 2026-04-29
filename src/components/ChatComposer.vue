@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type { MessageAttachment } from '../types/chat'
 
 const props = defineProps<{
@@ -22,8 +22,11 @@ const emit = defineEmits<{
 }>()
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const previewAttachment = ref<MessageAttachment | null>(null)
 const hasAttachments = computed(() => props.attachments.length > 0)
+const MIN_TEXTAREA_HEIGHT = 42
+const MAX_TEXTAREA_HEIGHT = 200
 
 function handleSubmit(): void {
   if (!props.sendDisabled && props.canSend) {
@@ -42,10 +45,40 @@ function onKeydown(event: KeyboardEvent): void {
 
 function adjustHeight(event: Event): void {
   const target = event.target as HTMLTextAreaElement
+  resizeTextarea(target)
+}
+
+function resizeTextarea(target: HTMLTextAreaElement): void {
+  if (!target.value.trim()) {
+    target.style.height = `${MIN_TEXTAREA_HEIGHT}px`
+    return
+  }
+
   target.style.height = 'auto'
-  const newHeight = Math.min(target.scrollHeight, 200)
+  const newHeight = Math.max(Math.min(target.scrollHeight, MAX_TEXTAREA_HEIGHT), MIN_TEXTAREA_HEIGHT)
   target.style.height = `${newHeight}px`
 }
+
+function syncTextareaHeight(): void {
+  const target = textareaRef.value
+  if (!target) {
+    return
+  }
+
+  resizeTextarea(target)
+}
+
+watch(
+  () => props.modelValue,
+  async () => {
+    await nextTick()
+    syncTextareaHeight()
+  },
+)
+
+onMounted(() => {
+  syncTextareaHeight()
+})
 
 function openImagePicker(): void {
   fileInputRef.value?.click()
@@ -131,6 +164,7 @@ function mimeTypeToExtension(mimeType: string): string {
   <form class="composer-form" @submit.prevent="handleSubmit">
     <div class="input-wrapper">
       <textarea
+        ref="textareaRef"
         :value="props.modelValue"
         placeholder="给 DeepSeek 发送消息..."
         rows="1"

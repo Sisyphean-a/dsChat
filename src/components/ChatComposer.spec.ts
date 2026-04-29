@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import ChatComposer from './ChatComposer.vue'
 import type { MessageAttachment } from '../types/chat'
 
@@ -119,5 +120,38 @@ describe('ChatComposer', () => {
     await wrapper.get('.thinking-toggle-input').setValue(false)
 
     expect(wrapper.emitted('updateThinkingEnabled')).toEqual([[false]])
+  })
+
+  it('resets textarea height after draft is cleared', async () => {
+    const wrapper = mount(ChatComposer, {
+      props: {
+        attachments: [],
+        canSend: true,
+        isSending: false,
+        modelValue: '长文本',
+        sendDisabled: false,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
+      },
+    })
+
+    const textareaWrapper = wrapper.get('textarea')
+    const textarea = textareaWrapper.element as HTMLTextAreaElement
+    let mockScrollHeight = 180
+
+    Object.defineProperty(textarea, 'scrollHeight', {
+      configurable: true,
+      get: () => mockScrollHeight,
+    })
+
+    textarea.value = 'line\n'.repeat(20)
+    await textareaWrapper.trigger('input')
+    expect(textarea.style.height).toBe('180px')
+
+    mockScrollHeight = 180
+    await wrapper.setProps({ modelValue: '' })
+    await nextTick()
+
+    expect(textarea.style.height).toBe('42px')
   })
 })
