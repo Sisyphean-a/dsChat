@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import ChatComposer from './ChatComposer.vue'
@@ -102,6 +102,51 @@ describe('ChatComposer', () => {
     })
 
     expect(wrapper.emitted('addImages')).toEqual([[[imageFile]]])
+  })
+
+  it('restores utools main window after selecting images', async () => {
+    const wrapper = mount(ChatComposer, {
+      props: {
+        attachments: [],
+        canSend: false,
+        isSending: false,
+        modelValue: '',
+        sendDisabled: false,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
+      },
+    })
+    const originalUtools = window.utools
+    const showMainWindow = vi.fn()
+    window.utools = {
+      db: {
+        promises: {
+          allDocs: vi.fn(),
+          get: vi.fn(),
+          put: vi.fn(),
+          remove: vi.fn(),
+        },
+      },
+      onPluginEnter: vi.fn(),
+      onPluginOut: vi.fn(),
+      showMainWindow,
+    }
+
+    try {
+      const inputWrapper = wrapper.get('input[type="file"]')
+      const input = inputWrapper.element as HTMLInputElement
+      const imageFile = new File(['x'], 'pick.png', { type: 'image/png' })
+      Object.defineProperty(input, 'files', {
+        configurable: true,
+        value: [imageFile],
+      })
+
+      await inputWrapper.trigger('change')
+
+      expect(showMainWindow).toHaveBeenCalledTimes(1)
+    } finally {
+      window.utools = originalUtools
+    }
   })
 
   it('emits thinking toggle updates', async () => {

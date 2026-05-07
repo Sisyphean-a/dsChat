@@ -87,6 +87,10 @@ function openImagePicker(): void {
   fileInputRef.value?.click()
 }
 
+function restoreUtoolsWindow(): void {
+  window.utools?.showMainWindow?.()
+}
+
 function handleImageInput(event: Event): void {
   const target = event.target as HTMLInputElement
   const files = target.files ? Array.from(target.files).map(normalizeClipboardFile) : []
@@ -95,6 +99,7 @@ function handleImageInput(event: Event): void {
   }
 
   target.value = ''
+  restoreUtoolsWindow()
 }
 
 function handlePaste(event: ClipboardEvent): void {
