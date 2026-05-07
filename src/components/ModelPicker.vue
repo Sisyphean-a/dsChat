@@ -5,7 +5,7 @@ import type { ModelConfigOption } from '../types/chat'
 const props = defineProps<{
   disabled: boolean
   modelValue: string
-  options: ModelConfigOption[]
+  options: Array<ModelConfigOption | string>
   panelDirection?: 'up' | 'down'
 }>()
 
@@ -16,14 +16,61 @@ const emit = defineEmits<{
 const rootRef = ref<HTMLElement | null>(null)
 const isOpen = ref(false)
 
+const normalizedOptions = computed<ModelConfigOption[]>(() => {
+  const normalized: ModelConfigOption[] = []
+  const seen = new Set<string>()
+
+  for (const item of props.options) {
+    if (typeof item === 'string') {
+      const value = item.trim()
+      if (!value || seen.has(value)) {
+        continue
+      }
+
+      seen.add(value)
+      normalized.push({
+        badge: '',
+        detail: '',
+        label: value,
+        shortLabel: value,
+        value,
+      })
+      continue
+    }
+
+    const value = item.value.trim()
+    if (!value || seen.has(value)) {
+      continue
+    }
+
+    seen.add(value)
+    normalized.push({
+      ...item,
+      value,
+    })
+  }
+
+  return normalized
+})
+
 const currentMeta = computed(() => {
-  return props.options.find((option) => option.value === props.modelValue) ?? {
+  return normalizedOptions.value.find((option) => option.value === props.modelValue) ?? {
     badge: '模型',
     detail: props.modelValue,
     label: props.modelValue,
     shortLabel: props.modelValue,
     value: props.modelValue,
   }
+})
+
+const triggerLabel = computed(() => {
+  const label = currentMeta.value.label.trim()
+  if (label) {
+    return label
+  }
+
+  const shortLabel = currentMeta.value.shortLabel.trim()
+  return shortLabel || currentMeta.value.value
 })
 
 function normalizeOptionText(value: string): string {
@@ -71,7 +118,7 @@ onBeforeUnmount(() => {
 <template>
   <div ref="rootRef" class="model-picker" :class="{ disabled: props.disabled, open: isOpen }">
     <button class="picker-trigger" type="button" :disabled="props.disabled" @click="togglePanel">
-      <span class="picker-copy">{{ currentMeta.shortLabel }}</span>
+      <span class="picker-copy">{{ triggerLabel }}</span>
       <svg class="picker-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="6 9 12 15 18 9"></polyline>
       </svg>
@@ -84,7 +131,7 @@ onBeforeUnmount(() => {
         :class="props.panelDirection === 'down' ? 'down' : 'up'"
       >
         <button
-          v-for="option in props.options"
+          v-for="option in normalizedOptions"
           :key="option.value"
           class="picker-option"
           :class="{ active: option.value === props.modelValue }"

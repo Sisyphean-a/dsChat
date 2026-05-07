@@ -310,7 +310,7 @@ describe('useChatApp', () => {
     const app = useChatApp()
     await app.initialize()
 
-    expect(app.modelOptions.value.map((item) => item.value)).toEqual([
+    expect(app.modelOptions.value).toEqual([
       'deepseek-v4-flash',
       'deepseek-v4-pro',
     ])

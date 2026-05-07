@@ -11,10 +11,8 @@ import type {
 import { DEFAULT_UTOOLS_UPLOAD_MODE } from './storage'
 
 export interface ProviderModelOption {
-  value: string
-  label: string
-  shortLabel: string
   supportsTemperature: boolean
+  value: string
 }
 
 interface TemperatureRange {
@@ -71,8 +69,8 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     baseUrlDefault: 'https://api.deepseek.com',
     baseUrlPlaceholder: 'https://api.deepseek.com',
     defaultModels: [
-      createModelOption('deepseek-v4-flash', 'DeepSeek V4 Flash', 'V4 Flash', true),
-      createModelOption('deepseek-v4-pro', 'DeepSeek V4 Pro', 'V4 Pro', true),
+      createModelOption('deepseek-v4-flash', true),
+      createModelOption('deepseek-v4-pro', true),
     ],
     temperature: STANDARD_TEMPERATURE,
   },
@@ -85,10 +83,10 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     baseUrlDefault: 'https://api.moonshot.cn/v1',
     baseUrlPlaceholder: 'https://api.moonshot.cn/v1',
     defaultModels: [
-      createModelOption('kimi-k2.6', 'Kimi K2.6', 'K2.6', true),
-      createModelOption('kimi-k2.5', 'Kimi K2.5', 'K2.5', true),
-      createModelOption('kimi-k2-thinking', 'Kimi K2 Thinking', 'Thinking', true),
-      createModelOption('kimi-k2-thinking-turbo', 'Kimi K2 Thinking Turbo', 'Thinking Turbo', true),
+      createModelOption('kimi-k2.6', true),
+      createModelOption('kimi-k2.5', true),
+      createModelOption('kimi-k2-thinking', true),
+      createModelOption('kimi-k2-thinking-turbo', true),
     ],
     temperature: STANDARD_TEMPERATURE,
   },
@@ -101,10 +99,10 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     baseUrlDefault: 'https://api.minimaxi.com/v1',
     baseUrlPlaceholder: 'https://api.minimaxi.com/v1',
     defaultModels: [
-      createModelOption('MiniMax-M2.7', 'MiniMax M2.7', 'M2.7', true),
-      createModelOption('MiniMax-M2.7-highspeed', 'MiniMax M2.7 Highspeed', 'M2.7 HS', true),
-      createModelOption('MiniMax-M2.5', 'MiniMax M2.5', 'M2.5', true),
-      createModelOption('MiniMax-M2.5-highspeed', 'MiniMax M2.5 Highspeed', 'M2.5 HS', true),
+      createModelOption('MiniMax-M2.7', true),
+      createModelOption('MiniMax-M2.7-highspeed', true),
+      createModelOption('MiniMax-M2.5', true),
+      createModelOption('MiniMax-M2.5-highspeed', true),
     ],
     temperature: MINIMAX_TEMPERATURE,
   },
@@ -117,10 +115,10 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     baseUrlDefault: 'https://api.openai.com/v1',
     baseUrlPlaceholder: 'https://api.openai.com/v1',
     defaultModels: [
-      createModelOption('gpt-5.5', 'GPT-5.5', '5.5', true),
-      createModelOption('gpt-5.4', 'GPT-5.4', '5.4', true),
-      createModelOption('gpt-5.4-mini', 'GPT-5.4 mini', '5.4 mini', true),
-      createModelOption('gpt-5.4-nano', 'GPT-5.4 nano', '5.4 nano', true),
+      createModelOption('gpt-5.5', true),
+      createModelOption('gpt-5.4', true),
+      createModelOption('gpt-5.4-mini', true),
+      createModelOption('gpt-5.4-nano', true),
     ],
     temperature: STANDARD_TEMPERATURE,
   },
@@ -227,14 +225,10 @@ function createAddedModelName(
 
 function createModelOption(
   value: string,
-  label: string,
-  shortLabel: string,
   supportsTemperature: boolean,
 ): ProviderModelOption {
   return {
-    value,
-    label,
-    shortLabel,
     supportsTemperature,
+    value,
   }
 }

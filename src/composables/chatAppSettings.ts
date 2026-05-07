@@ -108,30 +108,13 @@ export function getModelConfigOptions(settings: SettingsForm): ModelConfigOption
   ]
 }
 
-export function getActiveModelSelectionOptions(settings: SettingsForm): ModelConfigOption[] {
+export function getActiveModelSelectionOptions(settings: SettingsForm): string[] {
   const activeSettings = getActiveProviderSettings(settings)
-  const providerBadge = getProviderDefinition(activeSettings.provider).shortLabel
-  const providerOptions = activeSettings.modelOptions
-  if (!providerOptions.length) {
-    return [{
-      badge: providerBadge,
-      detail: activeSettings.model || '未设置模型',
-      label: activeSettings.model || activeSettings.label,
-      shortLabel: activeSettings.model || activeSettings.label,
-      value: activeSettings.model,
-    }]
+  if (!activeSettings.modelOptions.length) {
+    return activeSettings.model ? [activeSettings.model.trim()] : []
   }
 
-  return providerOptions.map((item) => {
-    const matched = findProviderModel(activeSettings.provider, item)
-    return {
-      badge: providerBadge,
-      detail: item,
-      label: matched?.label ?? item,
-      shortLabel: matched?.shortLabel ?? item,
-      value: item,
-    }
-  })
+  return activeSettings.modelOptions.map((item) => item.trim()).filter(Boolean)
 }
 
 export function normalizeModelOptions(
