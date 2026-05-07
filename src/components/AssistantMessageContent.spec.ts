@@ -1,8 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import AssistantMessageContent from './AssistantMessageContent.vue'
+import { openExternalLink } from '../services/linkNavigation'
+
+vi.mock('../services/linkNavigation', () => ({
+  openExternalLink: vi.fn(() => true),
+}))
 
 describe('AssistantMessageContent', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('applies syntax highlight and copy button for static code content on initial render', async () => {
     const wrapper = mount(AssistantMessageContent, {
       props: {
@@ -22,6 +31,18 @@ describe('AssistantMessageContent', () => {
     expect(code.exists()).toBe(true)
     expect(code.classes()).toContain('hljs')
     expect(copyButton.exists()).toBe(true)
+  })
+
+  it('delegates markdown link click to external link opener', async () => {
+    const wrapper = mount(AssistantMessageContent, {
+      props: {
+        content: '[文档链接](https://example.com/docs)',
+      },
+    })
+
+    await wrapper.find('a').trigger('click')
+
+    expect(openExternalLink).toHaveBeenCalledWith('https://example.com/docs')
   })
 })
 

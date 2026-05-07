@@ -18,6 +18,7 @@ const bubbleClass = computed(() => ({
   'is-user': props.message.role === 'user',
   'is-assistant': isAssistantMessage.value,
   'is-error': props.message.status === 'error',
+  'is-streaming-status-only': isStreamingStatusOnly.value,
 }))
 
 const contentSource = computed(() => props.message.content)
@@ -56,6 +57,22 @@ const reasoningLabel = computed(() => {
 
 const imageAttachments = computed(() => {
   return (props.message.attachments ?? []).filter((item) => item.type === 'image')
+})
+
+const streamingStatusText = computed(() => {
+  if (props.message.status !== 'streaming') {
+    return ''
+  }
+
+  return props.message.streamingStatus?.trim() || '正在生成回答...'
+})
+
+const isStreamingStatusOnly = computed(() => {
+  return Boolean(streamingStatusText.value)
+    && isAssistantMessage.value
+    && !displayedContent.value.trim()
+    && !displayedReasoningContent.value.trim()
+    && imageAttachments.value.length === 0
 })
 
 function toggleReasoning(): void {
@@ -132,7 +149,10 @@ watch(inReasoningStage, (next, prev) => {
     </div>
     <p v-if="props.message.role === 'user'" class="plain-body">{{ props.message.content }}</p>
 
-    <span v-if="props.message.status === 'streaming'" class="message-status">生成中...</span>
+    <p v-if="streamingStatusText" class="message-stream-status">
+      <span class="stream-dot" aria-hidden="true"></span>
+      <span>{{ streamingStatusText }}</span>
+    </p>
     <span v-else-if="props.message.status === 'interrupted'" class="message-status">已中止</span>
     <span v-else-if="props.message.status === 'error'" class="message-status">请求失败</span>
 
@@ -191,6 +211,28 @@ watch(inReasoningStage, (next, prev) => {
   margin-top: 6px;
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.message-stream-status {
+  margin: 8px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  color: var(--text-muted);
+}
+
+.bubble.is-streaming-status-only .message-stream-status {
+  margin-top: 0;
+}
+
+.stream-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 72%, var(--text-muted));
+  animation: stream-pulse 1.15s ease-in-out infinite;
 }
 
 .reasoning-block {
@@ -319,6 +361,21 @@ watch(inReasoningStage, (next, prev) => {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes stream-pulse {
+  0% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.35;
+    transform: scale(0.82);
   }
 }
 

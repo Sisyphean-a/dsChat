@@ -216,7 +216,7 @@ describe('utools storage routing', () => {
     const openaiModel = createAddedModelDraft('openai', [])
     openaiModel.name = 'OpenAI 工作模型'
     openaiModel.apiKey = 'sk-openai'
-    openaiModel.model = 'gpt-4.1'
+    openaiModel.model = 'gpt-5.5'
 
     settings.activeConfigId = openaiModel.id
     settings.fontSize = 'large'

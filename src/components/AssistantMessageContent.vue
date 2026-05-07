@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, getCurrentScope, nextTick, onScopeDispose, ref, watch } from 'vue'
 import { highlightCodeBlocks } from '../services/markdown'
+import { openExternalLink } from '../services/linkNavigation'
 import { buildMarkdownRenderSegments } from '../services/streamingMarkdownSegments'
 
 const props = defineProps<{
@@ -25,6 +26,22 @@ async function applyHighlight(): Promise<void> {
   await highlightCodeBlocks(containerRef.value)
 }
 
+function handleContentClick(event: MouseEvent): void {
+  const target = event.target
+  if (!(target instanceof Element)) {
+    return
+  }
+
+  const link = target.closest('a[href]') as HTMLAnchorElement | null
+  if (!link || !containerRef.value?.contains(link)) {
+    return
+  }
+
+  const href = link.getAttribute('href') ?? ''
+  event.preventDefault()
+  openExternalLink(href)
+}
+
 if (getCurrentScope()) {
   onScopeDispose(() => {
     containerRef.value = null
@@ -33,7 +50,7 @@ if (getCurrentScope()) {
 </script>
 
 <template>
-  <div ref="containerRef" class="message-rich-content" :class="variantClass">
+  <div ref="containerRef" class="message-rich-content" :class="variantClass" @click="handleContentClick">
     <template v-for="segment in segments" :key="segment.id">
       <div
         v-if="segment.kind === 'prose'"
@@ -193,6 +210,25 @@ if (getCurrentScope()) {
   border-radius: 6px;
   background: var(--code-inline-bg);
   color: var(--code-text);
+}
+
+.markdown-segment :deep(a) {
+  color: color-mix(in srgb, var(--accent) 78%, var(--text));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1.2px;
+  transition: color 140ms ease, text-decoration-thickness 140ms ease;
+}
+
+.markdown-segment :deep(a:hover) {
+  color: color-mix(in srgb, var(--accent-strong) 68%, var(--text));
+  text-decoration-thickness: 1.8px;
+}
+
+.markdown-segment :deep(a:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--accent-soft) 72%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .markdown-segment :deep(blockquote) {

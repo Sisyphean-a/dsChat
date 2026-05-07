@@ -46,6 +46,7 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
       last?.status ?? 'none',
       last?.content.length ?? 0,
       last?.reasoningContent?.length ?? 0,
+      last?.streamingStatus?.length ?? 0,
     ].join(':')
   })
 

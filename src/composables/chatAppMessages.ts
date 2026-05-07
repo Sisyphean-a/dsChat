@@ -16,6 +16,7 @@ export function createChatMessage(
     content,
     attachments: normalizedAttachments,
     createdAt: Date.now(),
+    streamingStatus: role === 'assistant' && !content ? '正在生成回答...' : undefined,
     status: role === 'assistant' && !content ? 'streaming' : 'done',
   }
 }
@@ -35,6 +36,7 @@ export function finalizeStreamingMessages(
     return {
       ...message,
       content: message.content.trim() ? message.content : fallback,
+      streamingStatus: undefined,
       status: 'interrupted' as const,
     }
   })

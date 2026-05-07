@@ -130,6 +130,7 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
         reply.assistantId,
         (draft) => {
           draft.status = 'done'
+          draft.streamingStatus = undefined
         },
       )
       await persistConversation()

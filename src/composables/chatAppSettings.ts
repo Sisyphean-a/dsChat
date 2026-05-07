@@ -23,6 +23,10 @@ import type {
   SettingsForm,
 } from '../types/chat'
 
+const OPENAI_MODEL_REPLACEMENTS: Record<string, string> = {
+  'gpt-5-search-api': 'gpt-5.5',
+}
+
 export function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
   const customModels = normalizeCustomModels(currentSettings.customModels)
 
@@ -193,10 +197,14 @@ function normalizeProviderSettings(
   incomingSettings?: Partial<ProviderSettings>,
 ): ProviderSettings {
   const defaults = buildDefaultProviderSettings(provider)
-  const model = incomingSettings?.model === undefined
+  const rawModel = incomingSettings?.model === undefined
     ? defaults.model
     : incomingSettings.model.trim()
-  const normalizedModelOptions = normalizeModelOptions(incomingSettings?.modelOptions, defaults.modelOptions)
+  const model = normalizeProviderModel(provider, rawModel, defaults.model)
+  const normalizedModelOptions = normalizeProviderModelOptions(
+    provider,
+    normalizeModelOptions(incomingSettings?.modelOptions, defaults.modelOptions),
+  )
   const modelOptions = provider === DEFAULT_CONFIG_ID
     ? defaults.modelOptions
     : ensureModelOption(normalizedModelOptions, model)
@@ -210,6 +218,39 @@ function normalizeProviderSettings(
     modelOptions,
     temperature: normalizeTemperature(provider, model, incomingSettings?.temperature),
   }
+}
+
+function normalizeProviderModel(provider: ProviderId, model: string, fallback: string): string {
+  if (provider !== 'openai') {
+    return model
+  }
+
+  return OPENAI_MODEL_REPLACEMENTS[model] ?? fallbackIfEmpty(model, fallback)
+}
+
+function normalizeProviderModelOptions(provider: ProviderId, options: string[]): string[] {
+  if (provider !== 'openai') {
+    return options
+  }
+
+  const normalized: string[] = []
+  const seen = new Set<string>()
+
+  for (const item of options) {
+    const replaced = OPENAI_MODEL_REPLACEMENTS[item] ?? item
+    if (!replaced || seen.has(replaced)) {
+      continue
+    }
+
+    seen.add(replaced)
+    normalized.push(replaced)
+  }
+
+  return normalized
+}
+
+function fallbackIfEmpty(model: string, fallback: string): string {
+  return model || fallback
 }
 
 function ensureModelOption(options: string[], model: string): string[] {

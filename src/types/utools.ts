@@ -29,4 +29,5 @@ export interface UtoolsApi {
   db: UtoolsDb
   onPluginEnter(callback: (payload: PluginEnterPayload) => void): void
   onPluginOut(callback: (isKill: boolean) => void): void
+  shellOpenExternal?(url: string): void
 }

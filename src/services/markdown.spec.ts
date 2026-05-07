@@ -93,4 +93,15 @@ describe('markdown highlighting', () => {
     expect(consoleSpy).toHaveBeenCalled()
     consoleSpy.mockRestore()
   })
+
+  it('decorates markdown links with secure external attributes', () => {
+    const html = renderMarkdown('[OpenAI](https://openai.com)')
+    const container = document.createElement('div')
+    container.innerHTML = html
+
+    const link = container.querySelector('a')
+    expect(link?.getAttribute('target')).toBe('_blank')
+    expect(link?.getAttribute('rel')).toContain('noopener')
+    expect(link?.getAttribute('rel')).toContain('noreferrer')
+  })
 })

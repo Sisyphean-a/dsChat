@@ -19,6 +19,36 @@ interface ChatCompletionResponse {
   choices?: ChatChoice[]
 }
 
+interface ResponsesTextContent {
+  text?: string | null
+  type?: string
+}
+
+interface ResponsesOutputItem {
+  action?: {
+    query?: string
+  }
+  content?: ResponsesTextContent[]
+  phase?: string
+  status?: string
+  type?: string
+}
+
+interface ResponsesCreateResponse {
+  output?: ResponsesOutputItem[]
+  output_text?: string | null
+}
+
+interface ResponsesStreamEvent {
+  delta?: string
+  error?: {
+    message?: string
+  }
+  item?: ResponsesOutputItem
+  text?: string
+  type?: string
+}
+
 interface ChatCompletionTextPart {
   type: 'text'
   text: string
@@ -32,10 +62,16 @@ interface ChatCompletionImagePart {
 }
 
 type ChatCompletionMessageContent = string | Array<ChatCompletionTextPart | ChatCompletionImagePart>
+type ResponsesInputContent = Array<
+  | { type: 'input_text'; text: string }
+  | { type: 'input_image'; image_url: string }
+  | { type: 'output_text'; text: string }
+>
 
 export interface StreamDelta {
   content?: string
   reasoningContent?: string
+  streamingStatus?: string
 }
 
 export interface ChatRequestOptions {
@@ -43,6 +79,20 @@ export interface ChatRequestOptions {
 }
 
 const DONE_EVENT = '[DONE]'
+const OPENAI_AUTO_WEB_SEARCH_MODELS = [
+  'gpt-5.5',
+  'gpt-5.4',
+  'gpt-5.4-mini',
+  'gpt-5.4-nano',
+  'gpt-5',
+  'gpt-5-mini',
+  'gpt-5-nano',
+] as const
+const STREAM_STATUS_PROCESSING = '正在处理请求...'
+const STREAM_STATUS_SEARCH_START = '正在发起联网搜索...'
+const STREAM_STATUS_SEARCHING = '正在联网搜索...'
+const STREAM_STATUS_SEARCH_DONE = '已完成检索，正在整理结果...'
+const STREAM_STATUS_ANSWERING = '正在生成回答...'
 
 export function consumeSseBuffer(buffer: string): { events: string[]; rest: string } {
   const normalized = buffer.replace(/\r\n/g, '\n')
@@ -58,7 +108,7 @@ export async function requestChatCompletion(
   settings: ActiveProviderSettings,
   requestOptions?: ChatRequestOptions,
 ): Promise<string> {
-  const response = await fetch(createChatUrl(settings.baseUrl), {
+  const response = await fetch(createRequestUrl(settings.baseUrl, settings.provider), {
     body: JSON.stringify(createPayload(messages, settings, false, requestOptions)),
     headers: createHeaders(settings),
     method: 'POST',
@@ -73,8 +123,10 @@ export async function requestChatCompletion(
     ))
   }
 
-  const data = (await response.json()) as ChatCompletionResponse
-  const content = data.choices?.[0]?.message?.content?.trim()
+  const data = await response.json()
+  const content = settings.provider === 'openai'
+    ? extractOpenAiResponseText(data as ResponsesCreateResponse).trim()
+    : ((data as ChatCompletionResponse).choices?.[0]?.message?.content?.trim() ?? '')
   if (!content) {
     throw new Error(createProviderEmptyMessage(settings.label))
   }
@@ -89,7 +141,7 @@ export async function streamChatCompletion(
   signal?: AbortSignal,
   requestOptions?: ChatRequestOptions,
 ): Promise<string> {
-  const response = await fetch(createChatUrl(settings.baseUrl), {
+  const response = await fetch(createRequestUrl(settings.baseUrl, settings.provider), {
     body: JSON.stringify(createPayload(messages, settings, true, requestOptions)),
     headers: createHeaders(settings),
     method: 'POST',
@@ -160,6 +212,10 @@ function appendDelta(
   onDelta: (delta: StreamDelta) => void,
   provider: ProviderId,
 ): { content: string; done: boolean; reasoningContent: string } {
+  if (provider === 'openai') {
+    return appendOpenAiResponseDelta(current, event, onDelta)
+  }
+
   if (!event) {
     return { ...current, done: false }
   }
@@ -188,6 +244,96 @@ function appendDelta(
     done: false,
     reasoningContent: nextReasoning,
   }
+}
+
+function appendOpenAiResponseDelta(
+  current: { content: string; reasoningContent: string },
+  event: string,
+  onDelta: (delta: StreamDelta) => void,
+): { content: string; done: boolean; reasoningContent: string } {
+  if (!event) {
+    return { ...current, done: false }
+  }
+
+  if (event === DONE_EVENT) {
+    return { ...current, done: true }
+  }
+
+  const data = JSON.parse(event) as ResponsesStreamEvent
+  if (data.type === 'response.error') {
+    const detail = data.error?.message?.trim()
+    throw new Error(detail || 'OpenAI 请求失败：web_search 调用异常。')
+  }
+
+  if (data.type === 'response.completed') {
+    return { ...current, done: true }
+  }
+
+  const streamingStatus = resolveOpenAiStreamingStatus(data)
+  if (streamingStatus) {
+    onDelta({ streamingStatus })
+  }
+
+  let contentDelta = ''
+  if (data.type === 'response.output_text.delta') {
+    contentDelta = data.delta ?? ''
+  } else if (data.type === 'response.output_text.done') {
+    contentDelta = resolveCumulativeDelta(data.text ?? '', current.content)
+  }
+
+  if (!contentDelta) {
+    return { ...current, done: false }
+  }
+
+  onDelta({
+    content: contentDelta,
+    streamingStatus: STREAM_STATUS_ANSWERING,
+  })
+  return {
+    content: `${current.content}${contentDelta}`,
+    done: false,
+    reasoningContent: current.reasoningContent,
+  }
+}
+
+function resolveOpenAiStreamingStatus(event: ResponsesStreamEvent): string | '' {
+  if (event.type === 'response.created' || event.type === 'response.in_progress') {
+    return STREAM_STATUS_PROCESSING
+  }
+
+  if (event.type === 'response.web_search_call.in_progress' || event.type === 'response.web_search_call.searching') {
+    return STREAM_STATUS_SEARCHING
+  }
+
+  if (event.type === 'response.web_search_call.completed') {
+    return STREAM_STATUS_SEARCH_DONE
+  }
+
+  if (event.type === 'response.output_item.added') {
+    if (event.item?.type === 'web_search_call') {
+      return STREAM_STATUS_SEARCH_START
+    }
+
+    if (event.item?.type === 'message' && event.item.phase === 'final_answer') {
+      return STREAM_STATUS_ANSWERING
+    }
+  }
+
+  if (event.type === 'response.output_item.done' && event.item?.type === 'web_search_call') {
+    return describeSearchActionStatus(event.item.action?.query)
+  }
+
+  return ''
+}
+
+function describeSearchActionStatus(query: string | undefined): string {
+  const value = query?.trim()
+  if (!value) {
+    return STREAM_STATUS_SEARCH_DONE
+  }
+
+  const compact = value.length > 42 ? `${value.slice(0, 42)}...` : value
+  return `已完成检索：${compact}`
 }
 
 function extractReasoningDelta(
@@ -247,7 +393,11 @@ function finalizeStreamContent(content: string, label: string): string {
   return content
 }
 
-function createChatUrl(baseUrl: string): string {
+function createRequestUrl(baseUrl: string, provider: ProviderId): string {
+  if (provider === 'openai') {
+    return `${baseUrl.replace(/\/$/, '')}/responses`
+  }
+
   return `${baseUrl.replace(/\/$/, '')}/chat/completions`
 }
 
@@ -264,6 +414,10 @@ function createPayload(
   stream: boolean,
   requestOptions?: ChatRequestOptions,
 ): Record<string, unknown> {
+  if (settings.provider === 'openai') {
+    return createOpenAiPayload(messages, settings, stream, requestOptions)
+  }
+
   const payload: Record<string, unknown> = {
     messages: messages.map(({ content, role, attachments }) => ({
       content: createMessageContent(content, attachments?.map((item) => ({ ...item })) ?? []),
@@ -315,6 +469,39 @@ function shouldIncludeTemperature(
   return (requestOptions?.thinkingEnabled ?? true) === false
 }
 
+function createOpenAiPayload(
+  messages: ChatMessage[],
+  settings: ActiveProviderSettings,
+  stream: boolean,
+  requestOptions?: ChatRequestOptions,
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    input: messages.map(({ attachments, content, role }) => ({
+      content: createResponsesInputContent(role, content, attachments?.map((item) => ({ ...item })) ?? []),
+      role,
+    })),
+    model: settings.model,
+    stream,
+  }
+
+  if (shouldIncludeTemperature(settings, requestOptions)) {
+    payload.temperature = settings.temperature
+  }
+
+  if (supportsOpenAiAutoWebSearch(settings.model)) {
+    payload.tool_choice = 'auto'
+    payload.tools = [{ type: 'web_search' }]
+  }
+
+  return payload
+}
+
+function supportsOpenAiAutoWebSearch(model: string): boolean {
+  return OPENAI_AUTO_WEB_SEARCH_MODELS.includes(
+    model.trim() as (typeof OPENAI_AUTO_WEB_SEARCH_MODELS)[number],
+  )
+}
+
 async function createProviderFailureMessage(
   label: string,
   status: number,
@@ -338,6 +525,19 @@ async function createProviderFailureMessage(
 
 function createProviderEmptyMessage(label: string): string {
   return `${label} 未返回可用内容。`
+}
+
+function extractOpenAiResponseText(payload: ResponsesCreateResponse): string {
+  const outputText = typeof payload.output_text === 'string' ? payload.output_text : ''
+  if (outputText.trim()) {
+    return outputText
+  }
+
+  return (payload.output ?? [])
+    .flatMap((item) => item.content ?? [])
+    .filter((content) => content.type === 'output_text')
+    .map((content) => content.text ?? '')
+    .join('')
 }
 
 function createMessageContent(content: string, attachments: ChatMessage['attachments']): ChatCompletionMessageContent {
@@ -368,6 +568,52 @@ function createMessageContent(content: string, attachments: ChatMessage['attachm
 
   if (!parts.length) {
     return content
+  }
+
+  return parts
+}
+
+function createResponsesInputContent(
+  role: ChatMessage['role'],
+  content: string,
+  attachments: ChatMessage['attachments'],
+): ResponsesInputContent {
+  const textType = role === 'assistant' ? 'output_text' : 'input_text'
+  const parts: ResponsesInputContent = []
+  if (content.trim()) {
+    parts.push({
+      type: textType,
+      text: content,
+    })
+  }
+
+  if (role === 'assistant') {
+    if (!parts.length) {
+      return [{
+        type: 'output_text',
+        text: content,
+      }]
+    }
+
+    return parts
+  }
+
+  for (const item of attachments ?? []) {
+    if (item.type !== 'image') {
+      continue
+    }
+
+    parts.push({
+      type: 'input_image',
+      image_url: item.dataUrl,
+    })
+  }
+
+  if (!parts.length) {
+    return [{
+      type: 'input_text',
+      text: content,
+    }]
   }
 
   return parts

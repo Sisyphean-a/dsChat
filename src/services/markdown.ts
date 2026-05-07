@@ -53,7 +53,8 @@ const COPY_BUTTON_TEXT: Record<CopyButtonState, string> = {
 }
 
 export function renderMarkdown(content: string): string {
-  return DOMPurify.sanitize(marked.parse(content) as string)
+  const sanitized = DOMPurify.sanitize(marked.parse(content) as string)
+  return decorateAnchorElements(sanitized)
 }
 
 export async function highlightCodeBlocks(container: HTMLElement): Promise<void> {
@@ -253,4 +254,19 @@ function scheduleCopyButtonReset(button: HTMLButtonElement): void {
   }, COPY_RESET_DELAY_MS)
 
   copyResetTimers.set(button, timerId)
+}
+
+function decorateAnchorElements(html: string): string {
+  if (typeof DOMParser === 'undefined') {
+    return html
+  }
+
+  const documentNode = new DOMParser().parseFromString(html, 'text/html')
+  const links = documentNode.body.querySelectorAll<HTMLAnchorElement>('a[href]')
+  links.forEach((link) => {
+    link.setAttribute('target', '_blank')
+    link.setAttribute('rel', 'noopener noreferrer nofollow')
+  })
+
+  return documentNode.body.innerHTML
 }

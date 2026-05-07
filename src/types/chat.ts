@@ -25,6 +25,7 @@ export interface ChatMessage {
   content: string
   attachments?: MessageAttachment[]
   reasoningContent?: string
+  streamingStatus?: string
   createdAt: number
   status: MessageStatus
 }

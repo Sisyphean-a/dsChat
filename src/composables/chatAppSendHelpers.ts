@@ -187,6 +187,7 @@ export async function handleInterruptedReply(
     }
 
     draft.content = draft.content.trim() ? draft.content : interruptedResponseMessage
+    draft.streamingStatus = undefined
     draft.status = 'interrupted'
   })
 
@@ -213,6 +214,7 @@ export async function handleSendFailure(
   const message = getErrorMessage(error, '请求失败')
   patchAssistantMessage(messages, assistantIndex, assistantId, (draft) => {
     draft.content = draft.content || `请求失败：${message}`
+    draft.streamingStatus = undefined
     draft.status = 'error'
   })
   lastError.value = message
@@ -249,6 +251,10 @@ export async function generateConversationTitle(
 }
 
 function appendStreamDelta(message: ChatMessage, delta: StreamDelta): void {
+  if (delta.streamingStatus) {
+    message.streamingStatus = delta.streamingStatus
+  }
+
   if (delta.reasoningContent) {
     message.reasoningContent = `${message.reasoningContent ?? ''}${delta.reasoningContent}`
   }

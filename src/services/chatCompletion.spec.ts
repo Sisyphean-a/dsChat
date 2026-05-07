@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { consumeSseBuffer, streamChatCompletion } from './chatCompletion'
+import { consumeSseBuffer, requestChatCompletion, streamChatCompletion } from './chatCompletion'
 import type { ActiveProviderSettings } from '../types/chat'
 
 afterEach(() => {
@@ -170,7 +170,7 @@ describe('streamChatCompletion', () => {
       ok: true,
       body: new ReadableStream<Uint8Array>({
         start(controller) {
-          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"好"}}]}\n\ndata: [DONE]\n\n'))
+          controller.enqueue(encoder.encode('data: {"type":"response.output_text.delta","delta":"好"}\n\ndata: {"type":"response.completed"}\n\n'))
           controller.close()
         },
       }),
@@ -184,7 +184,7 @@ describe('streamChatCompletion', () => {
         label: 'OpenAI',
         provider: 'openai',
         baseUrl: 'https://api.openai.com/v1',
-        model: 'gpt-4.1',
+        model: 'gpt-5.5',
         temperature: 1.4,
       }),
       vi.fn(),
@@ -192,6 +192,129 @@ describe('streamChatCompletion', () => {
 
     const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
     expect(body.temperature).toBe(1.4)
+  })
+
+  it('enables OpenAI web search tool in auto mode for gpt-5.5', async () => {
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"type":"response.output_text.delta","delta":"已联网"}\n\ndata: {"type":"response.completed"}\n\n'))
+          controller.close()
+        },
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await streamChatCompletion(
+      [{ id: '1', role: 'user', content: '查一下今天新闻', createdAt: 0, status: 'done' }],
+      createSettings({
+        label: 'OpenAI',
+        provider: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-5.5',
+        temperature: 1.4,
+      }),
+      vi.fn(),
+    )
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe('https://api.openai.com/v1/responses')
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
+    expect(body.tool_choice).toBe('auto')
+    expect(body.tools).toEqual([{ type: 'web_search' }])
+  })
+
+  it('encodes assistant history as output_text for OpenAI responses input', async () => {
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"type":"response.output_text.delta","delta":"继续"}\n\ndata: {"type":"response.completed"}\n\n'))
+          controller.close()
+        },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await streamChatCompletion(
+      [
+        { id: '1', role: 'user', content: '第一问', createdAt: 0, status: 'done' },
+        { id: '2', role: 'assistant', content: '第一答', createdAt: 1, status: 'done' },
+        { id: '3', role: 'user', content: '继续问', createdAt: 2, status: 'done' },
+      ],
+      createSettings({
+        label: 'OpenAI',
+        provider: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-5.5',
+      }),
+      vi.fn(),
+    )
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
+    expect(body.input[1]).toEqual({
+      role: 'assistant',
+      content: [{ type: 'output_text', text: '第一答' }],
+    })
+  })
+
+  it('emits OpenAI web_search progress states before answer deltas', async () => {
+    const encoder = new TextEncoder()
+    const deltas: Array<{ content?: string; streamingStatus?: string }> = []
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode([
+            'data: {"type":"response.created"}',
+            '',
+            'data: {"type":"response.output_item.added","item":{"type":"web_search_call","status":"in_progress"}}',
+            '',
+            'data: {"type":"response.web_search_call.searching"}',
+            '',
+            'data: {"type":"response.output_item.done","item":{"type":"web_search_call","status":"completed","action":{"type":"search","query":"weather: Shanghai, China"}}}',
+            '',
+            'data: {"type":"response.output_item.added","item":{"type":"message","phase":"final_answer","role":"assistant"}}',
+            '',
+            'data: {"type":"response.output_text.delta","delta":"天气如下"}',
+            '',
+            'data: {"type":"response.completed"}',
+            '',
+          ].join('\n')))
+          controller.close()
+        },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const content = await streamChatCompletion(
+      [{ id: '1', role: 'user', content: '查下天气', createdAt: 0, status: 'done' }],
+      createSettings({
+        label: 'OpenAI',
+        provider: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-5.5',
+      }),
+      (delta) => {
+        deltas.push({
+          content: delta.content,
+          streamingStatus: delta.streamingStatus,
+        })
+      },
+    )
+
+    expect(content).toBe('天气如下')
+    expect(deltas).toEqual([
+      { streamingStatus: '正在处理请求...' },
+      { streamingStatus: '正在发起联网搜索...' },
+      { streamingStatus: '正在联网搜索...' },
+      { streamingStatus: '已完成检索：weather: Shanghai, China' },
+      { streamingStatus: '正在生成回答...' },
+      { content: '天气如下', streamingStatus: '正在生成回答...' },
+    ])
   })
 
   it('passes deepseek thinking payload and omits temperature while thinking is enabled', async () => {
@@ -420,6 +543,82 @@ describe('streamChatCompletion', () => {
         { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
       ],
     })
+  })
+
+  it('uses responses input_image payload for OpenAI image attachments', async () => {
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"type":"response.output_text.delta","delta":"ok"}\n\ndata: {"type":"response.completed"}\n\n'))
+          controller.close()
+        },
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await streamChatCompletion(
+      [{
+        id: '1',
+        role: 'user',
+        content: '请分析图片',
+        attachments: [{
+          id: 'img-1',
+          type: 'image',
+          name: 'demo.png',
+          mimeType: 'image/png',
+          size: 100,
+          width: 10,
+          height: 10,
+          dataUrl: 'data:image/png;base64,abc',
+        }],
+        createdAt: 0,
+        status: 'done',
+      }],
+      createSettings({
+        label: 'OpenAI',
+        provider: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-5.5',
+      }),
+      vi.fn(),
+    )
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
+    expect(body.input[0]).toEqual({
+      role: 'user',
+      content: [
+        { type: 'input_text', text: '请分析图片' },
+        { type: 'input_image', image_url: 'data:image/png;base64,abc' },
+      ],
+    })
+  })
+})
+
+describe('requestChatCompletion', () => {
+  it('reads output_text from OpenAI responses payload', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      output_text: '标题输出',
+    }), {
+      status: 200,
+      statusText: 'OK',
+    }))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const content = await requestChatCompletion(
+      [{ id: '1', role: 'user', content: '给我起标题', createdAt: 0, status: 'done' }],
+      createSettings({
+        label: 'OpenAI',
+        provider: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-5.5',
+      }),
+    )
+
+    expect(content).toBe('标题输出')
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe('https://api.openai.com/v1/responses')
   })
 })
 
