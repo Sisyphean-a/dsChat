@@ -228,10 +228,12 @@ watch(inReasoningStage, (next, prev) => {
 }
 
 .stream-dot {
+  display: inline-block;
+  flex: none;
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 72%, var(--text-muted));
+  background: var(--accent);
   animation: stream-pulse 1.15s ease-in-out infinite;
 }
 

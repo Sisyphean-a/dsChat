@@ -213,6 +213,7 @@ if (getCurrentScope()) {
 }
 
 .markdown-segment :deep(a) {
+  color: var(--accent);
   color: color-mix(in srgb, var(--accent) 78%, var(--text));
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -221,6 +222,7 @@ if (getCurrentScope()) {
 }
 
 .markdown-segment :deep(a:hover) {
+  color: var(--accent-strong);
   color: color-mix(in srgb, var(--accent-strong) 68%, var(--text));
   text-decoration-thickness: 1.8px;
 }

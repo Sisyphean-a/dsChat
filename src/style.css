@@ -112,6 +112,26 @@ a {
   text-decoration: none;
 }
 
+.message-rich-content a,
+.markdown-body a,
+.reasoning-body a {
+  color: var(--accent) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px;
+}
+
+.message-rich-content a:visited,
+.markdown-body a:visited,
+.reasoning-body a:visited {
+  color: var(--accent) !important;
+}
+
+.message-rich-content a:hover,
+.markdown-body a:hover,
+.reasoning-body a:hover {
+  color: var(--accent-strong) !important;
+}
+
 code,
 pre {
   font-family: var(--font-mono);
