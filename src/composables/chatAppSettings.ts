@@ -93,14 +93,14 @@ export function getModelConfigOptions(settings: SettingsForm): ModelConfigOption
   return [
     {
       badge: 'DeepSeek',
-      detail: normalizedSettings.deepseek.model || '未设置模型',
+      detail: '',
       label: 'DeepSeek',
       shortLabel: 'DeepSeek',
       value: DEFAULT_CONFIG_ID,
     },
     ...normalizedSettings.customModels.map((item) => ({
       badge: getProviderDefinition(item.provider).shortLabel,
-      detail: item.model || '未设置模型',
+      detail: '',
       label: item.name,
       shortLabel: item.name,
       value: item.id,

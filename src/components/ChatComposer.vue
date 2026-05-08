@@ -232,6 +232,7 @@ function mimeTypeToExtension(mimeType: string): string {
             type="file"
             @change="handleImageInput"
           />
+          <slot name="actions"></slot>
           <label
             v-if="props.showThinkingToggle"
             class="thinking-toggle"
@@ -249,7 +250,6 @@ function mimeTypeToExtension(mimeType: string): string {
             </span>
             <span class="thinking-toggle-text">思考</span>
           </label>
-          <slot name="actions"></slot>
         </div>
         <button
           v-if="props.isSending"

@@ -149,18 +149,24 @@ onMounted(() => {
           @stop="app.stopGenerating"
         >
           <template #actions>
-            <ModelPicker
-              :disabled="app.isSending.value"
-              :model-value="app.settings.value.activeConfigId"
-              :options="configOptions"
-              @select="handleProviderSelect"
-            />
-            <ModelPicker
-              :disabled="app.isSending.value"
-              :model-value="app.activeChatConfig.value.model"
-              :options="app.modelOptions.value"
-              @select="handleModelSelect"
-            />
+            <div class="composer-pickers">
+              <div class="composer-picker composer-picker-provider">
+                <ModelPicker
+                  :disabled="app.isSending.value"
+                  :model-value="app.settings.value.activeConfigId"
+                  :options="configOptions"
+                  @select="handleProviderSelect"
+                />
+              </div>
+              <div class="composer-picker composer-picker-model">
+                <ModelPicker
+                  :disabled="app.isSending.value"
+                  :model-value="app.activeChatConfig.value.model"
+                  :options="app.modelOptions.value"
+                  @select="handleModelSelect"
+                />
+              </div>
+            </div>
           </template>
         </ChatComposer>
       </div>

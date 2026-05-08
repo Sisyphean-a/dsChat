@@ -78,9 +78,11 @@ textarea::placeholder {
 
 .thinking-toggle {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 8px;
   height: 28px;
+  margin-left: auto;
   padding: 0 2px 0 0;
   color: var(--text-muted);
   cursor: pointer;
@@ -260,4 +262,19 @@ textarea::placeholder {
   border-radius: 6px;
   color: var(--text);
   font-size: 0.78rem;
+}
+
+@media (max-width: 640px) {
+  .composer-controls {
+    align-items: flex-end;
+  }
+
+  .composer-actions {
+    flex-wrap: wrap;
+  }
+
+  .thinking-toggle {
+    margin-left: 0;
+    order: 2;
+  }
 }

@@ -122,3 +122,43 @@
   padding: 0 14px 12px;
   background: linear-gradient(0deg, var(--bg) 60%, transparent);
 }
+
+.composer-pickers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.composer-picker {
+  min-width: 0;
+}
+
+.composer-picker-provider {
+  width: clamp(112px, 13vw, 128px);
+}
+
+.composer-picker-model {
+  width: clamp(136px, 18vw, 172px);
+}
+
+.composer-picker :deep(.model-picker) {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .composer-pickers {
+    gap: 4px;
+  }
+
+  .composer-picker-provider {
+    width: 108px;
+  }
+
+  .composer-picker-model {
+    width: 132px;
+  }
+}
