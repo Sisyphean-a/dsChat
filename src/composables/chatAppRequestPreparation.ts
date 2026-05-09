@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { ActiveProviderSettings, MessageAttachment, SettingsForm } from '../types/chat'
+import type { ActiveProviderSettings, MessageAttachment, SettingsForm, ToolSettings } from '../types/chat'
 import { getActiveProviderSettings, getSendSettingsError, normalizeSettings } from './chatAppSettings'
 
 interface PrepareRequestContextOptions {
@@ -13,6 +13,7 @@ interface PrepareRequestContextOptions {
 export interface PreparedRequestContext {
   activeSettings: ActiveProviderSettings
   thinkingEnabled: boolean
+  toolSettings: ToolSettings
 }
 
 export function prepareRequestContext(
@@ -41,6 +42,7 @@ export function prepareRequestContext(
   return {
     activeSettings,
     thinkingEnabled,
+    toolSettings: normalizedSettings.toolSettings,
   }
 }
 

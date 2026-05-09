@@ -5,6 +5,7 @@ import type {
   ChatMessage,
   MessageAttachment,
   SettingsForm,
+  ToolSettings,
 } from '../types/chat'
 import { createConversationId } from '../utils/chat'
 import { createChatMessage, finalizeStreamingMessages } from './chatAppMessages'
@@ -101,7 +102,13 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
     }
 
     const reply = startStreamingReply(prepared.content, prepared.attachments)
-    await completeAssistantReply(reply, prepared.activeSettings, prepared.thinkingEnabled, prepared.content)
+    await completeAssistantReply(
+      reply,
+      prepared.activeSettings,
+      prepared.thinkingEnabled,
+      prepared.toolSettings,
+      prepared.content,
+    )
   }
 
   async function retryLastAssistantMessage(): Promise<void> {
@@ -118,7 +125,12 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
     }
 
     const reply = startRetryingReply(prepared.assistantIndex, prepared.assistantId)
-    await completeAssistantReply(reply, prepared.activeSettings, prepared.thinkingEnabled)
+    await completeAssistantReply(
+      reply,
+      prepared.activeSettings,
+      prepared.thinkingEnabled,
+      prepared.toolSettings,
+    )
   }
 
   async function interruptActiveSend(fallback = interruptedResponseMessage): Promise<void> {
@@ -176,6 +188,7 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
     reply: StreamingReply,
     activeSettings: ActiveProviderSettings,
     thinkingEnabled: boolean,
+    toolSettings: ToolSettings,
     firstMessageContent?: string,
   ): Promise<void> {
     try {
@@ -200,6 +213,7 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
         streamChatCompletion,
         getAbortController,
         thinkingEnabled,
+        toolSettings,
       })
 
       reply.failureStage = 'final-persist'

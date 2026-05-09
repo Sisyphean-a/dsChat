@@ -190,6 +190,8 @@ onMounted(() => {
       @update-deepseek-field="app.updateDeepseekField"
       @update-font-size="app.updateFontSize"
       @update-theme="app.updateTheme"
+      @update-tool-enabled="app.updateToolEnabled"
+      @update-tool-tavily-api-key="app.updateToolTavilyApiKey"
       @update-utools-upload-mode="app.updateUtoolsUploadMode"
     />
   </div>

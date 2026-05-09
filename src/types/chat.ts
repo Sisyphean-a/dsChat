@@ -55,6 +55,12 @@ export interface ProviderThinkingSettings {
   minimax: boolean
 }
 
+export interface ToolSettings {
+  enabled: boolean
+  tavilyApiKey: string
+  maxToolRounds: number
+}
+
 export interface SettingsDoc extends BaseDoc {
   type: 'settings'
   activeConfigId: string
@@ -63,6 +69,7 @@ export interface SettingsDoc extends BaseDoc {
   fontSize: FontSizeMode
   providerThinking: ProviderThinkingSettings
   theme: ThemeMode
+  toolSettings: ToolSettings
   utoolsUploadMode: UtoolsUploadMode
 }
 
@@ -88,6 +95,7 @@ export interface SettingsForm {
   fontSize: FontSizeMode
   providerThinking: ProviderThinkingSettings
   theme: ThemeMode
+  toolSettings: ToolSettings
   utoolsUploadMode: UtoolsUploadMode
 }
 

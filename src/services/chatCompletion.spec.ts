@@ -595,6 +595,29 @@ describe('streamChatCompletion', () => {
       ],
     })
   })
+
+  it('throws explicit unsupported error when enabling tool calling on OpenAI responses', async () => {
+    await expect(
+      streamChatCompletion(
+        [{ id: '1', role: 'user', content: '查天气', createdAt: 0, status: 'done' }],
+        createSettings({
+          label: 'OpenAI',
+          provider: 'openai',
+          baseUrl: 'https://api.openai.com/v1',
+          model: 'gpt-5.5',
+        }),
+        vi.fn(),
+        undefined,
+        {
+          toolSettings: {
+            enabled: true,
+            tavilyApiKey: 'tvly-key',
+            maxToolRounds: 3,
+          },
+        },
+      ),
+    ).rejects.toThrow('OpenAI 当前配置暂不支持工具调用。')
+  })
 })
 
 describe('requestChatCompletion', () => {

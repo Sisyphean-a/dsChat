@@ -180,6 +180,19 @@ button {
   font-size: 0.75rem;
 }
 
+.tool-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.tool-toggle-row input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+}
+
 .provider-card {
   display: flex;
   flex-direction: column;

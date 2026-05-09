@@ -576,6 +576,43 @@ describe('useChatApp', () => {
     )
   })
 
+  it('passes tool settings to stream layer when tool calling is enabled', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+      toolSettings: {
+        enabled: true,
+        tavilyApiKey: 'tvly-key',
+        maxToolRounds: 3,
+      },
+    }))
+    vi.mocked(streamChatCompletion).mockResolvedValue('工具调用完成')
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '帮我联网查新闻'
+
+    await app.sendMessage()
+
+    expect(streamChatCompletion).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        provider: 'deepseek',
+      }),
+      expect.any(Function),
+      expect.any(AbortSignal),
+      {
+        thinkingEnabled: true,
+        toolSettings: {
+          enabled: true,
+          tavilyApiKey: 'tvly-key',
+          maxToolRounds: 3,
+        },
+      },
+    )
+  })
+
   it('exposes a visible error when saving settings fails', async () => {
     vi.mocked(saveSettings).mockRejectedValueOnce(new Error('设置保存失败。'))
 

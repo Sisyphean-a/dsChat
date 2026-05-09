@@ -336,6 +336,8 @@ export function useChatApp() {
     updateActiveThinkingEnabled,
     updateFontSize: settingsActions.updateFontSize,
     updateTheme: settingsActions.updateTheme,
+    updateToolEnabled: settingsActions.updateToolEnabled,
+    updateToolTavilyApiKey: settingsActions.updateToolTavilyApiKey,
     updateUtoolsUploadMode: settingsActions.updateUtoolsUploadMode,
   }
 }

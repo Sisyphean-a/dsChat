@@ -6,6 +6,7 @@ import type {
   ProviderSettings,
   ProviderThinkingSettings,
   SettingsForm,
+  ToolSettings,
   ThemeMode,
 } from '../types/chat'
 import { DEFAULT_UTOOLS_UPLOAD_MODE } from './storage'
@@ -39,6 +40,11 @@ const DEFAULT_PROVIDER_THINKING: ProviderThinkingSettings = {
   deepseek: true,
   kimi: true,
   minimax: true,
+}
+const DEFAULT_TOOL_SETTINGS: ToolSettings = {
+  enabled: false,
+  tavilyApiKey: '',
+  maxToolRounds: 3,
 }
 const STANDARD_TEMPERATURE: TemperatureRange = { min: 0, max: 2, defaultValue: 1 }
 const MINIMAX_TEMPERATURE: TemperatureRange = { min: 0.1, max: 1, defaultValue: 1 }
@@ -182,6 +188,9 @@ export function buildDefaultSettings(): SettingsForm {
     fontSize: FONT_SIZE_DEFAULT,
     providerThinking: {
       ...DEFAULT_PROVIDER_THINKING,
+    },
+    toolSettings: {
+      ...DEFAULT_TOOL_SETTINGS,
     },
     theme: THEME_DEFAULT,
     utoolsUploadMode: DEFAULT_UTOOLS_UPLOAD_MODE,

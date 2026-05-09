@@ -50,6 +50,7 @@ export function migrateSettingsDoc(
       fontSize: doc.fontSize,
       providerThinking: doc.providerThinking,
       theme: doc.theme,
+      toolSettings: doc.toolSettings ?? { ...DEFAULT_SETTINGS.toolSettings },
       utoolsUploadMode: normalizeUtoolsUploadMode(doc.utoolsUploadMode, legacyUploadModeFallback),
     }
   }
@@ -81,6 +82,7 @@ export function migrateSettingsDoc(
       ...(doc.providerThinking ?? {}),
     },
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
+    toolSettings: { ...DEFAULT_SETTINGS.toolSettings },
     utoolsUploadMode: legacyUploadModeFallback,
   }
 }
@@ -113,6 +115,7 @@ function migrateLegacyMultiProviderDoc(
       ...(doc.providerThinking ?? {}),
     },
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
+    toolSettings: { ...DEFAULT_SETTINGS.toolSettings },
     utoolsUploadMode: legacyUploadModeFallback,
   }
 }

@@ -1,6 +1,7 @@
 import { supportsDeepseekThinking } from '../constants/providers'
 import { modelSupportsTemperature } from '../composables/chatAppSettings'
-import type { ActiveProviderSettings, ChatMessage, ProviderId } from '../types/chat'
+import type { ActiveProviderSettings, ChatMessage, ProviderId, ToolSettings } from '../types/chat'
+import { streamWithToolOrchestrator } from './ai/toolOrchestrator'
 
 interface StreamDeltaPayload {
   content?: string | null
@@ -76,6 +77,7 @@ export interface StreamDelta {
 
 export interface ChatRequestOptions {
   thinkingEnabled?: boolean
+  toolSettings?: ToolSettings
 }
 
 const DONE_EVENT = '[DONE]'
@@ -141,6 +143,10 @@ export async function streamChatCompletion(
   signal?: AbortSignal,
   requestOptions?: ChatRequestOptions,
 ): Promise<string> {
+  if (requestOptions?.toolSettings?.enabled) {
+    return streamWithToolOrchestrator(messages, settings, onDelta, signal, requestOptions)
+  }
+
   const response = await fetch(createRequestUrl(settings.baseUrl, settings.provider), {
     body: JSON.stringify(createPayload(messages, settings, true, requestOptions)),
     headers: createHeaders(settings),

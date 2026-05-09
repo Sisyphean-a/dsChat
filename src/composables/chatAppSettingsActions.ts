@@ -48,6 +48,8 @@ export interface ChatAppSettingsActions {
     enabled: boolean,
   ) => void
   updateTheme: (theme: ThemeMode) => void
+  updateToolEnabled: (enabled: boolean) => void
+  updateToolTavilyApiKey: (apiKey: string) => void
   updateUtoolsUploadMode: (mode: UtoolsUploadMode) => void
 }
 
@@ -275,6 +277,26 @@ export function createChatAppSettingsActions(
     }
   }
 
+  function updateToolEnabled(enabled: boolean): void {
+    settings.value = {
+      ...settings.value,
+      toolSettings: {
+        ...settings.value.toolSettings,
+        enabled,
+      },
+    }
+  }
+
+  function updateToolTavilyApiKey(apiKey: string): void {
+    settings.value = {
+      ...settings.value,
+      toolSettings: {
+        ...settings.value.toolSettings,
+        tavilyApiKey: apiKey,
+      },
+    }
+  }
+
   async function saveSettingsAction(): Promise<void> {
     isSavingSettings.value = true
 
@@ -312,6 +334,8 @@ export function createChatAppSettingsActions(
     updateFontSize,
     updateProviderThinking,
     updateTheme,
+    updateToolEnabled,
+    updateToolTavilyApiKey,
     updateUtoolsUploadMode,
   }
 }

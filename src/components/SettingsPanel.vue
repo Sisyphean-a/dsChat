@@ -39,6 +39,8 @@ const emit = defineEmits<{
   updateCustomModelField: [id: string, field: CustomModelField, value: string | number]
   updateDeepseekField: [field: ProviderEditableField, value: string | number]
   updateTheme: [theme: ThemeMode]
+  updateToolEnabled: [enabled: boolean]
+  updateToolTavilyApiKey: [apiKey: string]
   updateUtoolsUploadMode: [mode: UtoolsUploadMode]
 }>()
 
@@ -126,6 +128,24 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
               @select="emit('updateUtoolsUploadMode', $event as UtoolsUploadMode)"
             />
             <div v-if="props.isBrowserMode" class="hint-row">浏览器预览模式仅使用本地存储</div>
+          </section>
+
+          <section class="setting-group">
+            <h3>工具调用</h3>
+            <label class="tool-toggle-row">
+              <input
+                :checked="props.settings.toolSettings.enabled"
+                type="checkbox"
+                @change="emit('updateToolEnabled', ($event.target as HTMLInputElement).checked)"
+              />
+              <span>启用工具调用（Tavily 搜索）</span>
+            </label>
+            <input
+              :value="props.settings.toolSettings.tavilyApiKey"
+              placeholder="tvly-..."
+              type="password"
+              @input="emit('updateToolTavilyApiKey', ($event.target as HTMLInputElement).value)"
+            />
           </section>
 
           <section class="setting-group">

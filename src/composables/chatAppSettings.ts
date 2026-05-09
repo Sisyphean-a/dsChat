@@ -36,6 +36,7 @@ export function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
     deepseek: normalizeProviderSettings('deepseek', currentSettings.deepseek),
     fontSize: normalizeFontSize(currentSettings.fontSize),
     providerThinking: normalizeProviderThinking(currentSettings.providerThinking),
+    toolSettings: normalizeToolSettings(currentSettings.toolSettings),
     theme: normalizeTheme(currentSettings.theme),
     utoolsUploadMode: normalizeUtoolsUploadMode(currentSettings.utoolsUploadMode),
   }
@@ -54,6 +55,14 @@ export function getSendSettingsError(currentSettings: SettingsForm): string | nu
 
   if (!activeSettings.model.trim()) {
     return `请先在设置面板中选择 ${activeSettings.label} 模型。`
+  }
+
+  if (currentSettings.toolSettings.enabled && !currentSettings.toolSettings.tavilyApiKey.trim()) {
+    return '请先在设置面板中填写 Tavily API Key。'
+  }
+
+  if (currentSettings.toolSettings.enabled && !providerSupportsToolCalling(activeSettings.provider)) {
+    return `${activeSettings.label} 当前配置暂不支持工具调用。`
   }
 
   return null
@@ -297,6 +306,30 @@ function normalizeProviderThinking(
     kimi: providerThinking?.kimi ?? true,
     minimax: providerThinking?.minimax ?? true,
   }
+}
+
+function normalizeToolSettings(
+  toolSettings: SettingsForm['toolSettings'] | undefined,
+): SettingsForm['toolSettings'] {
+  const maxToolRounds = normalizeMaxToolRounds(toolSettings?.maxToolRounds)
+  return {
+    enabled: toolSettings?.enabled ?? false,
+    tavilyApiKey: toolSettings?.tavilyApiKey?.trim() ?? '',
+    maxToolRounds,
+  }
+}
+
+function normalizeMaxToolRounds(value: number | undefined): number {
+  if (!Number.isFinite(value)) {
+    return 3
+  }
+
+  const normalized = Math.floor(value as number)
+  return Math.min(10, Math.max(1, normalized))
+}
+
+function providerSupportsToolCalling(provider: ProviderId): boolean {
+  return provider !== 'openai'
 }
 
 export function normalizeUtoolsUploadMode(

@@ -5,6 +5,7 @@ import type {
   ChatMessage,
   MessageAttachment,
   SettingsForm,
+  ToolSettings,
 } from '../types/chat'
 import { buildConversationTitle, cloneMessageAttachments } from '../utils/chat'
 import { getErrorMessage } from './chatAppErrors'
@@ -16,6 +17,7 @@ export interface SendPreparation {
   attachments: MessageAttachment[]
   content: string
   thinkingEnabled: boolean
+  toolSettings: ToolSettings
 }
 
 interface PrepareSendRequestOptions {
@@ -42,6 +44,7 @@ interface StreamAssistantReplyOptions {
   ) => Promise<string>
   getAbortController: () => AbortController | null
   thinkingEnabled: boolean
+  toolSettings: ToolSettings
 }
 
 interface HandleInterruptedReplyOptions {
@@ -108,6 +111,7 @@ export function prepareSendRequest(
     attachments,
     content,
     thinkingEnabled: requestContext.thinkingEnabled,
+    toolSettings: requestContext.toolSettings,
   }
 }
 
@@ -121,8 +125,16 @@ export async function streamAssistantReply(
     streamChatCompletion,
     getAbortController,
     thinkingEnabled,
+    toolSettings,
   } = options
   let { assistantIndex } = options
+
+  const requestOptions: ChatRequestOptions = {
+    thinkingEnabled,
+  }
+  if (toolSettings.enabled) {
+    requestOptions.toolSettings = toolSettings
+  }
 
   await streamChatCompletion(
     buildRequestMessages(messages.value.slice(0, -1)),
@@ -133,7 +145,7 @@ export async function streamAssistantReply(
       })
     },
     getAbortController()?.signal,
-    { thinkingEnabled },
+    requestOptions,
   )
 
   return assistantIndex
