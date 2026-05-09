@@ -7,6 +7,7 @@ const props = defineProps<{
   canSend: boolean
   isSending: boolean
   modelValue: string
+  placeholder?: string
   sendDisabled: boolean
   showThinkingToggle: boolean
   thinkingEnabled: boolean
@@ -174,7 +175,7 @@ function mimeTypeToExtension(mimeType: string): string {
       <textarea
         ref="textareaRef"
         :value="props.modelValue"
-        placeholder="给 DeepSeek 发送消息..."
+        :placeholder="props.placeholder ?? '输入消息...'"
         rows="1"
         @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value); adjustHeight($event)"
         @keydown="onKeydown"

@@ -26,6 +26,9 @@ const currentTitle = computed(() => {
   const target = app.conversations.value.find(c => c.id === app.activeConversationId.value)
   return target?.title || '新对话'
 })
+const composerPlaceholder = computed(() => {
+  return `给 ${app.activeChatConfig.value.label} 发送消息...`
+})
 
 function handleModelSelect(model: string): void {
   app.selectActiveModel(model)
@@ -116,11 +119,7 @@ onMounted(() => {
 
       <section v-else class="empty-state">
         <div class="empty-content">
-          <h2>向 {{ app.activeChatConfig.value.label }} 发起对话</h2>
-          <p>
-            当前默认模型：{{ app.activeChatConfig.value.label }}。<br />
-            关闭插件后 1 分钟内重新打开，将恢复当前对话。
-          </p>
+          <h2>今天想要问些什么？</h2>
           <div class="quick-prompts">
             <button class="prompt-btn" @click="applyQuickPrompt('写一段 Python 快速排序代码', true)">
               写一段 Python 快速排序代码
@@ -141,6 +140,7 @@ onMounted(() => {
           :attachments="app.pendingAttachments.value"
           :can-send="app.canSendMessage.value"
           :is-sending="app.isSending.value"
+          :placeholder="composerPlaceholder"
           :show-thinking-toggle="app.showThinkingToggle.value"
           :thinking-enabled="app.thinkingEnabled.value"
           :send-disabled="app.isSending.value"
