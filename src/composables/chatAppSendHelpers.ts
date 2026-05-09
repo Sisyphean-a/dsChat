@@ -8,7 +8,8 @@ import type {
 } from '../types/chat'
 import { buildConversationTitle, cloneMessageAttachments } from '../utils/chat'
 import { getErrorMessage } from './chatAppErrors'
-import { getActiveProviderSettings, getSendSettingsError, normalizeSettings } from './chatAppSettings'
+import { prepareRequestContext } from './chatAppRequestPreparation'
+import { buildRequestMessages } from './chatAppRetry'
 
 export interface SendPreparation {
   activeSettings: ActiveProviderSettings
@@ -91,29 +92,22 @@ export function prepareSendRequest(
     return null
   }
 
-  const normalizedSettings = normalizeSettings(settings.value)
-  const activeSettings = getActiveProviderSettings(normalizedSettings)
-  const thinkingEnabled = getThinkingEnabled(activeSettings.provider)
-  const settingsError = getSendSettingsError(normalizedSettings)
-  const imageInputError = getImageInputSupportError(activeSettings, attachments)
-
-  if (settingsError) {
-    lastError.value = settingsError
-    openSettings()
-    return null
-  }
-
-  if (imageInputError) {
-    lastError.value = imageInputError
-    openSettings()
+  const requestContext = prepareRequestContext({
+    attachments,
+    getThinkingEnabled,
+    lastError,
+    openSettings,
+    settings,
+  })
+  if (!requestContext) {
     return null
   }
 
   return {
-    activeSettings,
+    activeSettings: requestContext.activeSettings,
     attachments,
     content,
-    thinkingEnabled,
+    thinkingEnabled: requestContext.thinkingEnabled,
   }
 }
 
@@ -131,7 +125,7 @@ export async function streamAssistantReply(
   let { assistantIndex } = options
 
   await streamChatCompletion(
-    messages.value.slice(0, -1),
+    buildRequestMessages(messages.value.slice(0, -1)),
     activeSettings,
     (delta) => {
       assistantIndex = patchAssistantMessage(messages, assistantIndex, assistantId, (draft) => {
@@ -300,23 +294,4 @@ async function resolveTitleWithFallback(
       status: 'done',
     },
   ])
-}
-
-function getImageInputSupportError(
-  settings: ActiveProviderSettings,
-  attachments: MessageAttachment[],
-): string | null {
-  if (!attachments.length) {
-    return null
-  }
-
-  if (settings.provider === 'deepseek') {
-    return 'DeepSeek 当前模型仅支持文本输入，不支持图片。请切换支持图片的供应商后再发送。'
-  }
-
-  if (settings.provider === 'minimax') {
-    return 'MiniMax 当前文本模型不支持图片输入。请切换支持图片的供应商后再发送。'
-  }
-
-  return null
 }

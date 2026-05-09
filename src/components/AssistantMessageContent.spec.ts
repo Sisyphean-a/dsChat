@@ -44,6 +44,30 @@ describe('AssistantMessageContent', () => {
 
     expect(openExternalLink).toHaveBeenCalledWith('https://example.com/docs')
   })
+
+  it('uses per-block rhythm instead of a shared segment gap', () => {
+    const wrapper = mount(AssistantMessageContent, {
+      props: {
+        content: [
+          '第一段。',
+          '',
+          '```ts',
+          'const value = 42',
+          '```',
+          '',
+          '第二段。',
+        ].join('\n'),
+      },
+    })
+
+    const container = wrapper.get('.message-rich-content').element as HTMLElement
+
+    expect(container.style.gap).toBe('0px')
+    expect(container.style.getPropertyValue('--message-flow-space-compact')).toBe('12px')
+    expect(container.style.getPropertyValue('--message-flow-space-block')).toBe('16px')
+    expect(container.style.getPropertyValue('--message-flow-space-divider')).toBe('16px')
+    expect(container.style.getPropertyValue('--message-flow-space-section')).toBe('18px')
+  })
 })
 
 async function waitForHighlight(

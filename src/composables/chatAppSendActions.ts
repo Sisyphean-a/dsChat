@@ -9,6 +9,7 @@ import type {
 import { createConversationId } from '../utils/chat'
 import { createChatMessage, finalizeStreamingMessages } from './chatAppMessages'
 import { getErrorMessage, isAbortError } from './chatAppErrors'
+import { prepareRetryRequest } from './chatAppRetry'
 import {
   generateConversationTitle,
   handleInterruptedReply,
@@ -59,6 +60,7 @@ interface StreamingReply {
 
 export interface ChatAppSendActions {
   interruptActiveSend: (fallback?: string) => Promise<void>
+  retryLastAssistantMessage: () => Promise<void>
   sendMessage: () => Promise<void>
   stopGenerating: () => Promise<void>
 }
@@ -99,65 +101,24 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
     }
 
     const reply = startStreamingReply(prepared.content, prepared.attachments)
-    try {
-      reply.failureStage = 'initial-persist'
-      await persistConversation()
-      if (reply.isNewConversation) {
-        generateConversationTitle({
-          applyGeneratedConversationTitle,
-          conversationId: reply.conversationId,
-          firstMessageContent: prepared.content,
-          settingsSnapshot: prepared.activeSettings,
-          requestConversationTitle,
-        }).catch(console.error)
-      }
+    await completeAssistantReply(reply, prepared.activeSettings, prepared.thinkingEnabled, prepared.content)
+  }
 
-      reply.failureStage = 'stream'
-      reply.assistantIndex = await streamAssistantReply({
-        messages,
-        assistantIndex: reply.assistantIndex,
-        assistantId: reply.assistantId,
-        activeSettings: prepared.activeSettings,
-        streamChatCompletion,
-        getAbortController,
-        thinkingEnabled: prepared.thinkingEnabled,
-      })
-
-      reply.failureStage = 'final-persist'
-      reply.assistantIndex = patchAssistantMessage(
-        messages,
-        reply.assistantIndex,
-        reply.assistantId,
-        (draft) => {
-          draft.status = 'done'
-          draft.streamingStatus = undefined
-        },
-      )
-      await persistConversation()
-    } catch (error) {
-      if (isAbortError(error)) {
-        await handleInterruptedReply({
-          messages,
-          assistantIndex: reply.assistantIndex,
-          assistantId: reply.assistantId,
-          interruptedResponseMessage,
-          persistConversation,
-        })
-      } else {
-        await handleSendFailure({
-          error,
-          messages,
-          assistantIndex: reply.assistantIndex,
-          assistantId: reply.assistantId,
-          shouldPersistFailureState: reply.failureStage === 'stream',
-          lastError,
-          persistConversation,
-        })
-      }
-    } finally {
-      isSending.value = false
-      setAbortController(null)
+  async function retryLastAssistantMessage(): Promise<void> {
+    const prepared = prepareRetryRequest({
+      getThinkingEnabled,
+      isSending,
+      lastError,
+      messages,
+      openSettings,
+      settings,
+    })
+    if (!prepared) {
+      return
     }
+
+    const reply = startRetryingReply(prepared.assistantIndex, prepared.assistantId)
+    await completeAssistantReply(reply, prepared.activeSettings, prepared.thinkingEnabled)
   }
 
   async function interruptActiveSend(fallback = interruptedResponseMessage): Promise<void> {
@@ -211,8 +172,97 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
     }
   }
 
+  async function completeAssistantReply(
+    reply: StreamingReply,
+    activeSettings: ActiveProviderSettings,
+    thinkingEnabled: boolean,
+    firstMessageContent?: string,
+  ): Promise<void> {
+    try {
+      reply.failureStage = 'initial-persist'
+      await persistConversation()
+      if (reply.isNewConversation && firstMessageContent) {
+        generateConversationTitle({
+          applyGeneratedConversationTitle,
+          conversationId: reply.conversationId,
+          firstMessageContent,
+          settingsSnapshot: activeSettings,
+          requestConversationTitle,
+        }).catch(console.error)
+      }
+
+      reply.failureStage = 'stream'
+      reply.assistantIndex = await streamAssistantReply({
+        messages,
+        assistantIndex: reply.assistantIndex,
+        assistantId: reply.assistantId,
+        activeSettings,
+        streamChatCompletion,
+        getAbortController,
+        thinkingEnabled,
+      })
+
+      reply.failureStage = 'final-persist'
+      reply.assistantIndex = patchAssistantMessage(
+        messages,
+        reply.assistantIndex,
+        reply.assistantId,
+        (draft) => {
+          draft.status = 'done'
+          draft.streamingStatus = undefined
+        },
+      )
+      await persistConversation()
+    } catch (error) {
+      if (isAbortError(error)) {
+        await handleInterruptedReply({
+          messages,
+          assistantIndex: reply.assistantIndex,
+          assistantId: reply.assistantId,
+          interruptedResponseMessage,
+          persistConversation,
+        })
+      } else {
+        await handleSendFailure({
+          error,
+          messages,
+          assistantIndex: reply.assistantIndex,
+          assistantId: reply.assistantId,
+          shouldPersistFailureState: reply.failureStage === 'stream',
+          lastError,
+          persistConversation,
+        })
+      }
+    } finally {
+      isSending.value = false
+      setAbortController(null)
+    }
+  }
+
+  function startRetryingReply(assistantIndex: number, assistantId: string): StreamingReply {
+    patchAssistantMessage(messages, assistantIndex, assistantId, (draft) => {
+      draft.content = ''
+      draft.reasoningContent = undefined
+      draft.status = 'streaming'
+      draft.streamingStatus = '正在生成回答...'
+    })
+
+    lastError.value = null
+    isSending.value = true
+    setAbortController(new AbortController())
+
+    return {
+      assistantId,
+      assistantIndex,
+      conversationId: activeConversationId.value as string,
+      failureStage: 'initial-persist',
+      isNewConversation: false,
+    }
+  }
+
   return {
     interruptActiveSend,
+    retryLastAssistantMessage,
     sendMessage,
     stopGenerating,
   }

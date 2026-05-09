@@ -9,10 +9,21 @@ const props = defineProps<{
   variant?: 'answer' | 'reasoning'
 }>()
 
+const FLOW_SPACE_COMPACT_PX = 12
+const FLOW_SPACE_BLOCK_PX = 16
+const FLOW_SPACE_DIVIDER_PX = 16
+const FLOW_SPACE_SECTION_PX = 18
+
 const containerRef = ref<HTMLElement | null>(null)
+const contentRhythmStyle: Record<string, string> = Object.freeze({
+  gap: '0px',
+  '--message-flow-space-compact': `${FLOW_SPACE_COMPACT_PX}px`,
+  '--message-flow-space-block': `${FLOW_SPACE_BLOCK_PX}px`,
+  '--message-flow-space-divider': `${FLOW_SPACE_DIVIDER_PX}px`,
+  '--message-flow-space-section': `${FLOW_SPACE_SECTION_PX}px`,
+})
 const variantClass = computed(() => props.variant === 'reasoning' ? 'is-reasoning' : 'is-answer')
 const segments = computed(() => buildMarkdownRenderSegments(props.content))
-
 watch(() => segments.value.map((segment) => `${segment.id}:${segment.kind}:${segment.source.length}`).join('|'), () => {
   void applyHighlight()
 }, { immediate: true })
@@ -50,7 +61,7 @@ if (getCurrentScope()) {
 </script>
 
 <template>
-  <div ref="containerRef" class="message-rich-content" :class="variantClass" @click="handleContentClick">
+  <div ref="containerRef" class="message-rich-content" :class="variantClass" :style="contentRhythmStyle" @click="handleContentClick">
     <template v-for="segment in segments" :key="segment.id">
       <div
         v-if="segment.kind === 'prose'"
@@ -70,11 +81,20 @@ if (getCurrentScope()) {
 .message-rich-content {
   display: flex;
   flex-direction: column;
-  gap: 14px;
 }
 
 .markdown-segment {
   position: relative;
+}
+
+.markdown-segment + .markdown-segment {
+  margin-top: var(--message-flow-space-compact);
+}
+
+.prose-segment + .code-segment,
+.code-segment + .prose-segment,
+.code-segment + .code-segment {
+  margin-top: var(--message-flow-space-block);
 }
 
 .markdown-segment :deep(*) {
@@ -87,29 +107,53 @@ if (getCurrentScope()) {
   font-size: 0.85rem;
 }
 
-.markdown-segment :deep(p:first-child),
-.markdown-segment :deep(ul:first-child),
-.markdown-segment :deep(ol:first-child),
-.markdown-segment :deep(blockquote:first-child) {
-  margin-top: 0;
-}
-
-.markdown-segment :deep(p:last-child),
-.markdown-segment :deep(ul:last-child),
-.markdown-segment :deep(ol:last-child),
-.markdown-segment :deep(blockquote:last-child),
-.markdown-segment :deep(pre:last-child),
-.markdown-segment :deep(table:last-child) {
-  margin-bottom: 0;
-}
-
+.markdown-segment :deep(h1),
+.markdown-segment :deep(h2),
+.markdown-segment :deep(h3),
+.markdown-segment :deep(h4),
 .markdown-segment :deep(p),
 .markdown-segment :deep(ul),
 .markdown-segment :deep(ol),
 .markdown-segment :deep(blockquote),
 .markdown-segment :deep(pre),
-.markdown-segment :deep(table) {
-  margin: 0.45rem 0 0.55rem;
+.markdown-segment :deep(table),
+.markdown-segment :deep(hr) {
+  margin: 0;
+}
+
+.markdown-segment > :deep(* + *) {
+  margin-top: var(--message-flow-space-compact);
+}
+
+.markdown-segment > :deep(* + h1),
+.markdown-segment > :deep(* + h2),
+.markdown-segment > :deep(* + h3),
+.markdown-segment > :deep(* + h4) {
+  margin-top: var(--message-flow-space-section);
+}
+
+.markdown-segment > :deep(* + hr) {
+  margin-top: var(--message-flow-space-divider);
+}
+
+.markdown-segment > :deep(h1 + *),
+.markdown-segment > :deep(h2 + *),
+.markdown-segment > :deep(h3 + *),
+.markdown-segment > :deep(h4 + *) {
+  margin-top: var(--message-flow-space-compact);
+}
+
+.markdown-segment > :deep(* + pre),
+.markdown-segment > :deep(* + blockquote),
+.markdown-segment > :deep(* + table),
+.markdown-segment > :deep(pre + *),
+.markdown-segment > :deep(blockquote + *),
+.markdown-segment > :deep(table + *) {
+  margin-top: var(--message-flow-space-block);
+}
+
+.markdown-segment > :deep(hr + *) {
+  margin-top: var(--message-flow-space-divider);
 }
 
 .markdown-segment :deep(pre) {
@@ -121,6 +165,19 @@ if (getCurrentScope()) {
   border: 1px solid var(--code-border);
   font-size: 0.85rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.markdown-segment :deep(ul),
+.markdown-segment :deep(ol) {
+  padding-inline-start: 1.4rem;
+}
+
+.markdown-segment :deep(li + li) {
+  margin-top: 0.25rem;
+}
+
+.markdown-segment :deep(blockquote > * + *) {
+  margin-top: var(--message-flow-space-compact);
 }
 
 .markdown-segment :deep(.code-copy-button) {
@@ -190,10 +247,6 @@ if (getCurrentScope()) {
   border: 0;
 }
 
-.code-segment :deep(pre) {
-  margin: 0.2rem 0;
-}
-
 .markdown-segment :deep(table) {
   width: 100%;
   border-collapse: collapse;
@@ -237,6 +290,11 @@ if (getCurrentScope()) {
   padding-left: 12px;
   border-left: 3px solid color-mix(in srgb, var(--accent) 28%, var(--border));
   color: var(--text-muted);
+}
+
+.markdown-segment :deep(hr) {
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 94%, var(--text-muted));
 }
 
 </style>

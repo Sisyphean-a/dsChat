@@ -45,6 +45,7 @@ import {
   getActiveModelSelectionOptions,
   normalizeSettings,
 } from './chatAppSettings'
+import { resolveRetryableAssistantReply } from './chatAppRetry'
 
 export function useChatApp() {
   const settings = ref<SettingsForm>(structuredClone(DEFAULT_SETTINGS))
@@ -73,6 +74,9 @@ export function useChatApp() {
   })
   const thinkingEnabled = computed(() => {
     return resolveThinkingEnabled(activeChatConfig.value.provider)
+  })
+  const retryableAssistantMessageId = computed(() => {
+    return resolveRetryableAssistantReply(messages.value)?.assistantId ?? null
   })
 
   let activeAbortController: AbortController | null = null
@@ -310,6 +314,8 @@ export function useChatApp() {
     modelOptions,
     openSettings: settingsActions.openSettings,
     pendingAttachments,
+    retryLastAssistantMessage: sendActions.retryLastAssistantMessage,
+    retryableAssistantMessageId,
     showThinkingToggle,
     thinkingEnabled,
     renameCustomModelOption: settingsActions.renameCustomModelOption,

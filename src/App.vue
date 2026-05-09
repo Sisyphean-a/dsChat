@@ -108,7 +108,9 @@ onMounted(() => {
         <MessageBubble
           v-for="message in app.messages.value"
           :key="message.id"
+          :can-retry="!app.isSending.value && app.retryableAssistantMessageId.value === message.id"
           :message="message"
+          @retry="app.retryLastAssistantMessage"
         />
       </section>
 
