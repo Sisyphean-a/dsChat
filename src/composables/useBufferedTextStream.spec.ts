@@ -6,11 +6,12 @@ describe('useBufferedTextStream', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-      return window.setTimeout(() => callback(performance.now()), 16)
+      return globalThis.setTimeout(() => callback(performance.now()), 16)
     })
     vi.stubGlobal('cancelAnimationFrame', (id: number) => {
-      window.clearTimeout(id)
+      globalThis.clearTimeout(id)
     })
+    vi.stubGlobal('window', globalThis)
   })
 
   afterEach(() => {

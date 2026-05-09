@@ -5,6 +5,23 @@ import ChatComposer from './ChatComposer.vue'
 import type { MessageAttachment } from '../types/chat'
 
 describe('ChatComposer', () => {
+  it('renders the provided placeholder text', () => {
+    const wrapper = mount(ChatComposer, {
+      props: {
+        attachments: [],
+        canSend: true,
+        isSending: false,
+        modelValue: '',
+        placeholder: '给 OpenAI 发送消息...',
+        sendDisabled: false,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
+      },
+    })
+
+    expect(wrapper.get('textarea').attributes('placeholder')).toBe('给 OpenAI 发送消息...')
+  })
+
   it('keeps the textarea editable while sending', async () => {
     const wrapper = mount(ChatComposer, {
       props: {

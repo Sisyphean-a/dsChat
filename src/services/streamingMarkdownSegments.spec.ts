@@ -1,4 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('./markdown', () => ({
+  renderMarkdown: (content: string) => `<p>${content}</p>`,
+}))
+
 import { buildMarkdownRenderSegments } from './streamingMarkdownSegments'
 
 describe('buildMarkdownRenderSegments', () => {

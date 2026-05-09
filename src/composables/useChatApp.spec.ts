@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildDefaultSettings, createAddedModelDraft } from '../constants/providers'
 import type { ProviderSettings, SettingsForm } from '../types/chat'
 
@@ -36,6 +36,12 @@ import { useChatApp } from './useChatApp'
 
 describe('useChatApp', () => {
   beforeEach(() => {
+    vi.stubGlobal('window', {
+      utools: {
+        onPluginEnter: vi.fn(),
+        onPluginOut: vi.fn(),
+      },
+    })
     vi.mocked(hasUtools).mockReturnValue(false)
     vi.mocked(loadConversations).mockResolvedValue([])
     vi.mocked(loadSession).mockResolvedValue(null)
@@ -44,6 +50,10 @@ describe('useChatApp', () => {
     vi.mocked(requestConversationTitle).mockResolvedValue('自动标题')
     vi.mocked(saveConversation).mockImplementation(async (conversation) => conversation)
     vi.mocked(streamChatCompletion).mockReset()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('starts with a clean conversation when there is no history', async () => {
@@ -175,6 +185,7 @@ describe('useChatApp', () => {
   })
 
   it('falls back to local title when title generation request fails', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     vi.mocked(hasUtools).mockReturnValue(true)
     vi.mocked(loadSettings).mockResolvedValue(createSettings({
       deepseek: {
@@ -193,6 +204,8 @@ describe('useChatApp', () => {
     await vi.waitFor(() => {
       expect(app.conversations.value[0]?.title).toBe('这个标题接口会失败但不该丢失标题')
     })
+    expect(consoleWarn).toHaveBeenCalled()
+    consoleWarn.mockRestore()
   })
 
   it('falls back to local title when generated title is empty', async () => {

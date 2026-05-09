@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildDefaultSettings, createAddedModelDraft } from '../constants/providers'
 import type { BaseDoc, ConversationDoc, SessionDoc } from '../types/chat'
 import {
@@ -14,10 +14,14 @@ import {
 type StoredDoc = BaseDoc & Record<string, unknown>
 
 describe('utools storage routing', () => {
+  beforeEach(() => {
+    vi.stubGlobal('window', createWindowMock())
+  })
+
   afterEach(() => {
-    vi.unstubAllGlobals()
     delete window.utools
     window.localStorage.clear()
+    vi.unstubAllGlobals()
   })
 
   it('migrates legacy flat settings docs into the deepseek-first structure', async () => {
@@ -329,4 +333,35 @@ function readRevisionNumber(revision?: string): number {
 
 function cloneSerializable<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
+}
+
+function createWindowMock(): Window & typeof globalThis {
+  return {
+    localStorage: createLocalStorageMock(),
+  } as Window & typeof globalThis
+}
+
+function createLocalStorageMock(): Storage {
+  const store = new Map<string, string>()
+
+  return {
+    clear() {
+      store.clear()
+    },
+    getItem(key: string) {
+      return store.get(key) ?? null
+    },
+    key(index: number) {
+      return [...store.keys()][index] ?? null
+    },
+    get length() {
+      return store.size
+    },
+    removeItem(key: string) {
+      store.delete(key)
+    },
+    setItem(key: string, value: string) {
+      store.set(key, value)
+    },
+  } as Storage
 }

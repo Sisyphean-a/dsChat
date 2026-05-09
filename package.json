@@ -4,12 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "check": "npm run typecheck && npm test && npm run build",
+    "check": "npm run typecheck && npm run test:all && npm run build",
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
     "build:offline": "npm run build && node scripts/prepare-offline-package.mjs",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run --config vitest.config.ts",
+    "test:all": "npm run test && npm run test:dom && npm run test:packaging",
+    "test:dom": "vitest run --config vitest.dom.config.ts",
+    "test:packaging": "vitest run --config vitest.packaging.config.ts",
     "typecheck": "vue-tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {

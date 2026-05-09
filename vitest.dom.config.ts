@@ -3,12 +3,8 @@ import viteConfig from './vite.config'
 
 export default mergeConfig(viteConfig, defineConfig({
   test: {
-    environment: 'node',
-    include: ['src/**/*.spec.ts'],
-    exclude: [
-      'src/**/*.dom.spec.ts',
-      'scripts/**/*.spec.ts',
-    ],
+    environment: 'jsdom',
+    include: ['src/**/*.dom.spec.ts'],
     maxWorkers: 1,
     pool: 'threads',
   },

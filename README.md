@@ -49,6 +49,22 @@ node scripts/prepare-offline-package.mjs
 npm test
 ```
 
+默认只跑 `node` 快速套件，适合日常开发回路。
+注意：`npm test` 不是完整测试；完整测试请运行 `npm run test:all`。
+
+```bash
+npm run test:dom
+npm run test:packaging
+npm run test:all
+```
+
+说明：
+
+- `npm test`：默认快速套件，覆盖大部分业务逻辑、流式协议、持久化与状态机
+- `npm run test:dom`：组件与 Markdown DOM 渲染相关测试
+- `npm run test:packaging`：离线打包脚本测试
+- `npm run test:all`：串行跑完整测试矩阵，供提交前验证与 `npm run check` 使用
+
 当前单测覆盖：
 
 - 1 分钟会话重置规则
