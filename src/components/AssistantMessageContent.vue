@@ -10,7 +10,7 @@ const props = defineProps<{
 }>()
 
 const FLOW_SPACE_COMPACT_PX = 12
-const FLOW_SPACE_BLOCK_PX = 16
+const FLOW_SPACE_BLOCK_PX = 14
 const FLOW_SPACE_DIVIDER_PX = 16
 const FLOW_SPACE_SECTION_PX = 18
 

@@ -64,7 +64,7 @@ describe('AssistantMessageContent', () => {
 
     expect(container.style.gap).toBe('0px')
     expect(container.style.getPropertyValue('--message-flow-space-compact')).toBe('12px')
-    expect(container.style.getPropertyValue('--message-flow-space-block')).toBe('16px')
+    expect(container.style.getPropertyValue('--message-flow-space-block')).toBe('14px')
     expect(container.style.getPropertyValue('--message-flow-space-divider')).toBe('16px')
     expect(container.style.getPropertyValue('--message-flow-space-section')).toBe('18px')
   })
