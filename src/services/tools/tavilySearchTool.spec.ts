@@ -9,11 +9,7 @@ describe('tavilySearchTool', () => {
   it('throws when query is missing', async () => {
     await expect(
       tavilySearchTool.execute({}, {
-        settings: {
-          enabled: true,
-          tavilyApiKey: 'tvly-key',
-          maxToolRounds: 3,
-        },
+        settings: createToolSettings(),
       }),
     ).rejects.toThrow('tavily_search 参数错误：query 必须是非空字符串。')
   })
@@ -23,11 +19,7 @@ describe('tavilySearchTool', () => {
       tavilySearchTool.execute(
         { query: 'weather', topic: 'sports', timeRange: 'hour' },
         {
-          settings: {
-            enabled: true,
-            tavilyApiKey: 'tvly-key',
-            maxToolRounds: 3,
-          },
+          settings: createToolSettings(),
         },
       ),
     ).rejects.toThrow('tavily_search 参数错误：topic 仅支持 general/news/finance。')
@@ -47,11 +39,7 @@ describe('tavilySearchTool', () => {
     const result = await tavilySearchTool.execute(
       { query: 'weather', topic: 'general' },
       {
-        settings: {
-          enabled: true,
-          tavilyApiKey: 'tvly-key',
-          maxToolRounds: 3,
-        },
+        settings: createToolSettings(),
       },
     )
 
@@ -66,3 +54,20 @@ describe('tavilySearchTool', () => {
     })
   })
 })
+
+function createToolSettings() {
+  return {
+    enabled: true,
+    maxToolRounds: 3,
+    builtinTools: {
+      currentTime: {
+        enabled: true,
+      },
+      tavilySearch: {
+        enabled: true,
+        apiKey: 'tvly-key',
+      },
+    },
+    customTools: [],
+  }
+}

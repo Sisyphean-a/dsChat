@@ -35,7 +35,11 @@ export const tavilySearchTool: AiTool = {
   },
   async execute(args, context) {
     const parsed = parseTavilySearchArgs(args)
-    const result = await searchWithTavily(parsed, context.settings.tavilyApiKey, context.signal)
+    const result = await searchWithTavily(
+      parsed,
+      context.settings.builtinTools.tavilySearch.apiKey,
+      context.signal,
+    )
 
     return {
       content: JSON.stringify({

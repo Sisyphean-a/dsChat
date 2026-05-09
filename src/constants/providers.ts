@@ -43,8 +43,17 @@ const DEFAULT_PROVIDER_THINKING: ProviderThinkingSettings = {
 }
 const DEFAULT_TOOL_SETTINGS: ToolSettings = {
   enabled: false,
-  tavilyApiKey: '',
   maxToolRounds: 3,
+  builtinTools: {
+    currentTime: {
+      enabled: true,
+    },
+    tavilySearch: {
+      enabled: true,
+      apiKey: '',
+    },
+  },
+  customTools: [],
 }
 const STANDARD_TEMPERATURE: TemperatureRange = { min: 0, max: 2, defaultValue: 1 }
 const MINIMAX_TEMPERATURE: TemperatureRange = { min: 0.1, max: 1, defaultValue: 1 }

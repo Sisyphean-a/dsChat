@@ -583,8 +583,17 @@ describe('useChatApp', () => {
       },
       toolSettings: {
         enabled: true,
-        tavilyApiKey: 'tvly-key',
         maxToolRounds: 3,
+        builtinTools: {
+          currentTime: {
+            enabled: true,
+          },
+          tavilySearch: {
+            enabled: true,
+            apiKey: 'tvly-key',
+          },
+        },
+        customTools: [],
       },
     }))
     vi.mocked(streamChatCompletion).mockResolvedValue('工具调用完成')
@@ -606,8 +615,17 @@ describe('useChatApp', () => {
         thinkingEnabled: true,
         toolSettings: {
           enabled: true,
-          tavilyApiKey: 'tvly-key',
           maxToolRounds: 3,
+          builtinTools: {
+            currentTime: {
+              enabled: true,
+            },
+            tavilySearch: {
+              enabled: true,
+              apiKey: 'tvly-key',
+            },
+          },
+          customTools: [],
         },
       },
     )

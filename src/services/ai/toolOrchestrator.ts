@@ -11,7 +11,7 @@ import { consumeSseBuffer, extractEventPayload } from './sse'
 import type { AiTool, NormalizedToolCall, ToolSettings } from './toolTypes'
 
 const TOOL_STATUS_DECIDING = '正在判断是否需要调用工具...'
-const TOOL_STATUS_CONTINUING = '已获得 Tavily 搜索结果，正在继续思考...'
+const TOOL_STATUS_CONTINUING = '已获得工具结果，正在继续思考...'
 
 interface ProviderRoundResult {
   content: string
@@ -37,7 +37,11 @@ export async function streamWithToolOrchestrator(
   }
 
   const tools = getEnabledTools(toolSettings)
+  if (!tools.length) {
+    throw new Error('请至少启用一个工具。')
+  }
   const contextMessages = toProviderConversationMessages(messages)
+  let aggregatedContent = ''
   let roundCount = 0
 
   onDelta({ streamingStatus: TOOL_STATUS_DECIDING })
@@ -56,12 +60,17 @@ export async function streamWithToolOrchestrator(
       tools,
     })
 
+    if (round.content) {
+      aggregatedContent += round.content
+    }
+
     if (!round.toolCalls.length) {
-      if (!round.content.trim()) {
+      const finalContent = round.content.trim() ? round.content : aggregatedContent
+      if (!finalContent.trim()) {
         throw new Error(`${settings.label} 未返回可用内容。`)
       }
 
-      return round.content
+      return finalContent
     }
 
     roundCount += 1
@@ -259,10 +268,25 @@ function createHeaders(settings: ActiveProviderSettings): HeadersInit {
 }
 
 function toRuntimeToolSettings(settings: ChatToolSettings | undefined): ToolSettings {
+  const legacy = settings as Partial<{
+    tavilyApiKey: string
+  }> | undefined
   return {
     enabled: settings?.enabled ?? false,
-    tavilyApiKey: settings?.tavilyApiKey ?? '',
     maxToolRounds: settings?.maxToolRounds ?? 3,
+    builtinTools: {
+      currentTime: {
+        enabled: settings?.builtinTools?.currentTime?.enabled ?? true,
+      },
+      tavilySearch: {
+        enabled: settings?.builtinTools?.tavilySearch?.enabled ?? true,
+        apiKey: settings?.builtinTools?.tavilySearch?.apiKey ?? legacy?.tavilyApiKey ?? '',
+      },
+    },
+    customTools: settings?.customTools?.map((item) => ({
+      ...item,
+      headers: item.headers.map((header) => ({ ...header })),
+    })) ?? [],
   }
 }
 

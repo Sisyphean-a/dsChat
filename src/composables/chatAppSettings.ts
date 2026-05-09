@@ -57,8 +57,12 @@ export function getSendSettingsError(currentSettings: SettingsForm): string | nu
     return `请先在设置面板中选择 ${activeSettings.label} 模型。`
   }
 
-  if (currentSettings.toolSettings.enabled && !currentSettings.toolSettings.tavilyApiKey.trim()) {
-    return '请先在设置面板中填写 Tavily API Key。'
+  if (currentSettings.toolSettings.enabled && hasEnabledCustomTool(currentSettings.toolSettings)) {
+    return '自定义工具暂未接入执行引擎，请先关闭已启用的自定义工具。'
+  }
+
+  if (currentSettings.toolSettings.enabled && !hasEnabledBuiltinTool(currentSettings.toolSettings)) {
+    return '请至少启用一个内置工具。'
   }
 
   if (currentSettings.toolSettings.enabled && !providerSupportsToolCalling(activeSettings.provider)) {
@@ -311,12 +315,84 @@ function normalizeProviderThinking(
 function normalizeToolSettings(
   toolSettings: SettingsForm['toolSettings'] | undefined,
 ): SettingsForm['toolSettings'] {
+  const legacy = toolSettings as Partial<{
+    tavilyApiKey: string
+  }>
   const maxToolRounds = normalizeMaxToolRounds(toolSettings?.maxToolRounds)
+  const builtinTools = normalizeBuiltinToolSettings(toolSettings, legacy.tavilyApiKey)
+  const customTools = normalizeCustomToolSettings(toolSettings)
   return {
     enabled: toolSettings?.enabled ?? false,
-    tavilyApiKey: toolSettings?.tavilyApiKey?.trim() ?? '',
     maxToolRounds,
+    builtinTools,
+    customTools,
   }
+}
+
+function normalizeBuiltinToolSettings(
+  toolSettings: SettingsForm['toolSettings'] | undefined,
+  legacyTavilyApiKey: string | undefined,
+): SettingsForm['toolSettings']['builtinTools'] {
+  const builtinTavilyApiKey = toolSettings?.builtinTools?.tavilySearch?.apiKey?.trim() ?? ''
+  const normalizedLegacyTavilyApiKey = legacyTavilyApiKey?.trim() ?? ''
+  return {
+    currentTime: {
+      enabled: toolSettings?.builtinTools?.currentTime?.enabled ?? true,
+    },
+    tavilySearch: {
+      enabled: toolSettings?.builtinTools?.tavilySearch?.enabled ?? true,
+      apiKey: builtinTavilyApiKey || normalizedLegacyTavilyApiKey,
+    },
+  }
+}
+
+function normalizeCustomToolSettings(
+  toolSettings: SettingsForm['toolSettings'] | undefined,
+): SettingsForm['toolSettings']['customTools'] {
+  if (!Array.isArray(toolSettings?.customTools)) {
+    return []
+  }
+
+  const ids = new Set<string>()
+  const normalized: SettingsForm['toolSettings']['customTools'] = []
+  for (const item of toolSettings.customTools) {
+    const id = item.id?.trim() || createCustomToolId()
+    if (ids.has(id)) {
+      continue
+    }
+
+    ids.add(id)
+    normalized.push({
+      id,
+      name: item.name?.trim() || '未命名工具',
+      description: item.description?.trim() ?? '',
+      enabled: item.enabled ?? false,
+      url: item.url?.trim() ?? '',
+      method: item.method === 'GET' ? 'GET' : 'POST',
+      headers: normalizeCustomToolHeaders(item.headers),
+    })
+  }
+
+  return normalized
+}
+
+function normalizeCustomToolHeaders(
+  headers: SettingsForm['toolSettings']['customTools'][number]['headers'] | undefined,
+): SettingsForm['toolSettings']['customTools'][number]['headers'] {
+  if (!Array.isArray(headers)) {
+    return []
+  }
+
+  return headers
+    .map((item) => ({
+      key: item.key?.trim() ?? '',
+      value: item.value?.trim() ?? '',
+    }))
+    .filter((item) => item.key || item.value)
+}
+
+function createCustomToolId(): string {
+  return `tool-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 function normalizeMaxToolRounds(value: number | undefined): number {
@@ -330,6 +406,15 @@ function normalizeMaxToolRounds(value: number | undefined): number {
 
 function providerSupportsToolCalling(provider: ProviderId): boolean {
   return provider !== 'openai'
+}
+
+function hasEnabledBuiltinTool(toolSettings: SettingsForm['toolSettings']): boolean {
+  const { currentTime, tavilySearch } = toolSettings.builtinTools
+  return currentTime.enabled || tavilySearch.enabled
+}
+
+function hasEnabledCustomTool(toolSettings: SettingsForm['toolSettings']): boolean {
+  return toolSettings.customTools.some((item) => item.enabled)
 }
 
 export function normalizeUtoolsUploadMode(

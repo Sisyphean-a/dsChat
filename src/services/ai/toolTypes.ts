@@ -7,10 +7,35 @@ export interface AiToolDefinition {
   }
 }
 
+export interface RuntimeCurrentTimeToolSettings {
+  enabled: boolean
+}
+
+export interface RuntimeTavilySearchToolSettings {
+  enabled: boolean
+  apiKey: string
+}
+
+export interface RuntimeBuiltinToolSettings {
+  currentTime: RuntimeCurrentTimeToolSettings
+  tavilySearch: RuntimeTavilySearchToolSettings
+}
+
+export interface RuntimeCustomToolSettings {
+  id: string
+  name: string
+  description: string
+  enabled: boolean
+  url: string
+  method: 'GET' | 'POST'
+  headers: Array<{ key: string; value: string }>
+}
+
 export interface ToolSettings {
   enabled: boolean
-  tavilyApiKey: string
   maxToolRounds: number
+  builtinTools: RuntimeBuiltinToolSettings
+  customTools: RuntimeCustomToolSettings[]
 }
 
 export interface ToolExecutionContext {

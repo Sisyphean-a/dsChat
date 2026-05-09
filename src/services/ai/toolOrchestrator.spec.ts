@@ -28,11 +28,7 @@ describe('streamWithToolOrchestrator', () => {
       undefined,
       {
         thinkingEnabled: true,
-        toolSettings: {
-          enabled: true,
-          tavilyApiKey: 'tvly-key',
-          maxToolRounds: 3,
-        },
+        toolSettings: createToolSettings(),
       },
     )
 
@@ -90,18 +86,14 @@ describe('streamWithToolOrchestrator', () => {
       undefined,
       {
         thinkingEnabled: true,
-        toolSettings: {
-          enabled: true,
-          tavilyApiKey: 'tvly-key',
-          maxToolRounds: 3,
-        },
+        toolSettings: createToolSettings(),
       },
     )
 
     expect(content).toBe('天气如下')
     expect(statuses).toContain('正在判断是否需要调用工具...')
     expect(statuses).toContain('正在调用 tavily_search：weather')
-    expect(statuses).toContain('已获得 Tavily 搜索结果，正在继续思考...')
+    expect(statuses).toContain('已获得工具结果，正在继续思考...')
   })
 
   it('throws when tool rounds exceed configured max', async () => {
@@ -134,11 +126,7 @@ describe('streamWithToolOrchestrator', () => {
         vi.fn(),
         undefined,
         {
-          toolSettings: {
-            enabled: true,
-            tavilyApiKey: 'tvly-key',
-            maxToolRounds: 1,
-          },
+          toolSettings: createToolSettings({ maxToolRounds: 1 }),
         },
       ),
     ).rejects.toThrow('工具调用轮数超过上限：1')
@@ -157,11 +145,7 @@ describe('streamWithToolOrchestrator', () => {
       undefined,
       {
         thinkingEnabled: true,
-        toolSettings: {
-          enabled: true,
-          tavilyApiKey: 'tvly-key',
-          maxToolRounds: 3,
-        },
+        toolSettings: createToolSettings(),
       },
     )
 
@@ -172,6 +156,52 @@ describe('streamWithToolOrchestrator', () => {
       role: 'assistant',
       reasoning_content: '先推理',
     })
+  })
+
+  it('does not throw when final round has no content but previous tool round already streamed content', async () => {
+    let providerRound = 0
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === 'https://api.tavily.com/search') {
+        return new Response(JSON.stringify({
+          query: 'today news',
+          results: [],
+        }), { status: 200 })
+      }
+
+      providerRound += 1
+      if (providerRound === 1) {
+        return {
+          ok: true,
+          body: createSseStream([
+            'data: {"choices":[{"delta":{"content":"先确认当前时间，然后继续。"}}]}',
+            'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"tavily_search","arguments":"{\\"query\\":\\"today news\\"}"}}]}}]}',
+            'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
+            'data: [DONE]',
+          ]),
+        }
+      }
+
+      return {
+        ok: true,
+        body: createSseStream([
+          'data: [DONE]',
+        ]),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+    const content = await streamWithToolOrchestrator(
+      [createUserMessage('查今天新闻')],
+      createSettings({ provider: 'kimi', label: 'Kimi', model: 'kimi-k2-thinking' }),
+      vi.fn(),
+      undefined,
+      {
+        thinkingEnabled: true,
+        toolSettings: createToolSettings(),
+      },
+    )
+
+    expect(content).toBe('先确认当前时间，然后继续。')
   })
 })
 
@@ -206,6 +236,25 @@ function createUserMessage(content: string): ChatMessage {
     content,
     createdAt: 0,
     status: 'done',
+  }
+}
+
+function createToolSettings(
+  overrides: Partial<{ maxToolRounds: number }> = {},
+) {
+  return {
+    enabled: true,
+    maxToolRounds: overrides.maxToolRounds ?? 3,
+    builtinTools: {
+      currentTime: {
+        enabled: true,
+      },
+      tavilySearch: {
+        enabled: true,
+        apiKey: 'tvly-key',
+      },
+    },
+    customTools: [],
   }
 }
 

@@ -9,6 +9,7 @@ import {
 } from '../constants/providers'
 import type {
   AddableProviderId,
+  CustomToolSettings,
   FontSizeMode,
   ModelConfigOption,
   ProviderSettings,
@@ -40,7 +41,15 @@ const emit = defineEmits<{
   updateDeepseekField: [field: ProviderEditableField, value: string | number]
   updateTheme: [theme: ThemeMode]
   updateToolEnabled: [enabled: boolean]
-  updateToolTavilyApiKey: [apiKey: string]
+  updateBuiltinToolEnabled: [tool: 'currentTime' | 'tavilySearch', enabled: boolean]
+  updateBuiltinToolTavilyApiKey: [apiKey: string]
+  addCustomTool: []
+  removeCustomTool: [id: string]
+  updateCustomToolField: [
+    id: string,
+    field: Exclude<keyof CustomToolSettings, 'id'>,
+    value: string | boolean | CustomToolSettings['headers'],
+  ]
   updateUtoolsUploadMode: [mode: UtoolsUploadMode]
 }>()
 
@@ -138,14 +147,93 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
                 type="checkbox"
                 @change="emit('updateToolEnabled', ($event.target as HTMLInputElement).checked)"
               />
-              <span>启用工具调用（Tavily 搜索）</span>
+              <span>启用工具调用</span>
             </label>
-            <input
-              :value="props.settings.toolSettings.tavilyApiKey"
-              placeholder="tvly-..."
-              type="password"
-              @input="emit('updateToolTavilyApiKey', ($event.target as HTMLInputElement).value)"
-            />
+
+            <div class="provider-card">
+              <div class="provider-head">
+                <h4>内置工具：当前时间</h4>
+              </div>
+              <label class="tool-toggle-row">
+                <input
+                  :checked="props.settings.toolSettings.builtinTools.currentTime.enabled"
+                  type="checkbox"
+                  @change="emit('updateBuiltinToolEnabled', 'currentTime', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>启用 get_current_time</span>
+              </label>
+            </div>
+
+            <div class="provider-card">
+              <div class="provider-head">
+                <h4>内置工具：Tavily 搜索</h4>
+              </div>
+              <label class="tool-toggle-row">
+                <input
+                  :checked="props.settings.toolSettings.builtinTools.tavilySearch.enabled"
+                  type="checkbox"
+                  @change="emit('updateBuiltinToolEnabled', 'tavilySearch', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>启用 tavily_search</span>
+              </label>
+              <input
+                :value="props.settings.toolSettings.builtinTools.tavilySearch.apiKey"
+                placeholder="tvly-...（仅 Tavily 搜索需要）"
+                type="password"
+                @input="emit('updateBuiltinToolTavilyApiKey', ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+
+            <div class="provider-card">
+              <div class="provider-head">
+                <h4>自定义工具（预配置）</h4>
+                <button class="ghost-action" type="button" @click="emit('addCustomTool')">新增</button>
+              </div>
+
+              <div
+                v-for="item in props.settings.toolSettings.customTools"
+                :key="item.id"
+                class="field-grid"
+              >
+                <div class="provider-head">
+                  <input
+                    class="provider-name-input"
+                    :value="item.name"
+                    placeholder="工具名称"
+                    type="text"
+                    @input="emit('updateCustomToolField', item.id, 'name', ($event.target as HTMLInputElement).value)"
+                  />
+                  <button class="danger-text" type="button" @click="emit('removeCustomTool', item.id)">删除</button>
+                </div>
+                <label class="tool-toggle-row">
+                  <input
+                    :checked="item.enabled"
+                    type="checkbox"
+                    @change="emit('updateCustomToolField', item.id, 'enabled', ($event.target as HTMLInputElement).checked)"
+                  />
+                  <span>启用</span>
+                </label>
+                <input
+                  :value="item.description"
+                  placeholder="描述（给模型看的工具能力说明）"
+                  type="text"
+                  @input="emit('updateCustomToolField', item.id, 'description', ($event.target as HTMLInputElement).value)"
+                />
+                <select
+                  :value="item.method"
+                  @change="emit('updateCustomToolField', item.id, 'method', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="POST">POST</option>
+                  <option value="GET">GET</option>
+                </select>
+                <input
+                  :value="item.url"
+                  placeholder="https://example.com/tool-endpoint"
+                  type="text"
+                  @input="emit('updateCustomToolField', item.id, 'url', ($event.target as HTMLInputElement).value)"
+                />
+              </div>
+            </div>
           </section>
 
           <section class="setting-group">

@@ -152,7 +152,7 @@ function createMessagePayload(
     }))
   }
 
-  if (provider === 'deepseek' && message.role === 'assistant' && message.reasoningContent) {
+  if (requiresReasoningContentEcho(provider) && message.role === 'assistant' && message.reasoningContent) {
     payload.reasoning_content = message.reasoningContent
   }
 
@@ -282,4 +282,8 @@ function resolveCumulativeDelta(nextValue: string, currentValue: string): string
   return nextValue.startsWith(currentValue)
     ? nextValue.slice(currentValue.length)
     : nextValue
+}
+
+function requiresReasoningContentEcho(provider: ProviderId): boolean {
+  return provider === 'deepseek' || provider === 'kimi'
 }

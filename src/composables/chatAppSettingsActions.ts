@@ -1,6 +1,7 @@
 import type { Ref } from 'vue'
 import type {
   AddableProviderId,
+  CustomToolSettings,
   FontSizeMode,
   ProviderSettings,
   ProviderThinkingSettings,
@@ -15,6 +16,8 @@ import { normalizeSettings } from './chatAppSettings'
 
 type ProviderEditableField = Exclude<keyof ProviderSettings, 'modelOptions'>
 type CustomModelField = ProviderEditableField | 'name'
+type BuiltinToolField = keyof SettingsForm['toolSettings']['builtinTools']
+type CustomToolField = Exclude<keyof CustomToolSettings, 'id'>
 
 interface ChatAppSettingsActionsOptions {
   settings: Ref<SettingsForm>
@@ -28,15 +31,20 @@ interface ChatAppSettingsActionsOptions {
 export interface ChatAppSettingsActions {
   addCustomModel: (provider: AddableProviderId) => void
   addCustomModelOption: (id: string, option: string) => void
+  addCustomTool: () => void
   closeSettings: () => void
   openSettings: () => void
   renameCustomModelOption: (id: string, fromOption: string, toOption: string) => void
   removeCustomModel: (id: string) => void
   removeCustomModelOption: (id: string, option: string) => void
+  removeCustomTool: (id: string) => void
   saveSettingsAction: () => Promise<void>
   selectActiveConfig: (configId: string) => void
   selectActiveModel: (model: string) => void
   toggleSidebar: () => void
+  updateBuiltinToolEnabled: (tool: BuiltinToolField, enabled: boolean) => void
+  updateBuiltinToolTavilyApiKey: (apiKey: string) => void
+  updateCustomToolField: (id: string, field: CustomToolField, value: CustomToolSettings[CustomToolField]) => void
   updateCustomModelField: (id: string, field: CustomModelField, value: string | number) => void
   updateDeepseekField: (
     field: ProviderEditableField,
@@ -49,7 +57,6 @@ export interface ChatAppSettingsActions {
   ) => void
   updateTheme: (theme: ThemeMode) => void
   updateToolEnabled: (enabled: boolean) => void
-  updateToolTavilyApiKey: (apiKey: string) => void
   updateUtoolsUploadMode: (mode: UtoolsUploadMode) => void
 }
 
@@ -287,12 +294,78 @@ export function createChatAppSettingsActions(
     }
   }
 
-  function updateToolTavilyApiKey(apiKey: string): void {
+  function updateBuiltinToolEnabled(tool: BuiltinToolField, enabled: boolean): void {
     settings.value = {
       ...settings.value,
       toolSettings: {
         ...settings.value.toolSettings,
-        tavilyApiKey: apiKey,
+        builtinTools: {
+          ...settings.value.toolSettings.builtinTools,
+          [tool]: {
+            ...settings.value.toolSettings.builtinTools[tool],
+            enabled,
+          },
+        },
+      },
+    }
+  }
+
+  function updateBuiltinToolTavilyApiKey(apiKey: string): void {
+    settings.value = {
+      ...settings.value,
+      toolSettings: {
+        ...settings.value.toolSettings,
+        builtinTools: {
+          ...settings.value.toolSettings.builtinTools,
+          tavilySearch: {
+            ...settings.value.toolSettings.builtinTools.tavilySearch,
+            apiKey,
+          },
+        },
+      },
+    }
+  }
+
+  function addCustomTool(): void {
+    const tool = createCustomToolDraft()
+    settings.value = {
+      ...settings.value,
+      toolSettings: {
+        ...settings.value.toolSettings,
+        customTools: [...settings.value.toolSettings.customTools, tool],
+      },
+    }
+  }
+
+  function removeCustomTool(id: string): void {
+    settings.value = {
+      ...settings.value,
+      toolSettings: {
+        ...settings.value.toolSettings,
+        customTools: settings.value.toolSettings.customTools.filter((item) => item.id !== id),
+      },
+    }
+  }
+
+  function updateCustomToolField(
+    id: string,
+    field: CustomToolField,
+    value: CustomToolSettings[CustomToolField],
+  ): void {
+    settings.value = {
+      ...settings.value,
+      toolSettings: {
+        ...settings.value.toolSettings,
+        customTools: settings.value.toolSettings.customTools.map((item) => {
+          if (item.id !== id) {
+            return item
+          }
+
+          return {
+            ...item,
+            [field]: value,
+          }
+        }),
       },
     }
   }
@@ -320,22 +393,39 @@ export function createChatAppSettingsActions(
   return {
     addCustomModel,
     addCustomModelOption,
+    addCustomTool,
     closeSettings,
     openSettings,
     renameCustomModelOption,
     removeCustomModel,
     removeCustomModelOption,
+    removeCustomTool,
     saveSettingsAction,
     selectActiveConfig,
     selectActiveModel,
     toggleSidebar,
+    updateBuiltinToolEnabled,
+    updateBuiltinToolTavilyApiKey,
+    updateCustomToolField,
     updateCustomModelField,
     updateDeepseekField,
     updateFontSize,
     updateProviderThinking,
     updateTheme,
     updateToolEnabled,
-    updateToolTavilyApiKey,
     updateUtoolsUploadMode,
+  }
+}
+
+function createCustomToolDraft(): CustomToolSettings {
+  const suffix = Math.random().toString(36).slice(2, 8)
+  return {
+    id: `custom-tool-${Date.now().toString(36)}-${suffix}`,
+    name: '未命名工具',
+    description: '',
+    enabled: false,
+    url: '',
+    method: 'POST',
+    headers: [],
   }
 }

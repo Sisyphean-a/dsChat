@@ -55,10 +55,40 @@ export interface ProviderThinkingSettings {
   minimax: boolean
 }
 
+export interface ToolHeader {
+  key: string
+  value: string
+}
+
+export interface BuiltinCurrentTimeToolSettings {
+  enabled: boolean
+}
+
+export interface BuiltinTavilySearchToolSettings {
+  enabled: boolean
+  apiKey: string
+}
+
+export interface BuiltinToolSettings {
+  currentTime: BuiltinCurrentTimeToolSettings
+  tavilySearch: BuiltinTavilySearchToolSettings
+}
+
+export interface CustomToolSettings {
+  id: string
+  name: string
+  description: string
+  enabled: boolean
+  url: string
+  method: 'GET' | 'POST'
+  headers: ToolHeader[]
+}
+
 export interface ToolSettings {
   enabled: boolean
-  tavilyApiKey: string
   maxToolRounds: number
+  builtinTools: BuiltinToolSettings
+  customTools: CustomToolSettings[]
 }
 
 export interface SettingsDoc extends BaseDoc {

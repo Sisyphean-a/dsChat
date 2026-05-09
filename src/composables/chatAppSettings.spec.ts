@@ -3,14 +3,14 @@ import { buildDefaultSettings, createAddedModelDraft } from '../constants/provid
 import { getSendSettingsError, normalizeSettings } from './chatAppSettings'
 
 describe('getSendSettingsError', () => {
-  it('requires tavily api key when tool calling is enabled', () => {
+  it('allows tool calling without tavily api key', () => {
     const settings = buildDefaultSettings()
     settings.deepseek.apiKey = 'sk-test'
     settings.toolSettings.enabled = true
-    settings.toolSettings.tavilyApiKey = ''
+    settings.toolSettings.builtinTools.tavilySearch.apiKey = ''
 
     const error = getSendSettingsError(normalizeSettings(settings))
-    expect(error).toBe('请先在设置面板中填写 Tavily API Key。')
+    expect(error).toBeNull()
   })
 
   it('shows explicit unsupported error for providers without tools support', () => {
@@ -20,9 +20,62 @@ describe('getSendSettingsError', () => {
     settings.customModels = [openai]
     settings.activeConfigId = openai.id
     settings.toolSettings.enabled = true
-    settings.toolSettings.tavilyApiKey = 'tvly-key'
+    settings.toolSettings.builtinTools.tavilySearch.apiKey = 'tvly-key'
 
     const error = getSendSettingsError(normalizeSettings(settings))
     expect(error).toBe('OpenAI 当前配置暂不支持工具调用。')
+  })
+
+  it('requires at least one enabled builtin tool when tool calling is enabled', () => {
+    const settings = buildDefaultSettings()
+    settings.deepseek.apiKey = 'sk-test'
+    settings.toolSettings.enabled = true
+    settings.toolSettings.builtinTools.currentTime.enabled = false
+    settings.toolSettings.builtinTools.tavilySearch.enabled = false
+
+    const error = getSendSettingsError(normalizeSettings(settings))
+    expect(error).toBe('请至少启用一个内置工具。')
+  })
+
+  it('shows explicit error when custom tool is enabled', () => {
+    const settings = buildDefaultSettings()
+    settings.deepseek.apiKey = 'sk-test'
+    settings.toolSettings.enabled = true
+    settings.toolSettings.customTools = [{
+      id: 'custom-1',
+      name: '我的工具',
+      description: '',
+      enabled: true,
+      url: 'https://example.com',
+      method: 'POST',
+      headers: [],
+    }]
+
+    const error = getSendSettingsError(normalizeSettings(settings))
+    expect(error).toBe('自定义工具暂未接入执行引擎，请先关闭已启用的自定义工具。')
+  })
+})
+
+describe('normalizeSettings', () => {
+  it('migrates legacy tavilyApiKey into builtin tavily config', () => {
+    const settings = buildDefaultSettings() as ReturnType<typeof buildDefaultSettings> & {
+      toolSettings: ReturnType<typeof buildDefaultSettings>['toolSettings'] & { tavilyApiKey?: string }
+    }
+    settings.toolSettings = {
+      ...settings.toolSettings,
+      tavilyApiKey: 'tvly-legacy-key',
+      builtinTools: {
+        currentTime: {
+          enabled: true,
+        },
+        tavilySearch: {
+          enabled: true,
+          apiKey: '',
+        },
+      },
+    }
+
+    const normalized = normalizeSettings(settings)
+    expect(normalized.toolSettings.builtinTools.tavilySearch.apiKey).toBe('tvly-legacy-key')
   })
 })

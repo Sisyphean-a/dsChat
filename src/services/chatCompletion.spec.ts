@@ -611,8 +611,17 @@ describe('streamChatCompletion', () => {
         {
           toolSettings: {
             enabled: true,
-            tavilyApiKey: 'tvly-key',
             maxToolRounds: 3,
+            builtinTools: {
+              currentTime: {
+                enabled: true,
+              },
+              tavilySearch: {
+                enabled: true,
+                apiKey: 'tvly-key',
+              },
+            },
+            customTools: [],
           },
         },
       ),
