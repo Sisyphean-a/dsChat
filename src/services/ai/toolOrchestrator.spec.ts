@@ -143,6 +143,36 @@ describe('streamWithToolOrchestrator', () => {
       ),
     ).rejects.toThrow('工具调用轮数超过上限：1')
   })
+
+  it('passes reasoning_content back for deepseek thinking mode after tool calls', async () => {
+    const providerBodies: Array<Record<string, unknown>> = []
+    const fetchMock = createReasoningToolCallFlowFetch(providerBodies)
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await streamWithToolOrchestrator(
+      [createUserMessage('查天气')],
+      createSettings(),
+      vi.fn(),
+      undefined,
+      {
+        thinkingEnabled: true,
+        toolSettings: {
+          enabled: true,
+          tavilyApiKey: 'tvly-key',
+          maxToolRounds: 3,
+        },
+      },
+    )
+
+    expect(providerBodies).toHaveLength(2)
+    const secondRoundMessages = providerBodies[1]?.messages as Array<Record<string, unknown>>
+    const toolCallMessage = secondRoundMessages.find((message) => 'tool_calls' in message)
+    expect(toolCallMessage).toMatchObject({
+      role: 'assistant',
+      reasoning_content: '先推理',
+    })
+  })
 })
 
 function createSseStream(events: string[]): ReadableStream<Uint8Array> {
@@ -177,4 +207,41 @@ function createUserMessage(content: string): ChatMessage {
     createdAt: 0,
     status: 'done',
   }
+}
+
+function parseJsonBody(body: BodyInit | null | undefined): Record<string, unknown> {
+  if (typeof body !== 'string') {
+    throw new Error('expected request body to be JSON string')
+  }
+
+  return JSON.parse(body) as Record<string, unknown>
+}
+
+function createReasoningToolCallFlowFetch(providerBodies: Array<Record<string, unknown>>) {
+  let providerRound = 0
+  return vi.fn(async (url: string, init?: RequestInit) => {
+    if (url === 'https://api.tavily.com/search') {
+      return new Response(JSON.stringify({
+        query: 'weather',
+        results: [],
+      }), { status: 200 })
+    }
+
+    providerRound += 1
+    providerBodies.push(parseJsonBody(init?.body))
+    return {
+      ok: true,
+      body: createSseStream(providerRound === 1
+        ? [
+          'data: {"choices":[{"delta":{"reasoning_content":"先推理"}}]}',
+          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"tavily_search","arguments":"{\\"query\\":\\"weather\\"}"}}]}}]}',
+          'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
+          'data: [DONE]',
+        ]
+        : [
+          'data: {"choices":[{"delta":{"content":"done"}}]}',
+          'data: [DONE]',
+        ]),
+    }
+  })
 }

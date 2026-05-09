@@ -7,6 +7,7 @@ import { openAiResponsesAdapter } from './providerAdapters/openAiResponsesAdapte
 export interface ProviderConversationMessage {
   role: 'assistant' | 'system' | 'tool' | 'user'
   content: string
+  reasoningContent?: string
   attachments?: MessageAttachment[]
   toolCallId?: string
   toolCalls?: NormalizedToolCall[]

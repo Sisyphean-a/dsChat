@@ -50,7 +50,7 @@ export const chatCompletionsAdapter: ProviderAdapter = {
   },
   createPayload(input: ProviderPayloadInput): Record<string, unknown> {
     const payload: Record<string, unknown> = {
-      messages: input.messages.map((message) => createMessagePayload(message)),
+      messages: input.messages.map((message) => createMessagePayload(message, input.settings.provider)),
       model: input.settings.model,
       stream: input.stream,
     }
@@ -126,6 +126,7 @@ export const chatCompletionsAdapter: ProviderAdapter = {
 
 function createMessagePayload(
   message: ProviderPayloadInput['messages'][number],
+  provider: ProviderId,
 ): Record<string, unknown> {
   if (message.role === 'tool') {
     return {
@@ -149,6 +150,10 @@ function createMessagePayload(
         arguments: call.argumentsJson,
       },
     }))
+  }
+
+  if (provider === 'deepseek' && message.role === 'assistant' && message.reasoningContent) {
+    payload.reasoning_content = message.reasoningContent
   }
 
   return payload

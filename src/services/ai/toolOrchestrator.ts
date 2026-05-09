@@ -15,6 +15,7 @@ const TOOL_STATUS_CONTINUING = '已获得 Tavily 搜索结果，正在继续思�
 
 interface ProviderRoundResult {
   content: string
+  reasoningContent: string
   toolCalls: NormalizedToolCall[]
 }
 
@@ -71,6 +72,7 @@ export async function streamWithToolOrchestrator(
     const assistantToolMessage: ProviderConversationMessage = {
       role: 'assistant',
       content: '',
+      reasoningContent: round.reasoningContent,
       toolCalls: round.toolCalls,
     }
     contextMessages.push(assistantToolMessage)
@@ -150,6 +152,7 @@ async function streamProviderRound(options: {
   const state = createProviderStreamState()
   let buffer = ''
   let content = ''
+  let reasoningContent = ''
   let toolCalls: NormalizedToolCall[] = []
 
   while (true) {
@@ -166,13 +169,16 @@ async function streamProviderRound(options: {
       const deltas = adapter.parseSseEvent(event, state)
       const done = consumeProviderDeltas(deltas, onDelta, {
         content,
+        reasoningContent,
         toolCalls,
       })
       content = done.content
+      reasoningContent = done.reasoningContent
       toolCalls = done.toolCalls
       if (done.done) {
         return {
           content,
+          reasoningContent,
           toolCalls,
         }
       }
@@ -184,14 +190,17 @@ async function streamProviderRound(options: {
     const deltas = adapter.parseSseEvent(trailingEvent, state)
     const trailing = consumeProviderDeltas(deltas, onDelta, {
       content,
+      reasoningContent,
       toolCalls,
     })
     content = trailing.content
+    reasoningContent = trailing.reasoningContent
     toolCalls = trailing.toolCalls
   }
 
   return {
     content,
+    reasoningContent,
     toolCalls,
   }
 }
@@ -199,9 +208,10 @@ async function streamProviderRound(options: {
 function consumeProviderDeltas(
   deltas: ReturnType<ReturnType<typeof getProviderAdapter>['parseSseEvent']>,
   onDelta: (delta: StreamDelta) => void,
-  current: { content: string; toolCalls: NormalizedToolCall[] },
-): { content: string; done: boolean; toolCalls: NormalizedToolCall[] } {
+  current: { content: string; reasoningContent: string; toolCalls: NormalizedToolCall[] },
+): { content: string; done: boolean; reasoningContent: string; toolCalls: NormalizedToolCall[] } {
   let content = current.content
+  let reasoningContent = current.reasoningContent
   let done = false
   let toolCalls = current.toolCalls
 
@@ -213,6 +223,7 @@ function consumeProviderDeltas(
     }
 
     if (delta.type === 'reasoning_delta') {
+      reasoningContent += delta.content
       onDelta({ reasoningContent: delta.content })
       continue
     }
@@ -235,6 +246,7 @@ function consumeProviderDeltas(
   return {
     content,
     done,
+    reasoningContent,
     toolCalls,
   }
 }
@@ -258,6 +270,7 @@ function toProviderConversationMessages(messages: ChatMessage[]): ProviderConver
   return messages.map((message) => ({
     role: message.role,
     content: message.content,
+    reasoningContent: message.reasoningContent,
     attachments: message.attachments?.map((item) => ({ ...item })),
   }))
 }
