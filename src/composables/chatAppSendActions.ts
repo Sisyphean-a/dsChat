@@ -256,7 +256,9 @@ export function createChatAppSendActions(options: ChatAppSendActionsOptions): Ch
   function startRetryingReply(assistantIndex: number, assistantId: string): StreamingReply {
     patchAssistantMessage(messages, assistantIndex, assistantId, (draft) => {
       draft.content = ''
+      draft.processTimeline = undefined
       draft.reasoningContent = undefined
+      draft.toolTraces = undefined
       draft.status = 'streaming'
       draft.streamingStatus = '正在生成回答...'
     })

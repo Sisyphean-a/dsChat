@@ -1,6 +1,13 @@
 import { supportsDeepseekThinking } from '../constants/providers'
 import { modelSupportsTemperature } from '../composables/chatAppSettings'
-import type { ActiveProviderSettings, ChatMessage, ProviderId, ToolSettings } from '../types/chat'
+import type {
+  ActiveProviderSettings,
+  ChatMessage,
+  ProcessTimelineItem,
+  ProviderId,
+  ToolSettings,
+  ToolTraceRecord,
+} from '../types/chat'
 import { streamWithToolOrchestrator } from './ai/toolOrchestrator'
 
 interface StreamDeltaPayload {
@@ -71,8 +78,10 @@ type ResponsesInputContent = Array<
 
 export interface StreamDelta {
   content?: string
+  processTimeline?: ProcessTimelineItem[]
   reasoningContent?: string
   streamingStatus?: string
+  toolTraces?: ToolTraceRecord[]
 }
 
 export interface ChatRequestOptions {

@@ -5,6 +5,45 @@ export type ThemeMode = 'light' | 'dark'
 export type ProviderId = 'deepseek' | 'openai' | 'minimax' | 'kimi' | 'custom'
 export type AddableProviderId = Exclude<ProviderId, 'deepseek'>
 export type UtoolsUploadMode = 'local-only' | 'settings-only' | 'all-data'
+export type ToolTraceStatus = 'planned' | 'running' | 'succeeded' | 'failed'
+export type ToolTraceErrorCode =
+  | 'tool_args_parse'
+  | 'tool_config'
+  | 'tool_duplicate_call'
+  | 'tool_execute_timeout'
+  | 'tool_execute_failure'
+  | 'tool_round_limit'
+  | 'tool_unknown'
+  | 'provider_round_timeout'
+  | 'provider_round_failure'
+  | 'tool_orchestrator_timeout'
+  | 'tool_protocol'
+export type ProcessTimelineItemType = 'reasoning' | 'tool'
+export type ProcessTimelineItemStatus = 'running' | 'done' | 'error'
+
+export interface ProcessTimelineItem {
+  id: string
+  type: ProcessTimelineItemType
+  text: string
+  status: ProcessTimelineItemStatus
+  round: number
+  durationMs?: number
+}
+
+export interface ToolTraceRecord {
+  id: string
+  round: number
+  toolName: string
+  argsSummary: string
+  status: ToolTraceStatus
+  startedAtMs?: number
+  finishedAtMs?: number
+  durationMs?: number
+  resultSummary?: string
+  resultSize?: number
+  errorCode?: ToolTraceErrorCode
+  errorMessage?: string
+}
 
 export interface ImageAttachment {
   id: string
@@ -24,7 +63,9 @@ export interface ChatMessage {
   role: ChatRole
   content: string
   attachments?: MessageAttachment[]
+  processTimeline?: ProcessTimelineItem[]
   reasoningContent?: string
+  toolTraces?: ToolTraceRecord[]
   streamingStatus?: string
   createdAt: number
   status: MessageStatus

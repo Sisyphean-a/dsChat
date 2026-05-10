@@ -24,4 +24,82 @@ describe('MessageBubble', () => {
 
     expect(wrapper.emitted('retry')).toEqual([[]])
   })
+
+  it('renders unified process timeline collapsed by default and expands on toggle', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: {
+          id: 'assistant-with-tools',
+          content: '这是最终回答。',
+          createdAt: 2,
+          role: 'assistant',
+          status: 'done',
+          processTimeline: [
+            {
+              id: 'p-1',
+              type: 'tool',
+              text: '查询条件：关键词“AI 新闻”，时间范围 day；结果条数：5',
+              status: 'done',
+              round: 1,
+              durationMs: 320,
+            },
+          ],
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('过程（1）')
+    expect(wrapper.find('.process-panel').classes()).not.toContain('expanded')
+
+    await wrapper.get('.process-toggle').trigger('click')
+
+    expect(wrapper.find('.process-panel').classes()).toContain('expanded')
+    expect(wrapper.text()).toContain('查询条件：关键词“AI 新闻”，时间范围 day；结果条数：5')
+  })
+
+  it('auto-collapses process timeline when streaming finishes', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: {
+          id: 'assistant-streaming-process',
+          content: '',
+          createdAt: 3,
+          role: 'assistant',
+          status: 'streaming',
+          processTimeline: [
+            {
+              id: 'p-running',
+              type: 'tool',
+              text: '查询条件：关键词“AI”',
+              status: 'running',
+              round: 1,
+            },
+          ],
+        },
+      },
+    })
+
+    expect(wrapper.find('.process-panel').classes()).toContain('expanded')
+
+    await wrapper.setProps({
+      message: {
+        id: 'assistant-streaming-process',
+        content: '最终回答',
+        createdAt: 3,
+        role: 'assistant',
+        status: 'done',
+        processTimeline: [
+          {
+            id: 'p-running',
+            type: 'tool',
+            text: '查询条件：关键词“AI”；结果条数：5',
+            status: 'done',
+            round: 1,
+          },
+        ],
+      },
+    })
+
+    expect(wrapper.find('.process-panel').classes()).not.toContain('expanded')
+  })
 })

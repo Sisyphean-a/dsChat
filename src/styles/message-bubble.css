@@ -87,52 +87,91 @@
   animation: stream-pulse 1.15s ease-in-out infinite;
 }
 
-.reasoning-block {
-  margin-bottom: 10px;
-  border: 1px solid rgba(16, 163, 127, 0.12);
+.process-block {
+  margin-bottom: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent-soft) 55%, var(--border));
   border-radius: 10px;
-  background: rgba(16, 163, 127, 0.04);
+  background: color-mix(in srgb, var(--bg-soft) 65%, transparent);
 }
 
-.reasoning-toggle {
+.process-toggle {
   width: 100%;
-  padding: 9px 10px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 32px;
   color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1;
 }
 
-.reasoning-arrow {
+.process-toggle > span {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.process-arrow {
+  display: block;
+  flex: none;
   transition: transform 180ms ease;
 }
 
-.reasoning-block.expanded .reasoning-arrow {
+.process-block.expanded .process-arrow {
   transform: rotate(180deg);
 }
 
-.reasoning-panel {
-  display: grid;
-  grid-template-rows: 0fr;
+.process-panel {
+  max-height: 0;
+  overflow: hidden;
   opacity: 0;
-  transform: translateY(-2px);
-  transition: grid-template-rows 180ms ease, opacity 180ms ease, transform 180ms ease;
+  transition: max-height 180ms ease, opacity 180ms ease;
 }
 
-.reasoning-panel.expanded {
-  grid-template-rows: 1fr;
+.process-panel.expanded {
+  max-height: 520px;
   opacity: 1;
-  transform: translateY(0);
 }
 
-.reasoning-inner {
+.process-list {
+  margin: 0;
+  padding: 0 8px 8px;
+  list-style: none;
   overflow: hidden;
 }
 
-.reasoning-body {
-  padding: 0 10px 10px;
-  color: var(--text-muted);
-  will-change: opacity, transform;
+.process-item + .process-item {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 82%, transparent);
+}
+
+.process-text {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.76rem;
+  line-height: 1.28;
+  word-break: break-word;
+  border-radius: 7px;
+  padding: 4px 6px;
+}
+
+.process-item.is-reasoning .process-text {
+  color: color-mix(in srgb, var(--text-muted) 88%, var(--text));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+}
+
+.process-item.is-tool .process-text {
+  color: color-mix(in srgb, var(--text) 88%, var(--accent-strong));
+  background: color-mix(in srgb, var(--accent-soft) 35%, var(--bg));
+  border-left: 2px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  padding-left: 7px;
+}
+
+.process-item.is-error .process-text {
+  color: rgba(220, 38, 38, 0.95);
+  border-left-color: rgba(220, 38, 38, 0.45);
 }
 
 .plain-body {

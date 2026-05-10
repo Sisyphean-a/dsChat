@@ -75,12 +75,20 @@ describe('streamWithToolOrchestrator', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const statuses: string[] = []
+    const traceSnapshots: Array<NonNullable<Parameters<Parameters<typeof streamWithToolOrchestrator>[2]>[0]['toolTraces']>> = []
+    const timelineSnapshots: Array<NonNullable<Parameters<Parameters<typeof streamWithToolOrchestrator>[2]>[0]['processTimeline']>> = []
     const content = await streamWithToolOrchestrator(
       [createUserMessage('查天气')],
       createSettings(),
       (delta) => {
         if (delta.streamingStatus) {
           statuses.push(delta.streamingStatus)
+        }
+        if (delta.toolTraces) {
+          traceSnapshots.push(delta.toolTraces.map((item) => ({ ...item })))
+        }
+        if (delta.processTimeline) {
+          timelineSnapshots.push(delta.processTimeline.map((item) => ({ ...item })))
         }
       },
       undefined,
@@ -92,8 +100,18 @@ describe('streamWithToolOrchestrator', () => {
 
     expect(content).toBe('天气如下')
     expect(statuses).toContain('正在判断是否需要调用工具...')
-    expect(statuses).toContain('正在调用 tavily_search：weather')
+    expect(statuses).toContain('正在调用 tavily_search')
     expect(statuses).toContain('已获得工具结果，正在继续思考...')
+    const latestTrace = traceSnapshots[traceSnapshots.length - 1]
+    expect(latestTrace).toBeDefined()
+    expect(latestTrace?.[0]).toMatchObject({
+      id: 'call_1',
+      status: 'succeeded',
+      toolName: 'tavily_search',
+    })
+    const latestTimeline = timelineSnapshots[timelineSnapshots.length - 1]
+    expect(latestTimeline).toBeDefined()
+    expect(latestTimeline?.some((item) => item.type === 'tool' && item.status === 'done')).toBe(true)
   })
 
   it('throws when tool rounds exceed configured max', async () => {
@@ -130,6 +148,43 @@ describe('streamWithToolOrchestrator', () => {
         },
       ),
     ).rejects.toThrow('工具调用轮数超过上限：1')
+  })
+
+  it('throws duplicate call error when model repeats the same tool call consecutively', async () => {
+    let providerRound = 0
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === 'https://api.tavily.com/search') {
+        return new Response(JSON.stringify({
+          query: 'news',
+          results: [],
+        }), { status: 200 })
+      }
+
+      providerRound += 1
+      const callId = providerRound === 1 ? 'call_1' : 'call_2'
+      return {
+        ok: true,
+        body: createSseStream([
+          `data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"${callId}","type":"function","function":{"name":"tavily_search","arguments":"{\\"query\\":\\"news\\"}"}}]}}]}`,
+          'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
+          'data: [DONE]',
+        ]),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      streamWithToolOrchestrator(
+        [createUserMessage('查新闻')],
+        createSettings(),
+        vi.fn(),
+        undefined,
+        {
+          toolSettings: createToolSettings({ maxToolRounds: 3 }),
+        },
+      ),
+    ).rejects.toThrow('检测到重复工具调用：tavily_search')
   })
 
   it('passes reasoning_content back for deepseek thinking mode after tool calls', async () => {

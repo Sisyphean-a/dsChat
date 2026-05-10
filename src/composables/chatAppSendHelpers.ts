@@ -261,6 +261,14 @@ function appendStreamDelta(message: ChatMessage, delta: StreamDelta): void {
     message.streamingStatus = delta.streamingStatus
   }
 
+  if (delta.processTimeline) {
+    message.processTimeline = delta.processTimeline.map((item) => ({ ...item }))
+  }
+
+  if (delta.toolTraces) {
+    message.toolTraces = delta.toolTraces.map((item) => ({ ...item }))
+  }
+
   if (delta.reasoningContent) {
     message.reasoningContent = `${message.reasoningContent ?? ''}${delta.reasoningContent}`
   }
