@@ -43,6 +43,7 @@ const DEFAULT_PROVIDER_THINKING: ProviderThinkingSettings = {
 }
 const DEFAULT_TOOL_SETTINGS: ToolSettings = {
   enabled: false,
+  openaiUseNativeWebSearch: true,
   maxToolRounds: 3,
   builtinTools: {
     currentTime: {

@@ -56,7 +56,11 @@ export const chatCompletionsAdapter: ProviderAdapter = {
     }
 
     if (shouldIncludeTemperature(input.settings.provider, input.settings.model, input.requestOptions)) {
-      payload.temperature = input.settings.temperature
+      payload.temperature = resolveRequestTemperature(
+        input.settings.provider,
+        input.settings.temperature,
+        input.requestOptions,
+      )
     }
 
     if (input.settings.provider === 'deepseek' && supportsDeepseekThinking(input.settings.model)) {
@@ -213,6 +217,18 @@ function shouldIncludeTemperature(
   }
 
   return (requestOptions?.thinkingEnabled ?? true) === false
+}
+
+function resolveRequestTemperature(
+  provider: ProviderId,
+  configuredTemperature: number,
+  requestOptions?: ChatRequestOptions,
+): number {
+  if (provider !== 'kimi') {
+    return configuredTemperature
+  }
+
+  return (requestOptions?.thinkingEnabled ?? true) ? 1.0 : 0.6
 }
 
 function extractReasoningDelta(delta: StreamDeltaPayload, state: ProviderStreamState): string {

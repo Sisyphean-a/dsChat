@@ -97,6 +97,26 @@ describe('chatCompletionsAdapter', () => {
       }],
     })
   })
+
+  it('forces kimi temperature to 0.6 when thinking mode is disabled', () => {
+    const payload = chatCompletionsAdapter.createPayload({
+      messages: [{
+        role: 'user',
+        content: 'hello',
+      }],
+      settings: createKimiSettings({
+        temperature: 1.8,
+      }),
+      stream: true,
+      requestOptions: {
+        thinkingEnabled: false,
+      },
+      tools: [],
+    })
+
+    expect(payload.temperature).toBe(0.6)
+    expect(payload.thinking).toEqual({ type: 'disabled' })
+  })
 })
 
 function createDeepseekSettings() {
@@ -112,7 +132,7 @@ function createDeepseekSettings() {
   }
 }
 
-function createKimiSettings() {
+function createKimiSettings(overrides: Partial<{ temperature: number }> = {}) {
   return {
     configId: 'kimi',
     label: 'Kimi',
@@ -121,6 +141,6 @@ function createKimiSettings() {
     baseUrl: 'https://api.moonshot.cn/v1',
     model: 'kimi-k2-thinking',
     modelOptions: ['kimi-k2-thinking'],
-    temperature: 1,
+    temperature: overrides.temperature ?? 1,
   }
 }

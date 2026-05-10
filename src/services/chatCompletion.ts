@@ -143,7 +143,7 @@ export async function streamChatCompletion(
   signal?: AbortSignal,
   requestOptions?: ChatRequestOptions,
 ): Promise<string> {
-  if (requestOptions?.toolSettings?.enabled) {
+  if (shouldUseToolOrchestrator(settings, requestOptions?.toolSettings)) {
     return streamWithToolOrchestrator(messages, settings, onDelta, signal, requestOptions)
   }
 
@@ -201,6 +201,21 @@ export async function streamChatCompletion(
   }
 
   return finalizeStreamContent(content, settings.label)
+}
+
+function shouldUseToolOrchestrator(
+  settings: ActiveProviderSettings,
+  toolSettings: ToolSettings | undefined,
+): boolean {
+  if (!toolSettings?.enabled) {
+    return false
+  }
+
+  if (settings.provider === 'openai' && toolSettings.openaiUseNativeWebSearch) {
+    return false
+  }
+
+  return true
 }
 
 function extractEventPayload(frame: string): string {
@@ -434,7 +449,11 @@ function createPayload(
   }
 
   if (shouldIncludeTemperature(settings, requestOptions)) {
-    payload.temperature = settings.temperature
+    payload.temperature = resolveRequestTemperature(
+      settings.provider,
+      settings.temperature,
+      requestOptions,
+    )
   }
 
   if (settings.provider === 'deepseek' && supportsDeepseekThinking(settings.model)) {
@@ -473,6 +492,18 @@ function shouldIncludeTemperature(
   }
 
   return (requestOptions?.thinkingEnabled ?? true) === false
+}
+
+function resolveRequestTemperature(
+  provider: ProviderId,
+  configuredTemperature: number,
+  requestOptions?: ChatRequestOptions,
+): number {
+  if (provider !== 'kimi') {
+    return configuredTemperature
+  }
+
+  return (requestOptions?.thinkingEnabled ?? true) ? 1.0 : 0.6
 }
 
 function createOpenAiPayload(

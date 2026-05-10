@@ -342,6 +342,7 @@ export function useChatApp() {
     updateFontSize: settingsActions.updateFontSize,
     updateTheme: settingsActions.updateTheme,
     updateToolEnabled: settingsActions.updateToolEnabled,
+    updateToolOpenAiNativeSearch: settingsActions.updateToolOpenAiNativeSearch,
     updateUtoolsUploadMode: settingsActions.updateUtoolsUploadMode,
   }
 }

@@ -86,6 +86,7 @@ export interface CustomToolSettings {
 
 export interface ToolSettings {
   enabled: boolean
+  openaiUseNativeWebSearch: boolean
   maxToolRounds: number
   builtinTools: BuiltinToolSettings
   customTools: CustomToolSettings[]

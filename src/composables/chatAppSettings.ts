@@ -65,7 +65,10 @@ export function getSendSettingsError(currentSettings: SettingsForm): string | nu
     return '请至少启用一个内置工具。'
   }
 
-  if (currentSettings.toolSettings.enabled && !providerSupportsToolCalling(activeSettings.provider)) {
+  if (currentSettings.toolSettings.enabled && !providerSupportsToolCalling(
+    activeSettings.provider,
+    currentSettings.toolSettings,
+  )) {
     return `${activeSettings.label} 当前配置暂不支持工具调用。`
   }
 
@@ -323,6 +326,7 @@ function normalizeToolSettings(
   const customTools = normalizeCustomToolSettings(toolSettings)
   return {
     enabled: toolSettings?.enabled ?? false,
+    openaiUseNativeWebSearch: toolSettings?.openaiUseNativeWebSearch ?? true,
     maxToolRounds,
     builtinTools,
     customTools,
@@ -404,8 +408,15 @@ function normalizeMaxToolRounds(value: number | undefined): number {
   return Math.min(10, Math.max(1, normalized))
 }
 
-function providerSupportsToolCalling(provider: ProviderId): boolean {
-  return provider !== 'openai'
+function providerSupportsToolCalling(
+  provider: ProviderId,
+  toolSettings: SettingsForm['toolSettings'],
+): boolean {
+  if (provider !== 'openai') {
+    return true
+  }
+
+  return toolSettings.openaiUseNativeWebSearch
 }
 
 function hasEnabledBuiltinTool(toolSettings: SettingsForm['toolSettings']): boolean {

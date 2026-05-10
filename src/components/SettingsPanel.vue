@@ -41,6 +41,7 @@ const emit = defineEmits<{
   updateDeepseekField: [field: ProviderEditableField, value: string | number]
   updateTheme: [theme: ThemeMode]
   updateToolEnabled: [enabled: boolean]
+  updateToolOpenAiNativeSearch: [enabled: boolean]
   updateBuiltinToolEnabled: [tool: 'currentTime' | 'tavilySearch', enabled: boolean]
   updateBuiltinToolTavilyApiKey: [apiKey: string]
   addCustomTool: []
@@ -148,6 +149,14 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
                 @change="emit('updateToolEnabled', ($event.target as HTMLInputElement).checked)"
               />
               <span>启用工具调用</span>
+            </label>
+            <label class="tool-toggle-row">
+              <input
+                :checked="props.settings.toolSettings.openaiUseNativeWebSearch"
+                type="checkbox"
+                @change="emit('updateToolOpenAiNativeSearch', ($event.target as HTMLInputElement).checked)"
+              />
+              <span>OpenAI 使用原生 web_search（避免与工具编排冲突）</span>
             </label>
 
             <div class="provider-card">

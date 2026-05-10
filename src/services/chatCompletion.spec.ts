@@ -450,6 +450,7 @@ describe('streamChatCompletion', () => {
         provider: 'kimi',
         baseUrl: 'https://api.moonshot.cn/v1',
         model: 'kimi-k2.5',
+        temperature: 1.7,
       }),
       vi.fn(),
       undefined,
@@ -458,6 +459,40 @@ describe('streamChatCompletion', () => {
 
     const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
     expect(body.thinking).toEqual({ type: 'disabled' })
+    expect(body.temperature).toBe(0.6)
+  })
+
+  it('forces kimi temperature to 1.0 when thinking mode is enabled', async () => {
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"好"}}]}\n\ndata: [DONE]\n\n'))
+          controller.close()
+        },
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await streamChatCompletion(
+      [{ id: '1', role: 'user', content: 'test', createdAt: 0, status: 'done' }],
+      createSettings({
+        label: 'Kimi',
+        provider: 'kimi',
+        baseUrl: 'https://api.moonshot.cn/v1',
+        model: 'kimi-k2.5',
+        temperature: 0.2,
+      }),
+      vi.fn(),
+      undefined,
+      { thinkingEnabled: true },
+    )
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
+    expect(body.thinking).toEqual({ type: 'enabled' })
+    expect(body.temperature).toBe(1.0)
   })
 
   it('shows a clear message when provider rejects image_url payload', async () => {
@@ -611,6 +646,7 @@ describe('streamChatCompletion', () => {
         {
           toolSettings: {
             enabled: true,
+            openaiUseNativeWebSearch: false,
             maxToolRounds: 3,
             builtinTools: {
               currentTime: {
@@ -626,6 +662,52 @@ describe('streamChatCompletion', () => {
         },
       ),
     ).rejects.toThrow('OpenAI 当前配置暂不支持工具调用。')
+  })
+
+  it('keeps OpenAI available when tool calling is enabled with native web_search compatibility', async () => {
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"type":"response.output_text.delta","delta":"可用"}\n\ndata: {"type":"response.completed"}\n\n'))
+          controller.close()
+        },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const content = await streamChatCompletion(
+      [{ id: '1', role: 'user', content: '查天气', createdAt: 0, status: 'done' }],
+      createSettings({
+        label: 'OpenAI',
+        provider: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-5.5',
+      }),
+      vi.fn(),
+      undefined,
+      {
+        toolSettings: {
+          enabled: true,
+          openaiUseNativeWebSearch: true,
+          maxToolRounds: 3,
+          builtinTools: {
+            currentTime: {
+              enabled: true,
+            },
+            tavilySearch: {
+              enabled: true,
+              apiKey: 'tvly-key',
+            },
+          },
+          customTools: [],
+        },
+      },
+    )
+
+    expect(content).toBe('可用')
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe('https://api.openai.com/v1/responses')
   })
 })
 

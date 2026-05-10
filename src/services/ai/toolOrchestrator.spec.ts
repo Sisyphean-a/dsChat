@@ -244,6 +244,7 @@ function createToolSettings(
 ) {
   return {
     enabled: true,
+    openaiUseNativeWebSearch: true,
     maxToolRounds: overrides.maxToolRounds ?? 3,
     builtinTools: {
       currentTime: {
