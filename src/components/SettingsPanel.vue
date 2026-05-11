@@ -1,25 +1,22 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import EditableModelPicker from './EditableModelPicker.vue'
-import ModelPicker from './ModelPicker.vue'
-import { UTOOLS_UPLOAD_MODE_OPTIONS } from '../constants/storage'
-import {
-  getAddableProviderDefinitions,
-  getProviderDefinition,
-} from '../constants/providers'
+import { computed, ref, watch } from 'vue'
+import SettingsGeneralSection from './SettingsGeneralSection.vue'
+import SettingsProvidersSection from './SettingsProvidersSection.vue'
+import SettingsToolsSection from './SettingsToolsSection.vue'
 import type {
   AddableProviderId,
   CustomToolSettings,
   FontSizeMode,
-  ModelConfigOption,
-  ProviderSettings,
   SettingsForm,
   ThemeMode,
   UtoolsUploadMode,
 } from '../types/chat'
-
-type ProviderEditableField = Exclude<keyof ProviderSettings, 'modelOptions'>
-type CustomModelField = ProviderEditableField | 'name'
+import type {
+  CustomModelField,
+  CustomToolEditableField,
+  ProviderEditableField,
+  SettingsSectionId,
+} from '../types/settingsPanel'
 
 const props = defineProps<{
   isBrowserMode: boolean
@@ -31,67 +28,83 @@ const props = defineProps<{
 const emit = defineEmits<{
   addCustomModel: [provider: AddableProviderId]
   addCustomModelOption: [id: string, option: string]
+  addCustomTool: []
   close: []
   removeCustomModel: [id: string]
   removeCustomModelOption: [id: string, option: string]
+  removeCustomTool: [id: string]
   renameCustomModelOption: [id: string, from: string, to: string]
   save: []
-  updateFontSize: [fontSize: FontSizeMode]
+  updateBuiltinToolEnabled: [tool: 'currentTime' | 'tavilySearch', enabled: boolean]
+  updateBuiltinToolTavilyApiKey: [apiKey: string]
+  updateBuiltinToolTavilyBaseUrl: [baseUrl: string]
   updateCustomModelField: [id: string, field: CustomModelField, value: string | number]
+  updateCustomToolField: [
+    id: string,
+    field: CustomToolEditableField,
+    value: string | boolean | CustomToolSettings['headers'],
+  ]
   updateDeepseekField: [field: ProviderEditableField, value: string | number]
+  updateFontSize: [fontSize: FontSizeMode]
   updateTheme: [theme: ThemeMode]
   updateToolEnabled: [enabled: boolean]
   updateToolMaxRounds: [maxToolRounds: number]
   updateToolOpenAiNativeSearch: [enabled: boolean]
-  updateBuiltinToolEnabled: [tool: 'currentTime' | 'tavilySearch', enabled: boolean]
-  updateBuiltinToolTavilyApiKey: [apiKey: string]
-  updateBuiltinToolTavilyBaseUrl: [baseUrl: string]
-  addCustomTool: []
-  removeCustomTool: [id: string]
-  updateCustomToolField: [
-    id: string,
-    field: Exclude<keyof CustomToolSettings, 'id'>,
-    value: string | boolean | CustomToolSettings['headers'],
-  ]
   updateUtoolsUploadMode: [mode: UtoolsUploadMode]
 }>()
 
-const themeCards: Array<{ label: string; value: ThemeMode }> = [
-  { label: '浅色', value: 'light' },
-  { label: '夜色', value: 'dark' },
-]
-const fontSizeCards: Array<{ label: string; value: FontSizeMode }> = [
-  { label: '标准', value: 'medium' },
-  { label: '大号', value: 'large' },
-  { label: '特大', value: 'x-large' },
-]
-
-const addableProviders = getAddableProviderDefinitions()
-const uploadModeOptions = UTOOLS_UPLOAD_MODE_OPTIONS
-const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
-  const shortLabels: Record<UtoolsUploadMode, string> = {
-    'all-data': 'API + 对话',
-    'local-only': '仅本地',
-    'settings-only': '仅 API',
-  }
-
-  return uploadModeOptions.map((option) => ({
-    badge: '存储',
-    detail: option.label,
-    label: option.label,
-    shortLabel: shortLabels[option.value],
-    value: option.value,
-  }))
+const activeSection = ref<SettingsSectionId>('general')
+const enabledBuiltinToolCount = computed(() => {
+  const { currentTime, tavilySearch } = props.settings.toolSettings.builtinTools
+  return Number(currentTime.enabled) + Number(tavilySearch.enabled)
 })
+const navItems = computed(() => [
+  {
+    id: 'general' as const,
+    label: '通用',
+    description: '外观与存储',
+    badge: props.settings.theme === 'dark' ? '夜色' : '浅色',
+  },
+  {
+    id: 'providers' as const,
+    label: '模型服务商',
+    description: '密钥、地址、模型',
+    badge: `${props.settings.customModels.length + 1} 个`,
+  },
+  {
+    id: 'tools' as const,
+    label: '工具',
+    description: '调用、内置、自定义',
+    badge: props.settings.toolSettings.enabled ? `${enabledBuiltinToolCount.value} 启用` : '关闭',
+  },
+])
+
+watch(() => props.open, (open) => {
+  if (open) {
+    activeSection.value = 'general'
+  }
+})
+
+function selectSection(id: SettingsSectionId): void {
+  activeSection.value = id
+}
 </script>
 
 <template>
   <transition name="settings-fade">
-    <div v-if="props.open" class="settings-overlay">
+    <div
+      v-if="props.open"
+      class="settings-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-title"
+    >
       <section class="settings-panel">
         <header class="settings-header">
-          <h2>设置</h2>
-          <div class="header-actions">
+          <div class="settings-title-block">
+            <h2 id="settings-title">设置</h2>
+          </div>
+          <div class="settings-header-actions">
             <button class="ghost-action" type="button" @click="emit('close')">取消</button>
             <button class="primary-action" type="button" :disabled="props.saving" @click="emit('save')">
               {{ props.saving ? '保存中' : '完成' }}
@@ -99,260 +112,71 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
           </div>
         </header>
 
-        <div class="settings-body">
-          <section class="setting-group">
-            <h3>外观</h3>
-            <div class="theme-toggle">
+        <div class="settings-workspace">
+          <aside class="settings-sidebar" aria-label="设置分类">
+            <nav class="settings-nav">
               <button
-                v-for="theme in themeCards"
-                :key="theme.value"
-                :class="{ active: props.settings.theme === theme.value }"
-                type="button"
-                @click="emit('updateTheme', theme.value)"
-              >
-                {{ theme.label }}
-              </button>
-            </div>
-            <div class="inline-setting-row">
-              <span class="inline-setting-label">字体大小</span>
-              <div class="font-size-toggle" role="group" aria-label="字体大小">
-                <button
-                  v-for="fontSize in fontSizeCards"
-                  :key="fontSize.value"
-                  :class="{ active: props.settings.fontSize === fontSize.value }"
-                  type="button"
-                  @click="emit('updateFontSize', fontSize.value)"
-                >
-                  {{ fontSize.label }}
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <section class="setting-group">
-            <h3>存储</h3>
-            <ModelPicker
-              class="storage-picker"
-              :disabled="props.saving"
-              :model-value="props.settings.utoolsUploadMode"
-              :options="uploadModePickerOptions"
-              panel-direction="down"
-              @select="emit('updateUtoolsUploadMode', $event as UtoolsUploadMode)"
-            />
-            <div v-if="props.isBrowserMode" class="hint-row">浏览器预览模式仅使用本地存储</div>
-          </section>
-
-          <section class="setting-group">
-            <h3>工具调用</h3>
-            <label class="tool-toggle-row">
-              <input
-                :checked="props.settings.toolSettings.enabled"
-                type="checkbox"
-                @change="emit('updateToolEnabled', ($event.target as HTMLInputElement).checked)"
-              />
-              <span>启用工具调用</span>
-            </label>
-            <label class="tool-toggle-row">
-              <input
-                :checked="props.settings.toolSettings.openaiUseNativeWebSearch"
-                type="checkbox"
-                @change="emit('updateToolOpenAiNativeSearch', ($event.target as HTMLInputElement).checked)"
-              />
-              <span>OpenAI 使用原生 web_search（避免与工具编排冲突）</span>
-            </label>
-            <label class="inline-setting-row">
-              <span class="inline-setting-label">工具最大轮数</span>
-              <input
-                class="tool-rounds-input"
-                :value="props.settings.toolSettings.maxToolRounds"
-                min="1"
-                max="10"
-                step="1"
-                type="number"
-                @change="emit('updateToolMaxRounds', Number(($event.target as HTMLInputElement).value))"
-              />
-            </label>
-
-            <div class="provider-card">
-              <div class="provider-head">
-                <h4>内置工具：当前时间</h4>
-              </div>
-              <label class="tool-toggle-row">
-                <input
-                  :checked="props.settings.toolSettings.builtinTools.currentTime.enabled"
-                  type="checkbox"
-                  @change="emit('updateBuiltinToolEnabled', 'currentTime', ($event.target as HTMLInputElement).checked)"
-                />
-                <span>启用 get_current_time</span>
-              </label>
-            </div>
-
-            <div class="provider-card">
-              <div class="provider-head">
-                <h4>内置工具：Tavily 搜索</h4>
-              </div>
-              <label class="tool-toggle-row">
-                <input
-                  :checked="props.settings.toolSettings.builtinTools.tavilySearch.enabled"
-                  type="checkbox"
-                  @change="emit('updateBuiltinToolEnabled', 'tavilySearch', ($event.target as HTMLInputElement).checked)"
-                />
-                <span>启用 tavily_search</span>
-              </label>
-              <input
-                :value="props.settings.toolSettings.builtinTools.tavilySearch.baseUrl"
-                placeholder="Tavily 后端地址（默认 https://api.tavily.com/search）"
-                type="text"
-                @input="emit('updateBuiltinToolTavilyBaseUrl', ($event.target as HTMLInputElement).value)"
-              />
-              <input
-                :value="props.settings.toolSettings.builtinTools.tavilySearch.apiKey"
-                placeholder="tvly-...（仅 Tavily 搜索需要）"
-                type="password"
-                @input="emit('updateBuiltinToolTavilyApiKey', ($event.target as HTMLInputElement).value)"
-              />
-            </div>
-
-            <div class="provider-card">
-              <div class="provider-head">
-                <h4>自定义工具（预配置）</h4>
-                <button class="ghost-action" type="button" @click="emit('addCustomTool')">新增</button>
-              </div>
-
-              <div
-                v-for="item in props.settings.toolSettings.customTools"
+                v-for="item in navItems"
                 :key="item.id"
-                class="field-grid"
-              >
-                <div class="provider-head">
-                  <input
-                    class="provider-name-input"
-                    :value="item.name"
-                    placeholder="工具名称"
-                    type="text"
-                    @input="emit('updateCustomToolField', item.id, 'name', ($event.target as HTMLInputElement).value)"
-                  />
-                  <button class="danger-text" type="button" @click="emit('removeCustomTool', item.id)">删除</button>
-                </div>
-                <label class="tool-toggle-row">
-                  <input
-                    :checked="item.enabled"
-                    type="checkbox"
-                    @change="emit('updateCustomToolField', item.id, 'enabled', ($event.target as HTMLInputElement).checked)"
-                  />
-                  <span>启用</span>
-                </label>
-                <input
-                  :value="item.description"
-                  placeholder="描述（给模型看的工具能力说明）"
-                  type="text"
-                  @input="emit('updateCustomToolField', item.id, 'description', ($event.target as HTMLInputElement).value)"
-                />
-                <select
-                  :value="item.method"
-                  @change="emit('updateCustomToolField', item.id, 'method', ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="POST">POST</option>
-                  <option value="GET">GET</option>
-                </select>
-                <input
-                  :value="item.url"
-                  placeholder="https://example.com/tool-endpoint"
-                  type="text"
-                  @input="emit('updateCustomToolField', item.id, 'url', ($event.target as HTMLInputElement).value)"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section class="setting-group">
-            <h3>服务提供商</h3>
-
-            <div class="provider-card">
-              <div class="provider-head">
-                <h4>DeepSeek</h4>
-              </div>
-              <div class="field-grid">
-                <input
-                  :value="props.settings.deepseek.baseUrl"
-                  :placeholder="getProviderDefinition('deepseek').baseUrlPlaceholder || 'Base URL'"
-                  type="text"
-                  @input="emit('updateDeepseekField', 'baseUrl', ($event.target as HTMLInputElement).value)"
-                />
-                <input
-                  :value="props.settings.deepseek.apiKey"
-                  :placeholder="getProviderDefinition('deepseek').apiKeyPlaceholder || 'API Key'"
-                  type="password"
-                  @input="emit('updateDeepseekField', 'apiKey', ($event.target as HTMLInputElement).value)"
-                />
-                <EditableModelPicker
-                  :allow-manage="false"
-                  :disabled="props.saving"
-                  :model-value="props.settings.deepseek.model"
-                  :options="props.settings.deepseek.modelOptions"
-                  placeholder="输入模型 ID"
-                  @select="emit('updateDeepseekField', 'model', $event)"
-                />
-              </div>
-            </div>
-
-            <div
-              v-for="item in props.settings.customModels"
-              :key="item.id"
-              class="provider-card"
-            >
-              <div class="provider-head">
-                <input
-                  class="provider-name-input"
-                  :value="item.name"
-                  placeholder="未命名模型"
-                  type="text"
-                  @input="emit('updateCustomModelField', item.id, 'name', ($event.target as HTMLInputElement).value)"
-                />
-                <button class="danger-text" type="button" @click="emit('removeCustomModel', item.id)">删除</button>
-              </div>
-              <div class="field-grid">
-                <input
-                  :value="item.baseUrl"
-                  :placeholder="getProviderDefinition(item.provider)?.baseUrlPlaceholder || 'Base URL'"
-                  type="text"
-                  @input="emit('updateCustomModelField', item.id, 'baseUrl', ($event.target as HTMLInputElement).value)"
-                />
-                <input
-                  :value="item.apiKey"
-                  :placeholder="getProviderDefinition(item.provider)?.apiKeyPlaceholder || 'API Key'"
-                  type="password"
-                  @input="emit('updateCustomModelField', item.id, 'apiKey', ($event.target as HTMLInputElement).value)"
-                />
-                <EditableModelPicker
-                  :allow-manage="true"
-                  :disabled="props.saving"
-                  :model-value="item.model"
-                  :options="item.modelOptions"
-                  placeholder="输入模型 ID"
-                  @add-option="emit('addCustomModelOption', item.id, $event)"
-                  @remove-option="emit('removeCustomModelOption', item.id, $event)"
-                  @rename-option="emit('renameCustomModelOption', item.id, $event.from, $event.to)"
-                  @select="emit('updateCustomModelField', item.id, 'model', $event)"
-                />
-              </div>
-            </div>
-
-            <div class="add-provider-grid">
-              <button
-                v-for="provider in addableProviders"
-                :key="provider.id"
-                class="add-button"
+                class="settings-nav-item"
+                :class="{ active: activeSection === item.id }"
+                :aria-current="activeSection === item.id ? 'page' : undefined"
                 type="button"
-                @click="emit('addCustomModel', provider.id as AddableProviderId)"
+                @click="selectSection(item.id)"
               >
-                + 添加 {{ provider.label }}
+                <span class="nav-main">
+                  <span class="nav-label">{{ item.label }}</span>
+                  <span class="nav-badge">{{ item.badge }}</span>
+                </span>
+                <span class="nav-description">{{ item.description }}</span>
               </button>
+            </nav>
+            <div class="settings-sidebar-note">
+              <strong>不打断对话</strong>
+              <span>设置页覆盖当前视口，关闭后回到原来的聊天上下文。</span>
             </div>
-          </section>
+          </aside>
+
+          <main class="settings-content">
+            <SettingsGeneralSection
+              v-if="activeSection === 'general'"
+              :is-browser-mode="props.isBrowserMode"
+              :saving="props.saving"
+              :settings="props.settings"
+              @update-font-size="emit('updateFontSize', $event)"
+              @update-theme="emit('updateTheme', $event)"
+              @update-utools-upload-mode="emit('updateUtoolsUploadMode', $event)"
+            />
+            <SettingsProvidersSection
+              v-else-if="activeSection === 'providers'"
+              :saving="props.saving"
+              :settings="props.settings"
+              @add-custom-model="emit('addCustomModel', $event)"
+              @add-custom-model-option="(id, option) => emit('addCustomModelOption', id, option)"
+              @remove-custom-model="emit('removeCustomModel', $event)"
+              @remove-custom-model-option="(id, option) => emit('removeCustomModelOption', id, option)"
+              @rename-custom-model-option="(id, from, to) => emit('renameCustomModelOption', id, from, to)"
+              @update-custom-model-field="(id, field, value) => emit('updateCustomModelField', id, field, value)"
+              @update-deepseek-field="(field, value) => emit('updateDeepseekField', field, value)"
+            />
+            <SettingsToolsSection
+              v-else
+              :settings="props.settings"
+              @add-custom-tool="emit('addCustomTool')"
+              @remove-custom-tool="emit('removeCustomTool', $event)"
+              @update-builtin-tool-enabled="(tool, enabled) => emit('updateBuiltinToolEnabled', tool, enabled)"
+              @update-builtin-tool-tavily-api-key="emit('updateBuiltinToolTavilyApiKey', $event)"
+              @update-builtin-tool-tavily-base-url="emit('updateBuiltinToolTavilyBaseUrl', $event)"
+              @update-custom-tool-field="(id, field, value) => emit('updateCustomToolField', id, field, value)"
+              @update-tool-enabled="emit('updateToolEnabled', $event)"
+              @update-tool-max-rounds="emit('updateToolMaxRounds', $event)"
+              @update-tool-open-ai-native-search="emit('updateToolOpenAiNativeSearch', $event)"
+            />
+          </main>
         </div>
       </section>
     </div>
   </transition>
 </template>
-<style scoped src="../styles/settings-panel.css"></style>
+
+<style src="../styles/settings-panel.css"></style>

@@ -1,0 +1,207 @@
+.setting-card,
+.provider-card,
+.tool-card,
+.custom-tool-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.setting-card,
+.provider-card {
+  padding: 12px;
+}
+
+.setting-card-head {
+  margin-bottom: 10px;
+}
+
+.setting-card h4,
+.provider-card h4 {
+  font-size: 0.94rem;
+}
+
+.setting-card-head p,
+.provider-head p,
+.tool-card p {
+  margin: 2px 0 0;
+}
+
+.stacked-controls,
+.provider-card,
+.custom-tool-card,
+.tool-preferences {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.control-row {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.control-label,
+.field-shell span,
+.provider-title-field span,
+.rounds-control span {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.segmented-control,
+.pill-control {
+  width: 100%;
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+}
+
+.segmented-control button,
+.pill-control button {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.segmented-control button.active,
+.pill-control button.active {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.06);
+}
+
+.storage-picker,
+.settings-panel .model-picker {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.primary-provider {
+  border-color: var(--accent);
+}
+
+.field-grid,
+.two-field-grid,
+.builtin-tool-grid,
+.custom-tool-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+
+.field-shell,
+.provider-title-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.settings-panel input:not([type='checkbox']):not(.provider-name-input),
+.settings-panel select,
+.provider-name-input {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono, inherit);
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.settings-panel input:focus,
+.settings-panel select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.provider-title-field {
+  width: 100%;
+}
+
+.danger-text {
+  flex: none;
+  padding: 5px 9px;
+  color: var(--danger);
+}
+
+.danger-text:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.add-provider-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.add-button {
+  padding: 9px 11px;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.add-button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.switch-row,
+.rounds-control {
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.settings-panel input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+
+.emphasized-switch {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.rounds-control {
+  justify-content: space-between;
+}
+
+.rounds-control input {
+  width: 94px !important;
+}
+
+.tool-card,
+.custom-tool-card {
+  padding: 10px;
+  background: var(--bg-soft);
+}
+
+.tool-card h5 {
+  font-size: 0.9rem;
+}
+
+.empty-card {
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 11px;
+  background: var(--bg-soft);
+}

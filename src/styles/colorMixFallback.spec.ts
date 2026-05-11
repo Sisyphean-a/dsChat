@@ -6,6 +6,8 @@ const STYLE_FILES = [
   'src/components/AssistantMessageContent.vue',
   'src/styles/app-shell.css',
   'src/styles/message-bubble.css',
+  'src/styles/settings-controls.css',
+  'src/styles/settings-layout.css',
   'src/styles/settings-panel.css',
 ]
 
