@@ -44,6 +44,7 @@ export interface ChatAppSettingsActions {
   toggleSidebar: () => void
   updateBuiltinToolEnabled: (tool: BuiltinToolField, enabled: boolean) => void
   updateBuiltinToolTavilyApiKey: (apiKey: string) => void
+  updateBuiltinToolTavilyBaseUrl: (baseUrl: string) => void
   updateCustomToolField: (id: string, field: CustomToolField, value: CustomToolSettings[CustomToolField]) => void
   updateCustomModelField: (id: string, field: CustomModelField, value: string | number) => void
   updateDeepseekField: (
@@ -57,6 +58,7 @@ export interface ChatAppSettingsActions {
   ) => void
   updateTheme: (theme: ThemeMode) => void
   updateToolEnabled: (enabled: boolean) => void
+  updateToolMaxRounds: (maxToolRounds: number) => void
   updateToolOpenAiNativeSearch: (enabled: boolean) => void
   updateUtoolsUploadMode: (mode: UtoolsUploadMode) => void
 }
@@ -305,6 +307,16 @@ export function createChatAppSettingsActions(
     }
   }
 
+  function updateToolMaxRounds(maxToolRounds: number): void {
+    settings.value = {
+      ...settings.value,
+      toolSettings: {
+        ...settings.value.toolSettings,
+        maxToolRounds,
+      },
+    }
+  }
+
   function updateBuiltinToolEnabled(tool: BuiltinToolField, enabled: boolean): void {
     settings.value = {
       ...settings.value,
@@ -331,6 +343,22 @@ export function createChatAppSettingsActions(
           tavilySearch: {
             ...settings.value.toolSettings.builtinTools.tavilySearch,
             apiKey,
+          },
+        },
+      },
+    }
+  }
+
+  function updateBuiltinToolTavilyBaseUrl(baseUrl: string): void {
+    settings.value = {
+      ...settings.value,
+      toolSettings: {
+        ...settings.value.toolSettings,
+        builtinTools: {
+          ...settings.value.toolSettings.builtinTools,
+          tavilySearch: {
+            ...settings.value.toolSettings.builtinTools.tavilySearch,
+            baseUrl,
           },
         },
       },
@@ -417,6 +445,7 @@ export function createChatAppSettingsActions(
     toggleSidebar,
     updateBuiltinToolEnabled,
     updateBuiltinToolTavilyApiKey,
+    updateBuiltinToolTavilyBaseUrl,
     updateCustomToolField,
     updateCustomModelField,
     updateDeepseekField,
@@ -424,6 +453,7 @@ export function createChatAppSettingsActions(
     updateProviderThinking,
     updateTheme,
     updateToolEnabled,
+    updateToolMaxRounds,
     updateToolOpenAiNativeSearch,
     updateUtoolsUploadMode,
   }

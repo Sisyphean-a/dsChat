@@ -1,3 +1,5 @@
+import { DEFAULT_TAVILY_SEARCH_BASE_URL } from '../../constants/tools'
+
 export interface TavilySearchRequest {
   query: string
   topic?: 'finance' | 'general' | 'news'
@@ -26,7 +28,6 @@ interface TavilyRawResponse {
   }>
 }
 
-const TAVILY_SEARCH_URL = 'https://api.tavily.com/search'
 const TIME_RANGE_TO_DAYS: Record<NonNullable<TavilySearchRequest['timeRange']>, number> = {
   day: 1,
   week: 7,
@@ -37,6 +38,7 @@ const TIME_RANGE_TO_DAYS: Record<NonNullable<TavilySearchRequest['timeRange']>, 
 export async function searchWithTavily(
   request: TavilySearchRequest,
   apiKey: string,
+  baseUrl: string = DEFAULT_TAVILY_SEARCH_BASE_URL,
   signal?: AbortSignal,
 ): Promise<TavilySearchResponse> {
   const query = request.query.trim()
@@ -46,6 +48,9 @@ export async function searchWithTavily(
 
   if (!apiKey.trim()) {
     throw new Error('Tavily API Key 缺失。')
+  }
+  if (!baseUrl.trim()) {
+    throw new Error('Tavily 后端地址缺失。')
   }
 
   const body: Record<string, unknown> = {
@@ -63,7 +68,7 @@ export async function searchWithTavily(
     body.days = days
   }
 
-  const response = await fetch(TAVILY_SEARCH_URL, {
+  const response = await fetch(baseUrl.trim(), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey.trim()}`,

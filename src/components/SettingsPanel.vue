@@ -41,9 +41,11 @@ const emit = defineEmits<{
   updateDeepseekField: [field: ProviderEditableField, value: string | number]
   updateTheme: [theme: ThemeMode]
   updateToolEnabled: [enabled: boolean]
+  updateToolMaxRounds: [maxToolRounds: number]
   updateToolOpenAiNativeSearch: [enabled: boolean]
   updateBuiltinToolEnabled: [tool: 'currentTime' | 'tavilySearch', enabled: boolean]
   updateBuiltinToolTavilyApiKey: [apiKey: string]
+  updateBuiltinToolTavilyBaseUrl: [baseUrl: string]
   addCustomTool: []
   removeCustomTool: [id: string]
   updateCustomToolField: [
@@ -85,7 +87,7 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
 
 <template>
   <transition name="settings-fade">
-    <div v-if="props.open" class="settings-overlay" @click.self="emit('close')">
+    <div v-if="props.open" class="settings-overlay">
       <section class="settings-panel">
         <header class="settings-header">
           <h2>设置</h2>
@@ -158,6 +160,18 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
               />
               <span>OpenAI 使用原生 web_search（避免与工具编排冲突）</span>
             </label>
+            <label class="inline-setting-row">
+              <span class="inline-setting-label">工具最大轮数</span>
+              <input
+                class="tool-rounds-input"
+                :value="props.settings.toolSettings.maxToolRounds"
+                min="1"
+                max="10"
+                step="1"
+                type="number"
+                @change="emit('updateToolMaxRounds', Number(($event.target as HTMLInputElement).value))"
+              />
+            </label>
 
             <div class="provider-card">
               <div class="provider-head">
@@ -185,6 +199,12 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
                 />
                 <span>启用 tavily_search</span>
               </label>
+              <input
+                :value="props.settings.toolSettings.builtinTools.tavilySearch.baseUrl"
+                placeholder="Tavily 后端地址（默认 https://api.tavily.com/search）"
+                type="text"
+                @input="emit('updateBuiltinToolTavilyBaseUrl', ($event.target as HTMLInputElement).value)"
+              />
               <input
                 :value="props.settings.toolSettings.builtinTools.tavilySearch.apiKey"
                 placeholder="tvly-...（仅 Tavily 搜索需要）"

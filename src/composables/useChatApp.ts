@@ -67,6 +67,9 @@ export function useChatApp() {
   const canSendMessage = computed(() => {
     return Boolean(draftMessage.value.trim()) || pendingAttachments.value.length > 0
   })
+  const isProviderSwitchLocked = computed(() => {
+    return isSending.value || messages.value.length > 0
+  })
   const showThinkingToggle = computed(() => {
     return shouldShowThinkingToggle(
       activeChatConfig.value.provider,
@@ -94,6 +97,7 @@ export function useChatApp() {
   })
 
   const conversationPersistence = createChatAppConversationPersistence({
+    getActiveConfigId: () => settings.value.activeConfigId,
     activeConversationId,
     conversations,
     deleteConversationDoc,
@@ -183,7 +187,7 @@ export function useChatApp() {
   }
 
   function selectActiveConfig(configId: string): void {
-    if (isSending.value) {
+    if (isProviderSwitchLocked.value) {
       return
     }
 
@@ -259,6 +263,11 @@ export function useChatApp() {
   }
 
   async function activateConversation(conversation: ConversationDoc): Promise<void> {
+    const conversationConfigId = resolveConversationConfigId(conversation)
+    if (conversationConfigId && settings.value.activeConfigId !== conversationConfigId) {
+      settingsActions.selectActiveConfig(conversationConfigId)
+    }
+
     activeConversationId.value = conversation.id
     const restored = finalizeStreamingMessages(conversation.messages, INTERRUPTED_RESPONSE_MESSAGE)
     messages.value = cloneMessages(restored.messages)
@@ -304,6 +313,19 @@ export function useChatApp() {
     return normalizeSettings(settings.value)
   }
 
+  function resolveConversationConfigId(conversation: ConversationDoc): string | null {
+    const configId = conversation.configId?.trim()
+    if (!configId) {
+      return null
+    }
+
+    if (configId === 'deepseek') {
+      return configId
+    }
+
+    return settings.value.customModels.some((item) => item.id === configId) ? configId : null
+  }
+
   return {
     activeChatConfig,
     activeConversationId,
@@ -321,6 +343,7 @@ export function useChatApp() {
     isBrowserMode,
     isSavingSettings,
     isSending,
+    isProviderSwitchLocked,
     isSettingsOpen,
     isSidebarCollapsed,
     lastError,
@@ -352,9 +375,11 @@ export function useChatApp() {
     updateActiveThinkingEnabled,
     updateBuiltinToolEnabled: settingsActions.updateBuiltinToolEnabled,
     updateBuiltinToolTavilyApiKey: settingsActions.updateBuiltinToolTavilyApiKey,
+    updateBuiltinToolTavilyBaseUrl: settingsActions.updateBuiltinToolTavilyBaseUrl,
     updateFontSize: settingsActions.updateFontSize,
     updateTheme: settingsActions.updateTheme,
     updateToolEnabled: settingsActions.updateToolEnabled,
+    updateToolMaxRounds: settingsActions.updateToolMaxRounds,
     updateToolOpenAiNativeSearch: settingsActions.updateToolOpenAiNativeSearch,
     updateUtoolsUploadMode: settingsActions.updateUtoolsUploadMode,
   }

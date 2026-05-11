@@ -26,7 +26,7 @@ describe('tavilySearchTool', () => {
   })
 
   it('returns compact json string for model context', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       query: 'weather',
       results: [{
         title: 'Title',
@@ -34,12 +34,13 @@ describe('tavilySearchTool', () => {
         content: 'summary',
         score: 0.9,
       }],
-    }), { status: 200 })))
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchSpy)
 
     const result = await tavilySearchTool.execute(
       { query: 'weather', topic: 'general' },
       {
-        settings: createToolSettings(),
+        settings: createToolSettings('https://proxy.example.com/tavily/search'),
       },
     )
 
@@ -52,10 +53,16 @@ describe('tavilySearchTool', () => {
         score: 0.9,
       }],
     })
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://proxy.example.com/tavily/search',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    )
   })
 })
 
-function createToolSettings() {
+function createToolSettings(baseUrl: string = 'https://api.tavily.com/search') {
   return {
     enabled: true,
     maxToolRounds: 3,
@@ -66,6 +73,7 @@ function createToolSettings() {
       tavilySearch: {
         enabled: true,
         apiKey: 'tvly-key',
+        baseUrl,
       },
     },
     customTools: [],

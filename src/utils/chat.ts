@@ -22,14 +22,29 @@ function resolveConversationTitle(existing?: ConversationDoc): string {
   return existing?.title?.trim() || '新对话'
 }
 
+function resolveConversationConfigId(
+  existing: ConversationDoc | undefined,
+  activeConfigId: string | undefined,
+): string | undefined {
+  const value = activeConfigId?.trim() ?? ''
+  if (value) {
+    return value
+  }
+
+  const fallback = existing?.configId?.trim() ?? ''
+  return fallback || undefined
+}
+
 export function buildConversationDoc(
   id: string,
   messages: ChatMessage[],
   existing?: ConversationDoc,
+  activeConfigId?: string,
 ): ConversationDoc {
   const now = Date.now()
+  const configId = resolveConversationConfigId(existing, activeConfigId)
 
-  return {
+  const doc: ConversationDoc = {
     _id: existing?._id ?? `${CONVERSATION_PREFIX}${id}`,
     _rev: existing?._rev,
     type: 'conversation',
@@ -39,6 +54,12 @@ export function buildConversationDoc(
     updatedAt: now,
     messages,
   }
+
+  if (configId) {
+    doc.configId = configId
+  }
+
+  return doc
 }
 
 export function cloneMessages(messages: ChatMessage[]): ChatMessage[] {

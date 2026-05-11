@@ -113,9 +113,10 @@ describe('streamWithToolOrchestrator', () => {
     expect(latestTimeline?.some((item) => item.type === 'tool' && item.status === 'done')).toBe(true)
   })
 
-  it('throws when tool rounds exceed configured max', async () => {
+  it('falls back to summary answer when tool rounds exceed configured max', async () => {
     let providerRound = 0
-    const fetchMock = vi.fn(async (url: string) => {
+    const providerBodies: Array<Record<string, unknown>> = []
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (url === 'https://api.tavily.com/search') {
         return new Response(JSON.stringify({
           query: 'news',
@@ -124,6 +125,17 @@ describe('streamWithToolOrchestrator', () => {
       }
 
       providerRound += 1
+      providerBodies.push(parseJsonBody(init?.body))
+      if (providerRound === 3) {
+        return {
+          ok: true,
+          body: createSseStream([
+            'data: {"choices":[{"delta":{"content":"基于已有结果给出总结"}}]}',
+            'data: [DONE]',
+          ]),
+        }
+      }
+
       return {
         ok: true,
         body: createSseStream([
@@ -136,17 +148,29 @@ describe('streamWithToolOrchestrator', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(
-      streamWithToolOrchestrator(
-        [createUserMessage('查新闻')],
-        createSettings(),
-        vi.fn(),
-        undefined,
-        {
-          toolSettings: createToolSettings({ maxToolRounds: 1 }),
-        },
-      ),
-    ).rejects.toThrow('工具调用轮数超过上限：1')
+    const statuses: string[] = []
+    const content = await streamWithToolOrchestrator(
+      [createUserMessage('查新闻')],
+      createSettings(),
+      (delta) => {
+        if (delta.streamingStatus) {
+          statuses.push(delta.streamingStatus)
+        }
+      },
+      undefined,
+      {
+        toolSettings: createToolSettings({ maxToolRounds: 1 }),
+      },
+    )
+
+    expect(content).toBe('基于已有结果给出总结')
+    expect(statuses).toContain('已达到工具调用上限，正在基于已有结果生成回答...')
+    expect(providerRound).toBe(3)
+    const summaryRequestBody = providerBodies[2] as Record<string, unknown>
+    expect(summaryRequestBody.tools).toBeUndefined()
+    const summaryMessages = summaryRequestBody.messages as Array<{ role?: string; content?: string }>
+    const limitMessage = summaryMessages.find((item) => item.role === 'system')?.content ?? ''
+    expect(limitMessage).toContain('工具调用轮数超过上限：1')
   })
 
   it('throws duplicate call error when model repeats the same tool call consecutively', async () => {
@@ -307,6 +331,7 @@ function createToolSettings(
       tavilySearch: {
         enabled: true,
         apiKey: 'tvly-key',
+        baseUrl: 'https://api.tavily.com/search',
       },
     },
     customTools: [],

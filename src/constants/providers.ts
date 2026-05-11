@@ -10,6 +10,7 @@ import type {
   ThemeMode,
 } from '../types/chat'
 import { DEFAULT_UTOOLS_UPLOAD_MODE } from './storage'
+import { DEFAULT_TAVILY_SEARCH_BASE_URL } from './tools'
 
 export interface ProviderModelOption {
   supportsTemperature: boolean
@@ -44,7 +45,7 @@ const DEFAULT_PROVIDER_THINKING: ProviderThinkingSettings = {
 const DEFAULT_TOOL_SETTINGS: ToolSettings = {
   enabled: false,
   openaiUseNativeWebSearch: true,
-  maxToolRounds: 3,
+  maxToolRounds: 6,
   builtinTools: {
     currentTime: {
       enabled: true,
@@ -52,6 +53,7 @@ const DEFAULT_TOOL_SETTINGS: ToolSettings = {
     tavilySearch: {
       enabled: true,
       apiKey: '',
+      baseUrl: DEFAULT_TAVILY_SEARCH_BASE_URL,
     },
   },
   customTools: [],

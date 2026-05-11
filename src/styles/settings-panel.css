@@ -152,6 +152,10 @@ button {
   font-weight: 600;
 }
 
+.tool-rounds-input {
+  width: 108px;
+}
+
 .font-size-toggle {
   display: inline-flex;
   flex-wrap: wrap;

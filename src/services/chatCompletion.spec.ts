@@ -647,7 +647,7 @@ describe('streamChatCompletion', () => {
           toolSettings: {
             enabled: true,
             openaiUseNativeWebSearch: false,
-            maxToolRounds: 3,
+            maxToolRounds: 6,
             builtinTools: {
               currentTime: {
                 enabled: true,
@@ -655,6 +655,7 @@ describe('streamChatCompletion', () => {
               tavilySearch: {
                 enabled: true,
                 apiKey: 'tvly-key',
+                baseUrl: 'https://api.tavily.com/search',
               },
             },
             customTools: [],
@@ -691,7 +692,7 @@ describe('streamChatCompletion', () => {
         toolSettings: {
           enabled: true,
           openaiUseNativeWebSearch: true,
-          maxToolRounds: 3,
+          maxToolRounds: 6,
           builtinTools: {
             currentTime: {
               enabled: true,
@@ -699,6 +700,7 @@ describe('streamChatCompletion', () => {
             tavilySearch: {
               enabled: true,
               apiKey: 'tvly-key',
+              baseUrl: 'https://api.tavily.com/search',
             },
           },
           customTools: [],

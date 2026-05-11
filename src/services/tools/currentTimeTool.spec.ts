@@ -64,6 +64,7 @@ function createToolSettings() {
       tavilySearch: {
         enabled: false,
         apiKey: '',
+        baseUrl: 'https://api.tavily.com/search',
       },
     },
     customTools: [],

@@ -11,7 +11,7 @@ describe('toolRegistry', () => {
     const names = getEnabledTools(createToolSettings({
       builtinTools: {
         currentTime: { enabled: true },
-        tavilySearch: { enabled: false, apiKey: '' },
+        tavilySearch: { enabled: false, apiKey: '', baseUrl: 'https://api.tavily.com/search' },
       },
     })).map((item) => item.definition.function.name)
 
@@ -22,7 +22,7 @@ describe('toolRegistry', () => {
     expect(() => getEnabledTools(createToolSettings({
       builtinTools: {
         currentTime: { enabled: true },
-        tavilySearch: { enabled: true, apiKey: '' },
+        tavilySearch: { enabled: true, apiKey: '', baseUrl: 'https://api.tavily.com/search' },
       },
     }))).toThrow('请先填写 Tavily API Key。')
   })
@@ -31,7 +31,7 @@ describe('toolRegistry', () => {
     const names = getEnabledTools(createToolSettings({
       builtinTools: {
         currentTime: { enabled: true },
-        tavilySearch: { enabled: true, apiKey: 'tvly-key' },
+        tavilySearch: { enabled: true, apiKey: 'tvly-key', baseUrl: 'https://api.tavily.com/search' },
       },
     })).map((item) => item.definition.function.name)
 
@@ -57,7 +57,7 @@ function createToolSettings(
   overrides: Partial<{
     builtinTools: {
       currentTime: { enabled: boolean }
-      tavilySearch: { enabled: boolean; apiKey: string }
+      tavilySearch: { enabled: boolean; apiKey: string; baseUrl: string }
     }
     customTools: Array<{
       id: string
@@ -80,6 +80,7 @@ function createToolSettings(
       tavilySearch: {
         enabled: true,
         apiKey: 'tvly-key',
+        baseUrl: 'https://api.tavily.com/search',
       },
     },
     customTools: overrides.customTools ?? [],

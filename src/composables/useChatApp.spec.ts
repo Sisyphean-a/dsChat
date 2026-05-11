@@ -473,6 +473,39 @@ describe('useChatApp', () => {
     await sendPromise
   })
 
+  it('locks provider switching after a conversation has started and unlocks on fresh conversation', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+    vi.mocked(streamChatCompletion).mockResolvedValue('你好')
+
+    const app = useChatApp()
+    await app.initialize()
+    app.addCustomModel('openai')
+    const openaiId = app.settings.value.customModels[0]?.id as string
+    app.updateCustomModelField(openaiId, 'apiKey', 'sk-openai')
+    app.selectActiveConfig(openaiId)
+
+    app.draftMessage.value = '第一条'
+    await app.sendMessage()
+
+    expect(app.isSending.value).toBe(false)
+    expect(app.messages.value.length).toBeGreaterThan(0)
+    expect(app.isProviderSwitchLocked.value).toBe(true)
+
+    app.selectActiveConfig('deepseek')
+    expect(app.settings.value.activeConfigId).toBe(openaiId)
+
+    app.startFreshConversation()
+    expect(app.messages.value).toEqual([])
+    expect(app.isProviderSwitchLocked.value).toBe(false)
+
+    app.selectActiveConfig('deepseek')
+    expect(app.settings.value.activeConfigId).toBe('deepseek')
+  })
+
   it('allows adding and removing custom model options', async () => {
     const app = useChatApp()
     await app.initialize()
@@ -651,7 +684,7 @@ describe('useChatApp', () => {
       toolSettings: {
         enabled: true,
         openaiUseNativeWebSearch: true,
-        maxToolRounds: 3,
+        maxToolRounds: 6,
         builtinTools: {
           currentTime: {
             enabled: true,
@@ -659,6 +692,7 @@ describe('useChatApp', () => {
           tavilySearch: {
             enabled: true,
             apiKey: 'tvly-key',
+            baseUrl: 'https://api.tavily.com/search',
           },
         },
         customTools: [],
@@ -684,7 +718,7 @@ describe('useChatApp', () => {
         toolSettings: {
           enabled: true,
           openaiUseNativeWebSearch: true,
-          maxToolRounds: 3,
+          maxToolRounds: 6,
           builtinTools: {
             currentTime: {
               enabled: true,
@@ -692,6 +726,7 @@ describe('useChatApp', () => {
             tavilySearch: {
               enabled: true,
               apiKey: 'tvly-key',
+              baseUrl: 'https://api.tavily.com/search',
             },
           },
           customTools: [],
@@ -793,6 +828,60 @@ describe('useChatApp', () => {
     expect(app.activeConversationId.value).toBeNull()
     expect(app.messages.value).toEqual([])
     expect(app.conversations.value).toEqual([])
+  })
+
+  it('restores the conversation-bound provider config when switching history conversations', async () => {
+    const openaiModel = {
+      ...createAddedModelDraft('openai', []),
+      id: 'model-openai',
+      name: 'OpenAI',
+      apiKey: 'sk-openai',
+    }
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      activeConfigId: 'deepseek',
+      customModels: [openaiModel],
+    }))
+    vi.mocked(loadConversations).mockResolvedValue([
+      {
+        _id: 'conversation/c-ds',
+        type: 'conversation',
+        id: 'c-ds',
+        configId: 'deepseek',
+        title: 'DeepSeek 对话',
+        createdAt: 1,
+        updatedAt: 1,
+        messages: [
+          { id: 'm1', role: 'user', content: 'ds 问题', createdAt: 1, status: 'done' },
+        ],
+      },
+      {
+        _id: 'conversation/c-gpt',
+        type: 'conversation',
+        id: 'c-gpt',
+        configId: 'model-openai',
+        title: 'OpenAI 对话',
+        createdAt: 2,
+        updatedAt: 2,
+        messages: [
+          { id: 'm2', role: 'user', content: 'gpt 问题', createdAt: 2, status: 'done' },
+        ],
+      },
+    ])
+
+    const app = useChatApp()
+    await app.initialize()
+
+    app.selectConversation('c-gpt')
+    await vi.waitFor(() => {
+      expect(app.activeConversationId.value).toBe('c-gpt')
+    })
+    expect(app.settings.value.activeConfigId).toBe('model-openai')
+
+    app.selectConversation('c-ds')
+    await vi.waitFor(() => {
+      expect(app.activeConversationId.value).toBe('c-ds')
+    })
+    expect(app.settings.value.activeConfigId).toBe('deepseek')
   })
 
   it('does not restore a deleted conversation when a delayed title save resolves later', async () => {

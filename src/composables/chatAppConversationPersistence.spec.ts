@@ -19,6 +19,7 @@ describe('createChatAppConversationPersistence', () => {
     })
 
     const persistence = createChatAppConversationPersistence({
+      getActiveConfigId: () => 'deepseek',
       activeConversationId,
       conversations,
       deleteConversationDoc: vi.fn().mockResolvedValue(undefined),
@@ -34,6 +35,7 @@ describe('createChatAppConversationPersistence', () => {
     ).resolves.toBeUndefined()
 
     expect(saveConversation).toHaveBeenCalledTimes(2)
+    expect(savedDocs[0]?.configId).toBe('deepseek')
     expect(savedDocs[1]?.title).toBe('大语言模型简介')
     expect(savedDocs[1]?.messages[0]?.content).toBe('解释一下什么是大语言模型')
   })
@@ -56,6 +58,7 @@ describe('createChatAppConversationPersistence', () => {
     })
 
     const persistence = createChatAppConversationPersistence({
+      getActiveConfigId: () => 'deepseek',
       activeConversationId,
       conversations,
       deleteConversationDoc: vi.fn().mockResolvedValue(undefined),
@@ -106,6 +109,7 @@ describe('createChatAppConversationPersistence', () => {
     })
 
     const persistence = createChatAppConversationPersistence({
+      getActiveConfigId: () => 'deepseek',
       activeConversationId,
       conversations,
       deleteConversationDoc,

@@ -154,7 +154,7 @@ onMounted(() => {
             <div class="composer-pickers">
               <div class="composer-picker composer-picker-provider">
                 <ModelPicker
-                  :disabled="app.isSending.value"
+                  :disabled="app.isProviderSwitchLocked.value"
                   :model-value="app.settings.value.activeConfigId"
                   :options="configOptions"
                   @select="handleProviderSelect"
@@ -190,12 +190,14 @@ onMounted(() => {
       @save="app.saveSettings"
       @update-builtin-tool-enabled="app.updateBuiltinToolEnabled"
       @update-builtin-tool-tavily-api-key="app.updateBuiltinToolTavilyApiKey"
+      @update-builtin-tool-tavily-base-url="app.updateBuiltinToolTavilyBaseUrl"
       @update-custom-model-field="app.updateCustomModelField"
       @update-custom-tool-field="app.updateCustomToolField"
       @update-deepseek-field="app.updateDeepseekField"
       @update-font-size="app.updateFontSize"
       @update-theme="app.updateTheme"
       @update-tool-enabled="app.updateToolEnabled"
+      @update-tool-max-rounds="app.updateToolMaxRounds"
       @update-tool-open-ai-native-search="app.updateToolOpenAiNativeSearch"
       @update-utools-upload-mode="app.updateUtoolsUploadMode"
     />

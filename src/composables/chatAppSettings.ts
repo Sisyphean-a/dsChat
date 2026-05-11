@@ -11,6 +11,7 @@ import {
   providerSupportsNativeWebSearch,
   providerSupportsToolOrchestrator,
 } from '../constants/providerCapabilities'
+import { DEFAULT_TAVILY_SEARCH_BASE_URL } from '../constants/tools'
 import {
   DEFAULT_UTOOLS_UPLOAD_MODE,
   UTOOLS_UPLOAD_MODES,
@@ -341,6 +342,7 @@ function normalizeBuiltinToolSettings(
   legacyTavilyApiKey: string | undefined,
 ): SettingsForm['toolSettings']['builtinTools'] {
   const builtinTavilyApiKey = toolSettings?.builtinTools?.tavilySearch?.apiKey?.trim() ?? ''
+  const builtinTavilyBaseUrl = normalizeTavilySearchBaseUrl(toolSettings?.builtinTools?.tavilySearch?.baseUrl)
   const normalizedLegacyTavilyApiKey = legacyTavilyApiKey?.trim() ?? ''
   return {
     currentTime: {
@@ -349,6 +351,7 @@ function normalizeBuiltinToolSettings(
     tavilySearch: {
       enabled: toolSettings?.builtinTools?.tavilySearch?.enabled ?? true,
       apiKey: builtinTavilyApiKey || normalizedLegacyTavilyApiKey,
+      baseUrl: builtinTavilyBaseUrl,
     },
   }
 }
@@ -404,7 +407,7 @@ function createCustomToolId(): string {
 
 function normalizeMaxToolRounds(value: number | undefined): number {
   if (!Number.isFinite(value)) {
-    return 3
+    return 6
   }
 
   const normalized = Math.floor(value as number)
@@ -420,6 +423,11 @@ function providerSupportsToolCalling(
   }
 
   return providerSupportsNativeWebSearch(provider) && toolSettings.openaiUseNativeWebSearch
+}
+
+function normalizeTavilySearchBaseUrl(value: string | undefined): string {
+  const normalized = value?.trim() ?? ''
+  return normalized || DEFAULT_TAVILY_SEARCH_BASE_URL
 }
 
 function hasEnabledBuiltinTool(toolSettings: SettingsForm['toolSettings']): boolean {

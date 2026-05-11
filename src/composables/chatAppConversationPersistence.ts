@@ -9,6 +9,7 @@ import {
 } from '../utils/chat'
 
 interface ChatAppConversationPersistenceOptions {
+  getActiveConfigId: () => string
   activeConversationId: Ref<string | null>
   conversations: Ref<ConversationDoc[]>
   deleteConversationDoc: (conversation: ConversationDoc) => Promise<void>
@@ -28,6 +29,7 @@ export function createChatAppConversationPersistence(
   options: ChatAppConversationPersistenceOptions,
 ): ChatAppConversationPersistenceActions {
   const {
+    getActiveConfigId,
     activeConversationId,
     conversations,
     deleteConversationDoc,
@@ -50,7 +52,7 @@ export function createChatAppConversationPersistence(
     await runConversationWrite(conversationId, async () => {
       const existing = conversations.value.find((conversation) => conversation.id === conversationId)
       const saved = await saveConversation(
-        buildConversationDoc(conversationId, messageSnapshot, existing),
+        buildConversationDoc(conversationId, messageSnapshot, existing, getActiveConfigId()),
       )
       mergeConversation(saved)
       await persistSession(saved.id)

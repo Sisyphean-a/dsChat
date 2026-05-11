@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   ToolSettings as ChatToolSettings,
 } from '../../types/chat'
+import { DEFAULT_TAVILY_SEARCH_BASE_URL } from '../../constants/tools'
 import type { ChatRequestOptions, StreamDelta } from '../chatCompletion'
 import { createProviderFailureMessage } from './providerErrors'
 import { createProviderStreamState, getProviderAdapter, type ProviderConversationMessage } from './providerAdapter'
@@ -101,12 +102,13 @@ export function toRuntimeToolSettings(settings: ChatToolSettings | undefined): T
   const legacy = settings as Partial<{ tavilyApiKey: string }> | undefined
   return {
     enabled: settings?.enabled ?? false,
-    maxToolRounds: settings?.maxToolRounds ?? 3,
+    maxToolRounds: settings?.maxToolRounds ?? 6,
     builtinTools: {
       currentTime: { enabled: settings?.builtinTools?.currentTime?.enabled ?? true },
       tavilySearch: {
         enabled: settings?.builtinTools?.tavilySearch?.enabled ?? true,
         apiKey: settings?.builtinTools?.tavilySearch?.apiKey ?? legacy?.tavilyApiKey ?? '',
+        baseUrl: resolveTavilySearchBaseUrl(settings?.builtinTools?.tavilySearch?.baseUrl),
       },
     },
     customTools: settings?.customTools?.map((item) => ({
@@ -123,6 +125,11 @@ export function toProviderConversationMessages(messages: ChatMessage[]): Provide
     reasoningContent: message.reasoningContent,
     attachments: message.attachments?.map((item) => ({ ...item })),
   }))
+}
+
+function resolveTavilySearchBaseUrl(value: string | undefined): string {
+  const normalized = value?.trim() ?? ''
+  return normalized || DEFAULT_TAVILY_SEARCH_BASE_URL
 }
 
 function consumeProviderDeltas(

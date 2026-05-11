@@ -38,6 +38,7 @@ export const tavilySearchTool: AiTool = {
     const result = await searchWithTavily(
       parsed,
       context.settings.builtinTools.tavilySearch.apiKey,
+      context.settings.builtinTools.tavilySearch.baseUrl,
       context.signal,
     )
 

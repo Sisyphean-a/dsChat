@@ -108,6 +108,7 @@ export interface BuiltinCurrentTimeToolSettings {
 export interface BuiltinTavilySearchToolSettings {
   enabled: boolean
   apiKey: string
+  baseUrl: string
 }
 
 export interface BuiltinToolSettings {
@@ -154,6 +155,7 @@ export interface SessionDoc extends BaseDoc {
 export interface ConversationDoc extends BaseDoc {
   type: 'conversation'
   id: string
+  configId?: string
   title: string
   createdAt: number
   updatedAt: number

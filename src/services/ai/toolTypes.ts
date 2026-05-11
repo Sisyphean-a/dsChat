@@ -14,6 +14,7 @@ export interface RuntimeCurrentTimeToolSettings {
 export interface RuntimeTavilySearchToolSettings {
   enabled: boolean
   apiKey: string
+  baseUrl: string
 }
 
 export interface RuntimeBuiltinToolSettings {

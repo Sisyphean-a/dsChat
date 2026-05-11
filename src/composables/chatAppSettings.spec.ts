@@ -85,11 +85,13 @@ describe('normalizeSettings', () => {
         tavilySearch: {
           enabled: true,
           apiKey: '',
+          baseUrl: 'https://api.tavily.com/search',
         },
       },
     }
 
     const normalized = normalizeSettings(settings)
     expect(normalized.toolSettings.builtinTools.tavilySearch.apiKey).toBe('tvly-legacy-key')
+    expect(normalized.toolSettings.builtinTools.tavilySearch.baseUrl).toBe('https://api.tavily.com/search')
   })
 })

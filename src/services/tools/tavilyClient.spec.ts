@@ -54,6 +54,27 @@ describe('searchWithTavily', () => {
     ).rejects.toThrow('Tavily 搜索失败：HTTP 429')
   })
 
+  it('uses custom tavily backend url when provided', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      query: 'test',
+      results: [],
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await searchWithTavily(
+      { query: 'test' },
+      'tvly-key',
+      'https://proxy.example.com/tavily/search',
+    )
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://proxy.example.com/tavily/search',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    )
+  })
+
   it('keeps only compact fields from tavily response', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       query: 'weather',
