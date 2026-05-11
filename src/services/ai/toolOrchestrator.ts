@@ -34,8 +34,7 @@ const MAX_TOTAL_TOOL_CALLS = 12
 const ORCHESTRATOR_TIMEOUT_MS = 150000
 const PROVIDER_ROUND_TIMEOUT_MS = 45000
 const TOOL_EXECUTION_TIMEOUT_MS = 20000
-const TOOL_STATUS_DECIDING = '正在判断是否需要调用工具...'
-const TOOL_STATUS_CONTINUING = '已获得工具结果，正在继续思考...'
+const TOOL_STATUS_CONTINUING = '已获得工具结果，正在整理回答...'
 
 interface RuntimeState {
   timeline: ProcessTimelineItem[]
@@ -61,7 +60,7 @@ export async function streamWithToolOrchestrator(
   const contextMessages = toProviderConversationMessages(messages)
   const runtime = createRuntimeState()
 
-  onDelta({ streamingStatus: TOOL_STATUS_DECIDING, processTimeline: [], toolTraces: [] })
+  onDelta({ processTimeline: [], toolTraces: [] })
 
   return runToolLoop({
     contextMessages,
@@ -206,9 +205,10 @@ async function executeSingleToolCall(options: {
     options.runtime.toolCallCount += 1
 
     const tool = resolveToolByCallName(options.tools, options.call.name)
-    emitToolCallStatus(options.onDelta, options.call.name)
+    emitToolCallStatus(options.onDelta, options.call.name, args)
     options.runtime.traces[traceIndex] = markToolTraceRunning(options.runtime.traces[traceIndex], traceStartAt)
     emitRuntimeState(options.onDelta, options.runtime)
+    await waitForStatusRender()
 
     const result = await runWithAbortTimeout({
       operation: (toolSignal) => tool.execute(args, { settings: options.settings, signal: toolSignal }),
@@ -363,10 +363,67 @@ function parseToolArguments(argumentsJson: string): unknown {
 function emitToolCallStatus(
   onDelta: (delta: StreamDelta) => void,
   toolName: string,
+  toolArgs: unknown,
 ): void {
   onDelta({
-    streamingStatus: `正在调用 ${toolName}`,
+    streamingStatus: buildToolCallingStatusText(toolName, toolArgs),
   })
+}
+
+function buildToolCallingStatusText(toolName: string, toolArgs: unknown): string {
+  const displayName = resolveToolDisplayName(toolName)
+  const hint = resolveToolCallingHint(toolName, toolArgs)
+  if (!hint) {
+    return `正在调用${displayName}`
+  }
+
+  return `正在调用${displayName}（${hint}）`
+}
+
+function resolveToolDisplayName(toolName: string): string {
+  if (toolName === 'tavily_search') {
+    return '联网搜索'
+  }
+
+  if (toolName === 'get_current_time') {
+    return '时间工具'
+  }
+
+  return `工具 ${toolName}`
+}
+
+function resolveToolCallingHint(toolName: string, toolArgs: unknown): string {
+  if (toolName === 'tavily_search') {
+    const query = typeof (toolArgs as { query?: unknown } | null)?.query === 'string'
+      ? (toolArgs as { query: string }).query.trim()
+      : ''
+    if (!query) {
+      return ''
+    }
+
+    return `关键词：${compactHint(query)}`
+  }
+
+  if (toolName === 'get_current_time') {
+    const timezone = typeof (toolArgs as { timezone?: unknown } | null)?.timezone === 'string'
+      ? (toolArgs as { timezone: string }).timezone.trim()
+      : ''
+    if (!timezone) {
+      return ''
+    }
+
+    return `时区：${compactHint(timezone)}`
+  }
+
+  return ''
+}
+
+function compactHint(value: string): string {
+  return value.length > 42 ? `${value.slice(0, 42)}...` : value
+}
+
+async function waitForStatusRender(): Promise<void> {
+  await Promise.resolve()
 }
 
 function emitRuntimeState(onDelta: (delta: StreamDelta) => void, runtime: RuntimeState): void {

@@ -99,9 +99,8 @@ describe('streamWithToolOrchestrator', () => {
     )
 
     expect(content).toBe('天气如下')
-    expect(statuses).toContain('正在判断是否需要调用工具...')
-    expect(statuses).toContain('正在调用 tavily_search')
-    expect(statuses).toContain('已获得工具结果，正在继续思考...')
+    expect(statuses).toContain('正在调用联网搜索（关键词：weather）')
+    expect(statuses).toContain('已获得工具结果，正在整理回答...')
     const latestTrace = traceSnapshots[traceSnapshots.length - 1]
     expect(latestTrace).toBeDefined()
     expect(latestTrace?.[0]).toMatchObject({
