@@ -188,9 +188,9 @@ if (getCurrentScope()) {
   height: 20px;
   min-width: 34px;
   padding: 0 6px;
-  border: 1px solid color-mix(in srgb, var(--border) 88%, var(--text-muted));
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--bg-soft) 72%, var(--bg));
+  background: var(--bg-soft);
   color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 500;
@@ -212,26 +212,26 @@ if (getCurrentScope()) {
 }
 
 .markdown-segment :deep(.code-copy-button:hover) {
-  color: color-mix(in srgb, var(--text) 92%, var(--text-muted));
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 48%, var(--bg));
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .markdown-segment :deep(.code-copy-button:focus-visible) {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 75%, transparent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .markdown-segment :deep(.code-copy-button[data-copy-state='success']) {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 88%, var(--bg));
-  color: color-mix(in srgb, var(--accent-strong) 75%, var(--text));
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
 }
 
 .markdown-segment :deep(.code-copy-button[data-copy-state='error']) {
-  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
-  background: color-mix(in srgb, var(--danger) 10%, var(--bg));
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
   color: var(--danger);
 }
 
@@ -267,7 +267,6 @@ if (getCurrentScope()) {
 
 .markdown-segment :deep(a) {
   color: var(--accent);
-  color: color-mix(in srgb, var(--accent) 78%, var(--text));
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-thickness: 1.2px;
@@ -276,25 +275,24 @@ if (getCurrentScope()) {
 
 .markdown-segment :deep(a:hover) {
   color: var(--accent-strong);
-  color: color-mix(in srgb, var(--accent-strong) 68%, var(--text));
   text-decoration-thickness: 1.8px;
 }
 
 .markdown-segment :deep(a:focus-visible) {
-  outline: 2px solid color-mix(in srgb, var(--accent-soft) 72%, transparent);
+  outline: 2px solid var(--accent-soft);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
 .markdown-segment :deep(blockquote) {
   padding-left: 12px;
-  border-left: 3px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-left: 3px solid var(--accent);
   color: var(--text-muted);
 }
 
 .markdown-segment :deep(hr) {
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--border) 94%, var(--text-muted));
+  border-top: 1px solid var(--border);
 }
 
 </style>

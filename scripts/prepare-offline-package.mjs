@@ -1,4 +1,4 @@
-import { copyFileSync, cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 const BUILD_DIR = 'dist'
@@ -20,7 +20,7 @@ function main() {
   ensurePathExists(buildEntryPath, '缺少 dist/index.html，请先执行 npm run build。')
   ensurePathExists(manifestPath, '缺少根目录 plugin.json，无法生成离线打包清单。')
   ensurePathExists(logoPath, '缺少根目录 logo.png，无法生成离线打包目录。')
-  resetPackageDir(rootDir, packageDir)
+  ensurePackageDir(rootDir, packageDir)
 
   cpSync(buildDir, packageDir, { recursive: true })
   copyFileSync(logoPath, join(packageDir, LOGO_FILE))
@@ -38,13 +38,15 @@ function ensurePathExists(path, message) {
   }
 }
 
-function resetPackageDir(rootDir, packageDir) {
+function ensurePackageDir(rootDir, packageDir) {
   const expectedDir = resolve(rootDir, PACKAGE_DIR)
   if (packageDir !== expectedDir) {
-    throw new Error(`拒绝清理非预期目录：${packageDir}`)
+    throw new Error(`拒绝写入非预期目录：${packageDir}`)
   }
 
-  rmSync(packageDir, { force: true, recursive: true })
+  if (!existsSync(packageDir)) {
+    mkdirSync(packageDir, { recursive: true })
+  }
 }
 
 function readPluginManifest(path) {

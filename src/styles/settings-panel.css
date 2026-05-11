@@ -170,8 +170,8 @@ button {
 }
 
 .font-size-toggle button.active {
-  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 55%, var(--bg));
+  border-color: var(--accent);
+  background: var(--accent-soft);
   color: var(--text);
 }
 
