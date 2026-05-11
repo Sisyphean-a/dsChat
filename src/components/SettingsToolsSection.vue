@@ -28,7 +28,6 @@ const emit = defineEmits<{
     <header class="page-heading">
       <p class="eyebrow">Tools</p>
       <h3 id="settings-tools-title">工具</h3>
-      <p>工具调用只保留执行相关选项，内置工具和自定义工具分层展示。</p>
     </header>
 
     <div class="settings-grid">
@@ -74,7 +73,6 @@ const emit = defineEmits<{
         <div class="setting-card-head">
           <div>
             <h4>内置工具</h4>
-            <p>高频工具直接暴露，复杂配置收进对应工具卡片。</p>
           </div>
         </div>
         <div class="builtin-tool-grid">

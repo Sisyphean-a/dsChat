@@ -6,6 +6,15 @@
   border-radius: 14px;
   background: var(--bg);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02), 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.setting-card,
+.provider-card {
+  overflow: visible;
+}
+
+.tool-card,
+.custom-tool-card {
   overflow: hidden;
 }
 
@@ -115,10 +124,12 @@
 
 .field-shell,
 .provider-title-field {
+  --inline-label-width: 86px;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: var(--inline-label-width) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
 }
 
 .settings-panel input:not([type='checkbox']):not(.provider-name-input),
@@ -159,6 +170,17 @@
 
 .provider-title-field {
   width: 100%;
+}
+
+.field-shell > span,
+.provider-title-field > span {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.field-shell > :is(input, select, .model-picker),
+.provider-title-field > :is(input, .provider-name-input) {
+  min-width: 0;
 }
 
 .danger-text {
@@ -247,4 +269,11 @@
   color: var(--text-muted);
   text-align: center;
   font-size: 0.85rem;
+}
+
+@media (max-width: 560px) {
+  .field-shell,
+  .provider-title-field {
+    --inline-label-width: 72px;
+  }
 }

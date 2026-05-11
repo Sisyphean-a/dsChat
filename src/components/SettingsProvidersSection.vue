@@ -23,6 +23,14 @@ const emit = defineEmits<{
 }>()
 
 const addableProviders = getAddableProviderDefinitions()
+
+function removeProviderWithConfirm(id: string, name: string): void {
+  if (!window.confirm(`确认删除服务商「${name || '未命名'}」吗？`)) {
+    return
+  }
+
+  emit('removeCustomModel', id)
+}
 </script>
 
 <template>
@@ -30,7 +38,6 @@ const addableProviders = getAddableProviderDefinitions()
     <header class="page-heading">
       <p class="eyebrow">Model Providers</p>
       <h3 id="settings-providers-title">模型服务商</h3>
-      <p>把连接信息、密钥和默认模型集中管理，避免在工具设置里来回寻找。</p>
     </header>
 
     <div class="settings-grid">
@@ -38,7 +45,6 @@ const addableProviders = getAddableProviderDefinitions()
         <div class="provider-head">
           <div>
             <h4>DeepSeek</h4>
-            <p>默认服务商，保留固定入口。</p>
           </div>
         </div>
         <div class="field-grid">
@@ -90,7 +96,7 @@ const addableProviders = getAddableProviderDefinitions()
               @input="emit('updateCustomModelField', item.id, 'name', ($event.target as HTMLInputElement).value)"
             />
           </label>
-          <button class="danger-text" type="button" @click="emit('removeCustomModel', item.id)">删除</button>
+          <button class="danger-text" type="button" @click="removeProviderWithConfirm(item.id, item.name)">删除</button>
         </div>
         <div class="field-grid">
           <label class="field-shell">
@@ -132,7 +138,6 @@ const addableProviders = getAddableProviderDefinitions()
         <div class="setting-card-head">
           <div>
             <h4>添加服务商</h4>
-            <p>需要更多模型时再添加，默认界面保持轻量。</p>
           </div>
         </div>
         <div class="add-provider-grid">

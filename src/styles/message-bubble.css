@@ -5,7 +5,8 @@
   border: 1px solid var(--border);
   animation: reveal 200ms ease;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.03);
-  contain: layout paint;
+  position: relative;
+  contain: layout;
 }
 
 .bubble.is-user {
@@ -42,25 +43,6 @@
   display: inline-block;
   font-size: 0.75rem;
   color: var(--text-muted);
-}
-
-.message-retry-button {
-  padding: 0;
-  font-size: 0.78rem;
-  line-height: 1.2;
-  color: var(--accent-strong);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.message-retry-button:hover {
-  color: var(--accent);
-}
-
-.message-retry-button:focus-visible {
-  outline: 2px solid var(--accent-soft);
-  outline-offset: 2px;
-  border-radius: 4px;
 }
 
 .message-stream-status {
@@ -179,6 +161,54 @@
   white-space: pre-wrap;
   line-height: 1.6;
   font-size: 0.95rem;
+}
+
+.message-actions {
+  margin-top: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.message-actions.is-user-compact-actions {
+  margin-top: 0;
+  position: absolute;
+  top: 10px;
+  left: -40px;
+  z-index: 1;
+}
+
+.message-action-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.message-actions.is-user-compact-actions .message-action-button {
+  color: var(--text);
+}
+
+.message-action-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.message-action-button:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+}
+
+.message-action-icon {
+  display: block;
+  width: 17px;
+  height: 17px;
 }
 
 .message-images {

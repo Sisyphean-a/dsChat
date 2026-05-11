@@ -17,12 +17,47 @@ describe('MessageBubble', () => {
       },
     })
 
-    const retryButton = wrapper.get('[data-testid="message-retry-button"]')
-    expect(retryButton.text()).toBe('重试')
+    const retryButton = wrapper.get('[data-testid="message-regenerate-button"]')
+    expect(retryButton.attributes('aria-label')).toBe('重试')
 
     await retryButton.trigger('click')
 
     expect(wrapper.emitted('retry')).toEqual([[]])
+  })
+
+  it('shows copy action for user messages', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: {
+          id: 'user-copy',
+          content: '你好，世界',
+          createdAt: 1,
+          role: 'user',
+          status: 'done',
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-testid="message-copy-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="message-regenerate-button"]').exists()).toBe(false)
+  })
+
+  it('shows copy and regenerate actions for latest assistant response', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        canRetry: true,
+        message: {
+          id: 'assistant-done',
+          content: '这是完整回答',
+          createdAt: 2,
+          role: 'assistant',
+          status: 'done',
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-testid="message-copy-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="message-regenerate-button"]').exists()).toBe(true)
   })
 
   it('renders unified process timeline collapsed by default and expands on toggle', async () => {

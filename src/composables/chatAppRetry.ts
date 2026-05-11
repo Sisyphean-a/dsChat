@@ -35,7 +35,11 @@ export function resolveRetryableAssistantReply(messages: ChatMessage[]): Retryab
     return null
   }
 
-  if (assistantMessage.status !== 'error' && assistantMessage.status !== 'interrupted') {
+  if (
+    assistantMessage.status !== 'done'
+    && assistantMessage.status !== 'error'
+    && assistantMessage.status !== 'interrupted'
+  ) {
     return null
   }
 

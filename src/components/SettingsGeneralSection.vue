@@ -54,7 +54,6 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
     <header class="page-heading">
       <p class="eyebrow">General</p>
       <h3 id="settings-general-title">通用</h3>
-      <p>只保留会频繁影响体验的基础选项：外观、字号和 uTools 同步范围。</p>
     </header>
 
     <div class="settings-grid two-columns">
@@ -62,7 +61,6 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
         <div class="setting-card-head">
           <div>
             <h4>外观</h4>
-            <p>让聊天区保持你习惯的阅读节奏。</p>
           </div>
         </div>
         <div class="stacked-controls">

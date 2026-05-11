@@ -17,10 +17,16 @@ const emit = defineEmits<{
   retry: []
 }>()
 
+type MessageCopyState = 'idle' | 'success' | 'error'
+
+const COPY_RESET_DELAY_MS = 1400
+
 const isProcessExpanded = ref(false)
 const isAssistantMessage = computed(() => props.message.role === 'assistant')
 const isStreamingStatus = computed(() => props.message.status === 'streaming')
 const previewAttachment = ref<MessageAttachment | null>(null)
+const copyState = ref<MessageCopyState>('idle')
+let copyResetTimer: number | null = null
 
 const bubbleClass = computed(() => ({
   bubble: true,
@@ -89,6 +95,42 @@ const retryActionLabel = computed(() => {
   return props.message.status === 'interrupted' ? '重新生成' : '重试'
 })
 
+const canCopyMessage = computed(() => {
+  if (!props.message.content.trim()) {
+    return false
+  }
+
+  if (isAssistantMessage.value) {
+    return props.message.status !== 'streaming'
+  }
+
+  return true
+})
+
+const canRegenerateMessage = computed(() => {
+  return Boolean(props.canRetry) && isAssistantMessage.value
+})
+
+const shouldShowMessageActions = computed(() => {
+  if (isStreamingStatusOnly.value) {
+    return false
+  }
+
+  return canCopyMessage.value || canRegenerateMessage.value
+})
+
+const copyActionLabel = computed(() => {
+  if (copyState.value === 'success') {
+    return '已复制'
+  }
+
+  if (copyState.value === 'error') {
+    return '复制失败'
+  }
+
+  return '复制'
+})
+
 const isStreamingStatusOnly = computed(() => {
   return Boolean(streamingStatusText.value)
     && isAssistantMessage.value
@@ -112,6 +154,42 @@ function closeImagePreview(): void {
 
 function retryAssistantMessage(): void {
   emit('retry')
+}
+
+async function copyMessage(): Promise<void> {
+  const content = props.message.content.trim()
+  if (!content) {
+    updateCopyState('error')
+    return
+  }
+
+  try {
+    await writeClipboardText(content)
+    updateCopyState('success')
+  } catch (error) {
+    console.error('Copy message failed.', error)
+    updateCopyState('error')
+  }
+}
+
+function updateCopyState(state: MessageCopyState): void {
+  copyState.value = state
+  if (copyResetTimer !== null) {
+    window.clearTimeout(copyResetTimer)
+  }
+
+  copyResetTimer = window.setTimeout(() => {
+    copyState.value = 'idle'
+    copyResetTimer = null
+  }, COPY_RESET_DELAY_MS)
+}
+
+async function writeClipboardText(content: string): Promise<void> {
+  if (!navigator.clipboard?.writeText) {
+    throw new Error('Clipboard API is not available.')
+  }
+
+  await navigator.clipboard.writeText(content)
 }
 
 watch(hasProcessTimeline, (next, prev) => {
@@ -258,21 +336,49 @@ function summarizeReasoning(content: string): string {
     </div>
     <p v-if="props.message.role === 'user'" class="plain-body">{{ props.message.content }}</p>
 
+    <div
+      v-if="shouldShowMessageActions"
+      class="message-actions"
+      :class="{
+        'is-user-compact-actions': props.message.role === 'user',
+      }"
+    >
+      <button
+        v-if="canCopyMessage"
+        data-testid="message-copy-button"
+        class="message-action-button"
+        type="button"
+        :aria-label="copyActionLabel"
+        :title="copyActionLabel"
+        @click="copyMessage"
+      >
+        <svg class="message-action-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="8" y="8" width="14" height="14" rx="2"></rect>
+          <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>
+        </svg>
+      </button>
+      <button
+        v-if="canRegenerateMessage"
+        data-testid="message-regenerate-button"
+        class="message-action-button"
+        type="button"
+        :aria-label="retryActionLabel"
+        :title="retryActionLabel"
+        @click="retryAssistantMessage"
+      >
+        <svg class="message-action-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 3v6h-6"></path>
+          <path d="M21 9a9 9 0 1 0 2.02 9.19"></path>
+        </svg>
+      </button>
+    </div>
+
     <p v-if="streamingStatusText" class="message-stream-status">
       <span class="stream-dot" aria-hidden="true"></span>
       <span>{{ streamingStatusText }}</span>
     </p>
     <div v-else-if="props.message.status === 'interrupted' || props.message.status === 'error'" class="message-meta">
       <span class="message-status">{{ props.message.status === 'interrupted' ? '已中止' : '请求失败' }}</span>
-      <button
-        v-if="props.canRetry"
-        data-testid="message-retry-button"
-        class="message-retry-button"
-        type="button"
-        @click="retryAssistantMessage"
-      >
-        {{ retryActionLabel }}
-      </button>
     </div>
 
     <div

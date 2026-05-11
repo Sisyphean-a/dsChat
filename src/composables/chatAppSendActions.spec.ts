@@ -63,11 +63,12 @@ describe('createChatAppSendActions', () => {
     expect(persistConversation).toHaveBeenCalledTimes(2)
   })
 
-  it('ignores retry when the latest message is not a failed assistant reply', async () => {
+  it('ignores retry when the latest message is not an assistant reply', async () => {
     const streamChatCompletion = vi.fn(async () => '不会触发')
     const state = createState([
       createUserMessage('u-1', '普通消息'),
       createAssistantMessage('a-1', '正常回复', 'done'),
+      createUserMessage('u-2', '后续追问'),
     ])
     const actions = createChatAppSendActions({
       activeConversationId: state.activeConversationId,
@@ -94,10 +95,11 @@ describe('createChatAppSendActions', () => {
     await actions.retryLastAssistantMessage()
 
     expect(streamChatCompletion).not.toHaveBeenCalled()
-    expect(state.messages.value[1]).toMatchObject({
-      id: 'a-1',
-      content: '正常回复',
+    expect(state.messages.value[2]).toMatchObject({
+      id: 'u-2',
+      content: '后续追问',
       status: 'done',
+      role: 'user',
     })
   })
 })

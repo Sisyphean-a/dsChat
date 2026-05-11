@@ -107,7 +107,7 @@ function selectSection(id: SettingsSectionId): void {
           <div class="settings-header-actions">
             <button class="ghost-action" type="button" @click="emit('close')">取消</button>
             <button class="primary-action" type="button" :disabled="props.saving" @click="emit('save')">
-              {{ props.saving ? '保存中' : '完成' }}
+              {{ props.saving ? '保存中' : '保存' }}
             </button>
           </div>
         </header>
