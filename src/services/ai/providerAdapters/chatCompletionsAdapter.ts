@@ -1,7 +1,9 @@
-import { supportsDeepseekThinking } from '../../../constants/providers'
-import { modelSupportsTemperature } from '../../../composables/chatAppSettings'
 import type { ProviderId } from '../../../types/chat'
-import type { ChatRequestOptions } from '../../chatCompletion'
+import {
+  createThinkingPayloadForChatCompletions,
+  resolveProviderRequestTemperature,
+  shouldIncludeProviderRequestTemperature,
+} from '../../../constants/providerCapabilities'
 import type { ProviderAdapter, ProviderPayloadInput, ProviderStreamState } from '../providerAdapter'
 import type { ProviderStreamDelta } from '../toolTypes'
 
@@ -55,7 +57,11 @@ export const chatCompletionsAdapter: ProviderAdapter = {
       stream: input.stream,
     }
 
-    if (shouldIncludeTemperature(input.settings.provider, input.settings.model, input.requestOptions)) {
+    if (shouldIncludeProviderRequestTemperature(
+      input.settings.provider,
+      input.settings.model,
+      input.requestOptions?.thinkingEnabled,
+    )) {
       payload.temperature = resolveRequestTemperature(
         input.settings.provider,
         input.settings.temperature,
@@ -63,21 +69,14 @@ export const chatCompletionsAdapter: ProviderAdapter = {
       )
     }
 
-    if (input.settings.provider === 'deepseek' && supportsDeepseekThinking(input.settings.model)) {
-      payload.thinking = {
-        type: (input.requestOptions?.thinkingEnabled ?? true) ? 'enabled' : 'disabled',
-      }
-    }
-
-    if (input.settings.provider === 'minimax') {
-      payload.reasoning_split = input.requestOptions?.thinkingEnabled ?? true
-    }
-
-    if (input.settings.provider === 'kimi') {
-      payload.thinking = {
-        type: (input.requestOptions?.thinkingEnabled ?? true) ? 'enabled' : 'disabled',
-      }
-    }
+    Object.assign(
+      payload,
+      createThinkingPayloadForChatCompletions(
+        input.settings.provider,
+        input.settings.model,
+        input.requestOptions?.thinkingEnabled,
+      ),
+    )
 
     if (input.tools?.length) {
       payload.tool_choice = 'auto'
@@ -199,36 +198,16 @@ function createMessageContent(
   return parts
 }
 
-function shouldIncludeTemperature(
-  provider: ProviderId,
-  model: string,
-  requestOptions?: ChatRequestOptions,
-): boolean {
-  if (!modelSupportsTemperature(provider, model)) {
-    return false
-  }
-
-  if (provider !== 'deepseek') {
-    return true
-  }
-
-  if (!supportsDeepseekThinking(model)) {
-    return true
-  }
-
-  return (requestOptions?.thinkingEnabled ?? true) === false
-}
-
 function resolveRequestTemperature(
   provider: ProviderId,
   configuredTemperature: number,
-  requestOptions?: ChatRequestOptions,
+  requestOptions?: { thinkingEnabled?: boolean },
 ): number {
-  if (provider !== 'kimi') {
-    return configuredTemperature
-  }
-
-  return (requestOptions?.thinkingEnabled ?? true) ? 1.0 : 0.6
+  return resolveProviderRequestTemperature(
+    provider,
+    configuredTemperature,
+    requestOptions?.thinkingEnabled,
+  )
 }
 
 function extractReasoningDelta(delta: StreamDeltaPayload, state: ProviderStreamState): string {

@@ -162,7 +162,7 @@ onMounted(() => {
               </div>
               <div class="composer-picker composer-picker-model">
                 <ModelPicker
-                  :disabled="app.isSending.value"
+                  :disabled="false"
                   :model-value="app.activeChatConfig.value.model"
                   :options="app.modelOptions.value"
                   @select="handleModelSelect"

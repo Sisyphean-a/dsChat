@@ -171,6 +171,14 @@ export function findProviderModel(
   return PROVIDER_REGISTRY[provider].defaultModels.find((option) => option.value === model.trim())
 }
 
+export function providerModelSupportsTemperature(
+  provider: ProviderId,
+  model: string,
+): boolean {
+  const matched = findProviderModel(provider, model)
+  return matched?.supportsTemperature ?? true
+}
+
 export function getProviderTemperatureRange(provider: ProviderId): TemperatureRange {
   return PROVIDER_REGISTRY[provider].temperature
 }

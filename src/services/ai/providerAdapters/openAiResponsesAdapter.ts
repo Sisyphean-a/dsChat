@@ -1,5 +1,10 @@
 import type { ProviderAdapter, ProviderPayloadInput, ProviderStreamState } from '../providerAdapter'
 import type { ProviderStreamDelta } from '../toolTypes'
+import {
+  resolveProviderRequestTemperature,
+  shouldIncludeProviderRequestTemperature,
+  supportsOpenAiNativeWebSearchModel,
+} from '../../../constants/providerCapabilities'
 
 interface ResponsesInputContentPart {
   type: 'input_image' | 'input_text' | 'output_text'
@@ -22,15 +27,6 @@ interface ResponsesStreamEvent {
 }
 
 const DONE_EVENT = '[DONE]'
-const OPENAI_AUTO_WEB_SEARCH_MODELS = [
-  'gpt-5.5',
-  'gpt-5.4',
-  'gpt-5.4-mini',
-  'gpt-5.4-nano',
-  'gpt-5',
-  'gpt-5-mini',
-  'gpt-5-nano',
-] as const
 const STREAM_STATUS_PROCESSING = '正在处理请求...'
 const STREAM_STATUS_SEARCH_START = '正在发起联网搜索...'
 const STREAM_STATUS_SEARCHING = '正在联网搜索...'
@@ -52,9 +48,19 @@ export const openAiResponsesAdapter: ProviderAdapter = {
       stream: input.stream,
     }
 
-    payload.temperature = input.settings.temperature
+    if (shouldIncludeProviderRequestTemperature(
+      input.settings.provider,
+      input.settings.model,
+      input.requestOptions?.thinkingEnabled,
+    )) {
+      payload.temperature = resolveProviderRequestTemperature(
+        input.settings.provider,
+        input.settings.temperature,
+        input.requestOptions?.thinkingEnabled,
+      )
+    }
 
-    if (supportsOpenAiAutoWebSearch(input.settings.model)) {
+    if (supportsOpenAiNativeWebSearchModel(input.settings.model)) {
       payload.tool_choice = 'auto'
       payload.tools = [{ type: 'web_search' }]
     }
@@ -191,10 +197,4 @@ function resolveCumulativeDelta(nextValue: string, currentValue: string): string
   return nextValue.startsWith(currentValue)
     ? nextValue.slice(currentValue.length)
     : nextValue
-}
-
-function supportsOpenAiAutoWebSearch(model: string): boolean {
-  return OPENAI_AUTO_WEB_SEARCH_MODELS.includes(
-    model.trim() as (typeof OPENAI_AUTO_WEB_SEARCH_MODELS)[number],
-  )
 }

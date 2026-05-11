@@ -1,5 +1,9 @@
 import { DEFAULT_SETTINGS } from '../constants/app'
-import { buildDefaultProviderSettings, createAddedModelDraft } from '../constants/providers'
+import {
+  ADDABLE_PROVIDER_IDS,
+  buildDefaultProviderSettings,
+  createAddedModelDraft,
+} from '../constants/providers'
 import { isLegacyMultiProviderDocShape, normalizeUtoolsUploadMode } from '../composables/chatAppSettings'
 import type {
   AddableProviderId,
@@ -101,7 +105,7 @@ function migrateLegacyMultiProviderDoc(
       { appendCurrentModel: false },
     ),
   }
-  const customModels = (['openai', 'minimax', 'kimi'] as const)
+  const customModels = ADDABLE_PROVIDER_IDS
     .map((provider) => toLegacyCustomModel(provider, doc.providers?.[provider]))
     .filter((item) => item !== null)
 

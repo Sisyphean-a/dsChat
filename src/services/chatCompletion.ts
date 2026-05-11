@@ -1,5 +1,12 @@
-import { supportsDeepseekThinking } from '../constants/providers'
-import { modelSupportsTemperature } from '../composables/chatAppSettings'
+import {
+  createThinkingPayloadForChatCompletions,
+  providerSupportsNativeWebSearch,
+  providerSupportsToolOrchestrator,
+  resolveProviderProtocol,
+  resolveProviderRequestTemperature,
+  shouldIncludeProviderRequestTemperature,
+  supportsOpenAiNativeWebSearchModel,
+} from '../constants/providerCapabilities'
 import type {
   ActiveProviderSettings,
   ChatMessage,
@@ -90,15 +97,6 @@ export interface ChatRequestOptions {
 }
 
 const DONE_EVENT = '[DONE]'
-const OPENAI_AUTO_WEB_SEARCH_MODELS = [
-  'gpt-5.5',
-  'gpt-5.4',
-  'gpt-5.4-mini',
-  'gpt-5.4-nano',
-  'gpt-5',
-  'gpt-5-mini',
-  'gpt-5-nano',
-] as const
 const STREAM_STATUS_PROCESSING = '正在处理请求...'
 const STREAM_STATUS_SEARCH_START = '正在发起联网搜索...'
 const STREAM_STATUS_SEARCHING = '正在联网搜索...'
@@ -220,11 +218,11 @@ function shouldUseToolOrchestrator(
     return false
   }
 
-  if (settings.provider === 'openai' && toolSettings.openaiUseNativeWebSearch) {
-    return false
+  if (providerSupportsNativeWebSearch(settings.provider) && !toolSettings.openaiUseNativeWebSearch) {
+    throw new Error(`${settings.label} 当前配置暂不支持工具调用。`)
   }
 
-  return true
+  return providerSupportsToolOrchestrator(settings.provider)
 }
 
 function extractEventPayload(frame: string): string {
@@ -424,7 +422,7 @@ function finalizeStreamContent(content: string, label: string): string {
 }
 
 function createRequestUrl(baseUrl: string, provider: ProviderId): string {
-  if (provider === 'openai') {
+  if (resolveProviderProtocol(provider) === 'responses') {
     return `${baseUrl.replace(/\/$/, '')}/responses`
   }
 
@@ -457,7 +455,11 @@ function createPayload(
     stream,
   }
 
-  if (shouldIncludeTemperature(settings, requestOptions)) {
+  if (shouldIncludeProviderRequestTemperature(
+    settings.provider,
+    settings.model,
+    requestOptions?.thinkingEnabled,
+  )) {
     payload.temperature = resolveRequestTemperature(
       settings.provider,
       settings.temperature,
@@ -465,42 +467,16 @@ function createPayload(
     )
   }
 
-  if (settings.provider === 'deepseek' && supportsDeepseekThinking(settings.model)) {
-    payload.thinking = {
-      type: (requestOptions?.thinkingEnabled ?? true) ? 'enabled' : 'disabled',
-    }
-  }
-
-  if (settings.provider === 'minimax') {
-    payload.reasoning_split = requestOptions?.thinkingEnabled ?? true
-  }
-
-  if (settings.provider === 'kimi') {
-    payload.thinking = {
-      type: (requestOptions?.thinkingEnabled ?? true) ? 'enabled' : 'disabled',
-    }
-  }
+  Object.assign(
+    payload,
+    createThinkingPayloadForChatCompletions(
+      settings.provider,
+      settings.model,
+      requestOptions?.thinkingEnabled,
+    ),
+  )
 
   return payload
-}
-
-function shouldIncludeTemperature(
-  settings: ActiveProviderSettings,
-  requestOptions?: ChatRequestOptions,
-): boolean {
-  if (!modelSupportsTemperature(settings.provider, settings.model)) {
-    return false
-  }
-
-  if (settings.provider !== 'deepseek') {
-    return true
-  }
-
-  if (!supportsDeepseekThinking(settings.model)) {
-    return true
-  }
-
-  return (requestOptions?.thinkingEnabled ?? true) === false
 }
 
 function resolveRequestTemperature(
@@ -508,11 +484,11 @@ function resolveRequestTemperature(
   configuredTemperature: number,
   requestOptions?: ChatRequestOptions,
 ): number {
-  if (provider !== 'kimi') {
-    return configuredTemperature
-  }
-
-  return (requestOptions?.thinkingEnabled ?? true) ? 1.0 : 0.6
+  return resolveProviderRequestTemperature(
+    provider,
+    configuredTemperature,
+    requestOptions?.thinkingEnabled,
+  )
 }
 
 function createOpenAiPayload(
@@ -530,22 +506,24 @@ function createOpenAiPayload(
     stream,
   }
 
-  if (shouldIncludeTemperature(settings, requestOptions)) {
-    payload.temperature = settings.temperature
+  if (shouldIncludeProviderRequestTemperature(
+    settings.provider,
+    settings.model,
+    requestOptions?.thinkingEnabled,
+  )) {
+    payload.temperature = resolveProviderRequestTemperature(
+      settings.provider,
+      settings.temperature,
+      requestOptions?.thinkingEnabled,
+    )
   }
 
-  if (supportsOpenAiAutoWebSearch(settings.model)) {
+  if (supportsOpenAiNativeWebSearchModel(settings.model)) {
     payload.tool_choice = 'auto'
     payload.tools = [{ type: 'web_search' }]
   }
 
   return payload
-}
-
-function supportsOpenAiAutoWebSearch(model: string): boolean {
-  return OPENAI_AUTO_WEB_SEARCH_MODELS.includes(
-    model.trim() as (typeof OPENAI_AUTO_WEB_SEARCH_MODELS)[number],
-  )
 }
 
 async function createProviderFailureMessage(

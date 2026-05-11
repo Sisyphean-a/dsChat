@@ -33,6 +33,7 @@ import { preparePendingImages } from './chatAppAttachments'
 import { finalizeStreamingMessages } from './chatAppMessages'
 import { createChatAppConversationPersistence } from './chatAppConversationPersistence'
 import { getErrorMessage } from './chatAppErrors'
+import { providerSupportsImageInput } from '../constants/providerCapabilities'
 import {
   resolveThinkingEnabled as getThinkingEnabledForProvider,
   resolveThinkingProvider,
@@ -181,6 +182,18 @@ export function useChatApp() {
     pendingAttachments.value = pendingAttachments.value.filter((item) => item.id !== id)
   }
 
+  function selectActiveConfig(configId: string): void {
+    if (isSending.value) {
+      return
+    }
+
+    settingsActions.selectActiveConfig(configId)
+    const nextProvider = getActiveProviderSettings(settings.value).provider
+    if (pendingAttachments.value.length > 0 && !providerSupportsImageInput(nextProvider)) {
+      pendingAttachments.value = []
+    }
+  }
+
   function updateActiveThinkingEnabled(enabled: boolean): void {
     const provider = activeChatConfig.value.provider
     const target = resolveThinkingProvider(provider)
@@ -325,7 +338,7 @@ export function useChatApp() {
     removeCustomTool: settingsActions.removeCustomTool,
     removePendingAttachment,
     saveSettings: saveSettingsAction,
-    selectActiveConfig: settingsActions.selectActiveConfig,
+    selectActiveConfig,
     selectActiveModel: settingsActions.selectActiveModel,
     selectConversation,
     sendMessage: sendActions.sendMessage,

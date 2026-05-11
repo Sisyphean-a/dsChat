@@ -2,11 +2,15 @@ import { FONT_SIZE_OPTIONS, THEME_OPTIONS } from '../constants/app'
 import {
   buildDefaultProviderSettings,
   DEFAULT_CONFIG_ID,
-  findProviderModel,
   getProviderDefinition,
+  providerModelSupportsTemperature,
   getProviderTemperatureRange,
   isAddableProviderId,
 } from '../constants/providers'
+import {
+  providerSupportsNativeWebSearch,
+  providerSupportsToolOrchestrator,
+} from '../constants/providerCapabilities'
 import {
   DEFAULT_UTOOLS_UPLOAD_MODE,
   UTOOLS_UPLOAD_MODES,
@@ -155,8 +159,7 @@ export function normalizeModelOptions(
 }
 
 export function modelSupportsTemperature(provider: ProviderId, model: string): boolean {
-  const matched = findProviderModel(provider, model)
-  return matched?.supportsTemperature ?? true
+  return providerModelSupportsTemperature(provider, model)
 }
 
 function normalizeCustomModels(incomingModels: SettingsForm['customModels'] | undefined): AddedModelConfig[] {
@@ -412,11 +415,11 @@ function providerSupportsToolCalling(
   provider: ProviderId,
   toolSettings: SettingsForm['toolSettings'],
 ): boolean {
-  if (provider !== 'openai') {
+  if (providerSupportsToolOrchestrator(provider)) {
     return true
   }
 
-  return toolSettings.openaiUseNativeWebSearch
+  return providerSupportsNativeWebSearch(provider) && toolSettings.openaiUseNativeWebSearch
 }
 
 function hasEnabledBuiltinTool(toolSettings: SettingsForm['toolSettings']): boolean {

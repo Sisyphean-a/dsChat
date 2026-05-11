@@ -406,6 +406,73 @@ describe('useChatApp', () => {
     expect(streamChatCompletion).not.toHaveBeenCalled()
   })
 
+  it('auto-clears pending images when switching to a provider that does not support image input', async () => {
+    const app = useChatApp()
+    await app.initialize()
+    app.addCustomModel('openai')
+
+    const openaiId = app.settings.value.customModels[0]?.id as string
+    app.selectActiveConfig(openaiId)
+    app.pendingAttachments.value = [{
+      id: 'img-1',
+      type: 'image',
+      name: 'demo.png',
+      mimeType: 'image/png',
+      size: 128,
+      width: 10,
+      height: 10,
+      dataUrl: 'data:image/png;base64,abc',
+    }]
+
+    app.selectActiveConfig('deepseek')
+
+    expect(app.settings.value.activeConfigId).toBe('deepseek')
+    expect(app.pendingAttachments.value).toEqual([])
+  })
+
+  it('locks provider switching while sending, but still allows model switching', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+
+    let resolveReply: (value: string) => void = () => {
+      throw new Error('流式回调未建立。')
+    }
+    vi.mocked(streamChatCompletion).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveReply = resolve
+        }),
+    )
+
+    const app = useChatApp()
+    await app.initialize()
+    app.addCustomModel('openai')
+    const openaiId = app.settings.value.customModels[0]?.id as string
+    app.updateCustomModelField(openaiId, 'apiKey', 'sk-openai')
+    app.selectActiveConfig(openaiId)
+    app.draftMessage.value = '你好'
+
+    const sendPromise = app.sendMessage()
+    await vi.waitFor(() => {
+      expect(app.isSending.value).toBe(true)
+    })
+    await vi.waitFor(() => {
+      expect(streamChatCompletion).toHaveBeenCalledTimes(1)
+    })
+
+    app.selectActiveConfig('deepseek')
+    app.selectActiveModel('gpt-5.4')
+
+    expect(app.settings.value.activeConfigId).toBe(openaiId)
+    expect(app.settings.value.customModels[0]?.model).toBe('gpt-5.4')
+
+    resolveReply('回答完成')
+    await sendPromise
+  })
+
   it('allows adding and removing custom model options', async () => {
     const app = useChatApp()
     await app.initialize()
