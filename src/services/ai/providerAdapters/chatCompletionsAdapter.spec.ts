@@ -117,6 +117,31 @@ describe('chatCompletionsAdapter', () => {
     expect(payload.temperature).toBe(0.6)
     expect(payload.thinking).toEqual({ type: 'disabled' })
   })
+
+  it('disables parallel tool calls when tools are provided', () => {
+    const payload = chatCompletionsAdapter.createPayload({
+      messages: [{
+        role: 'user',
+        content: '查新闻',
+      }],
+      settings: createDeepseekSettings(),
+      stream: true,
+      tools: [{
+        type: 'function',
+        function: {
+          name: 'tavily_search',
+          description: '联网搜索',
+          parameters: {
+            type: 'object',
+            properties: {},
+          },
+        },
+      }],
+    })
+
+    expect(payload.parallel_tool_calls).toBe(false)
+    expect(payload.tool_choice).toBe('auto')
+  })
 })
 
 function createDeepseekSettings() {

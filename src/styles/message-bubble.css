@@ -246,7 +246,7 @@
 }
 
 .preview-panel {
-  max-width: min(680px, 100%);
+  max-width: min(650px, 100%);
   max-height: calc(100vh - 80px);
   background: var(--bg);
   border: 1px solid var(--border);

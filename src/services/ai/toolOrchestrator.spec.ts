@@ -210,6 +210,59 @@ describe('streamWithToolOrchestrator', () => {
     ).rejects.toThrow('检测到重复工具调用：tavily_search')
   })
 
+  it('continues execution when provider returns multiple tool calls in one round', async () => {
+    let providerRound = 0
+    const statuses: string[] = []
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === 'https://api.tavily.com/search') {
+        return new Response(JSON.stringify({
+          query: 'AI news this week',
+          results: [],
+        }), { status: 200 })
+      }
+
+      providerRound += 1
+      if (providerRound === 1) {
+        return {
+          ok: true,
+          body: createSseStream([
+            'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"get_current_time","arguments":"{}"}},{"index":1,"id":"call_2","type":"function","function":{"name":"tavily_search","arguments":"{\\"query\\":\\"AI news this week\\"}"}}]}}]}',
+            'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
+            'data: [DONE]',
+          ]),
+        }
+      }
+
+      return {
+        ok: true,
+        body: createSseStream([
+          'data: {"choices":[{"delta":{"content":"已整理完成"}}]}',
+          'data: [DONE]',
+        ]),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const content = await streamWithToolOrchestrator(
+      [createUserMessage('整理最近一周AI新闻')],
+      createSettings(),
+      (delta) => {
+        if (delta.streamingStatus) {
+          statuses.push(delta.streamingStatus)
+        }
+      },
+      undefined,
+      {
+        toolSettings: createToolSettings(),
+      },
+    )
+
+    expect(content).toBe('已整理完成')
+    expect(statuses).toContain('正在调用时间工具')
+    expect(statuses).toContain('正在调用联网搜索（关键词：AI news this week）')
+  })
+
   it('passes reasoning_content back for deepseek thinking mode after tool calls', async () => {
     const providerBodies: Array<Record<string, unknown>> = []
     const fetchMock = createReasoningToolCallFlowFetch(providerBodies)

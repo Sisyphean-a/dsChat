@@ -239,7 +239,7 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: min(680px, 100%);
+  max-width: min(650px, 100%);
   max-height: calc(100vh - 80px);
   padding: 12px;
   background: var(--bg);

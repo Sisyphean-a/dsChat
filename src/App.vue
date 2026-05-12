@@ -7,7 +7,7 @@ import SettingsPanel from './components/SettingsPanel.vue'
 import SidebarPanel from './components/SidebarPanel.vue'
 import { useMessageListAutoScroll } from './composables/useMessageListAutoScroll'
 import { useChatApp } from './composables/useChatApp'
-import { getModelConfigOptions } from './composables/chatAppSettings'
+import { canActiveConversationSearchWeb, getModelConfigOptions } from './composables/chatAppSettings'
 
 const app = useChatApp()
 const configOptions = computed(() => getModelConfigOptions(app.settings.value))
@@ -28,6 +28,21 @@ const currentTitle = computed(() => {
 })
 const composerPlaceholder = computed(() => {
   return `给 ${app.activeChatConfig.value.label} 发送消息...`
+})
+const quickPrompts = computed(() => {
+  if (canActiveConversationSearchWeb(app.settings.value)) {
+    return [
+      { autoSend: true, label: '今天有什么大事件吗？', prompt: '今天有什么大事件吗？' },
+      { autoSend: true, label: '整理最近一周的AI新闻', prompt: '整理最近一周的AI新闻' },
+      { autoSend: true, label: '解释大语言模型', prompt: '请解释什么是大语言模型（LLM）？' },
+    ]
+  }
+
+  return [
+    { autoSend: true, label: '写一段 Python 快速排序代码', prompt: '写一段 Python 快速排序代码' },
+    { label: '翻译英文', prompt: '帮我翻译这段英文到中文：\n\n' },
+    { autoSend: true, label: '解释大语言模型', prompt: '请解释什么是大语言模型（LLM）？' },
+  ]
 })
 
 function handleModelSelect(model: string): void {
@@ -121,14 +136,13 @@ onMounted(() => {
         <div class="empty-content">
           <h2>今天想要问些什么？</h2>
           <div class="quick-prompts">
-            <button class="prompt-btn" @click="applyQuickPrompt('写一段 Python 快速排序代码', true)">
-              写一段 Python 快速排序代码
-            </button>
-            <button class="prompt-btn" @click="applyQuickPrompt('帮我翻译这段英文到中文：\n\n')">
-              翻译英文
-            </button>
-            <button class="prompt-btn" @click="applyQuickPrompt('请解释什么是大语言模型（LLM）？', true)">
-              解释大语言模型
+            <button
+              v-for="item in quickPrompts"
+              :key="item.label"
+              class="prompt-btn"
+              @click="applyQuickPrompt(item.prompt, item.autoSend)"
+            >
+              {{ item.label }}
             </button>
           </div>
         </div>

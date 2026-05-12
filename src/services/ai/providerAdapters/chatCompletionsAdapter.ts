@@ -79,6 +79,7 @@ export const chatCompletionsAdapter: ProviderAdapter = {
     )
 
     if (input.tools?.length) {
+      payload.parallel_tool_calls = false
       payload.tool_choice = 'auto'
       payload.tools = input.tools
     }

@@ -10,6 +10,7 @@ import {
 import {
   providerSupportsNativeWebSearch,
   providerSupportsToolOrchestrator,
+  supportsOpenAiNativeWebSearchModel,
 } from '../constants/providerCapabilities'
 import { DEFAULT_TAVILY_SEARCH_BASE_URL } from '../constants/tools'
 import {
@@ -78,6 +79,17 @@ export function getSendSettingsError(currentSettings: SettingsForm): string | nu
   }
 
   return null
+}
+
+export function canActiveConversationSearchWeb(currentSettings: SettingsForm): boolean {
+  const normalizedSettings = normalizeSettings(currentSettings)
+  const activeSettings = getActiveProviderSettings(normalizedSettings)
+
+  if (canUseOpenAiNativeWebSearch(activeSettings, normalizedSettings.toolSettings)) {
+    return true
+  }
+
+  return canUseBuiltinTavilySearch(activeSettings.provider, normalizedSettings.toolSettings)
 }
 
 export function getActiveProviderSettings(settings: SettingsForm): ActiveProviderSettings {
@@ -423,6 +435,41 @@ function providerSupportsToolCalling(
   }
 
   return providerSupportsNativeWebSearch(provider) && toolSettings.openaiUseNativeWebSearch
+}
+
+function canUseOpenAiNativeWebSearch(
+  activeSettings: ActiveProviderSettings,
+  toolSettings: SettingsForm['toolSettings'],
+): boolean {
+  if (!providerSupportsNativeWebSearch(activeSettings.provider)) {
+    return false
+  }
+
+  if (!supportsOpenAiNativeWebSearchModel(activeSettings.model)) {
+    return false
+  }
+
+  if (toolSettings.enabled && !toolSettings.openaiUseNativeWebSearch) {
+    return false
+  }
+
+  return true
+}
+
+function canUseBuiltinTavilySearch(
+  provider: ProviderId,
+  toolSettings: SettingsForm['toolSettings'],
+): boolean {
+  if (!toolSettings.enabled || !providerSupportsToolOrchestrator(provider)) {
+    return false
+  }
+
+  if (toolSettings.customTools.some((item) => item.enabled)) {
+    return false
+  }
+
+  return toolSettings.builtinTools.tavilySearch.enabled
+    && Boolean(toolSettings.builtinTools.tavilySearch.apiKey.trim())
 }
 
 function normalizeTavilySearchBaseUrl(value: string | undefined): string {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildDefaultSettings, createAddedModelDraft } from '../constants/providers'
-import { getSendSettingsError, normalizeSettings } from './chatAppSettings'
+import { canActiveConversationSearchWeb, getSendSettingsError, normalizeSettings } from './chatAppSettings'
 
 describe('getSendSettingsError', () => {
   it('allows tool calling without tavily api key', () => {
@@ -93,5 +93,36 @@ describe('normalizeSettings', () => {
     const normalized = normalizeSettings(settings)
     expect(normalized.toolSettings.builtinTools.tavilySearch.apiKey).toBe('tvly-legacy-key')
     expect(normalized.toolSettings.builtinTools.tavilySearch.baseUrl).toBe('https://api.tavily.com/search')
+  })
+})
+
+describe('canActiveConversationSearchWeb', () => {
+  it('returns true for OpenAI native web search models', () => {
+    const settings = buildDefaultSettings()
+    const openai = createAddedModelDraft('openai', [])
+    openai.model = 'gpt-5.5'
+    settings.customModels = [openai]
+    settings.activeConfigId = openai.id
+    settings.toolSettings.enabled = false
+
+    expect(canActiveConversationSearchWeb(settings)).toBe(true)
+  })
+
+  it('returns true when tavily search is enabled with api key on tool orchestrator providers', () => {
+    const settings = buildDefaultSettings()
+    settings.toolSettings.enabled = true
+    settings.toolSettings.builtinTools.tavilySearch.enabled = true
+    settings.toolSettings.builtinTools.tavilySearch.apiKey = 'tvly-key'
+
+    expect(canActiveConversationSearchWeb(settings)).toBe(true)
+  })
+
+  it('returns false when tavily key is missing even if search tool is enabled', () => {
+    const settings = buildDefaultSettings()
+    settings.toolSettings.enabled = true
+    settings.toolSettings.builtinTools.tavilySearch.enabled = true
+    settings.toolSettings.builtinTools.tavilySearch.apiKey = ''
+
+    expect(canActiveConversationSearchWeb(settings)).toBe(false)
   })
 })
