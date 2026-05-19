@@ -73,7 +73,6 @@ export interface AiToolDefinition {
 export interface ToolSettings {
   enabled: boolean
   tavilyApiKey: string
-  maxToolRounds: number
 }
 
 export interface ToolExecutionContext {
@@ -139,9 +138,9 @@ export interface ProviderAdapter {
 5. 遇到工具调用时暂停文本输出，执行工具。
 6. 将 assistant tool call 消息和 tool result 消息追加进本轮上下文。
 7. 再次请求模型。
-8. 达到 `maxToolRounds` 后抛出错误。
+8. 循环执行直到模型不再发起工具调用或出现显式错误。
 
-核心循环：选择 adapter 与 tools，发起一轮 provider 请求；如果没有 tool calls 就返回最终文本；如果有 tool calls，就执行工具、追加 assistant tool call 与 tool result 消息，再进入下一轮；超过 `maxToolRounds` 时抛错。
+核心循环：选择 adapter 与 tools，发起一轮 provider 请求；如果没有 tool calls 就返回最终文本；如果有 tool calls，就执行工具、追加 assistant tool call 与 tool result 消息，再进入下一轮，直到模型返回最终文本。
 
 ## Tavily 工具
 
@@ -179,7 +178,7 @@ Content-Type: application/json
 
 `src/types/chat.ts` 增加 `ToolSettings`，并在 `SettingsForm` / `SettingsDoc` 增加 `toolSettings: ToolSettings`。
 
-默认值：`{ enabled: false, tavilyApiKey: '', maxToolRounds: 3 }`。
+默认值：`{ enabled: false, tavilyApiKey: '' }`。
 
 `SettingsPanel.vue` 增加工具设置区：启用工具调用、Tavily API Key 输入框。最大工具轮数首版可固定为 3，不暴露 UI。
 

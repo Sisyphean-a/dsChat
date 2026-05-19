@@ -72,7 +72,6 @@ function createToolSettings(
 ) {
   return {
     enabled: true,
-    maxToolRounds: 3,
     builtinTools: overrides.builtinTools ?? {
       currentTime: {
         enabled: true,

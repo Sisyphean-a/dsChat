@@ -113,66 +113,6 @@ describe('streamWithToolOrchestrator', () => {
     expect(latestTimeline?.some((item) => item.type === 'tool' && item.status === 'done')).toBe(true)
   })
 
-  it('falls back to summary answer when tool rounds exceed configured max', async () => {
-    let providerRound = 0
-    const providerBodies: Array<Record<string, unknown>> = []
-    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      if (url === 'https://api.tavily.com/search') {
-        return new Response(JSON.stringify({
-          query: 'news',
-          results: [],
-        }), { status: 200 })
-      }
-
-      providerRound += 1
-      providerBodies.push(parseJsonBody(init?.body))
-      if (providerRound === 3) {
-        return {
-          ok: true,
-          body: createSseStream([
-            'data: {"choices":[{"delta":{"content":"基于已有结果给出总结"}}]}',
-            'data: [DONE]',
-          ]),
-        }
-      }
-
-      return {
-        ok: true,
-        body: createSseStream([
-          `data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_${providerRound}","type":"function","function":{"name":"tavily_search","arguments":"{\\"query\\":\\"news\\"}"}}]}}]}`,
-          'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
-          'data: [DONE]',
-        ]),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    const statuses: string[] = []
-    const content = await streamWithToolOrchestrator(
-      [createUserMessage('查新闻')],
-      createSettings(),
-      (delta) => {
-        if (delta.streamingStatus) {
-          statuses.push(delta.streamingStatus)
-        }
-      },
-      undefined,
-      {
-        toolSettings: createToolSettings({ maxToolRounds: 1 }),
-      },
-    )
-
-    expect(content).toBe('基于已有结果给出总结')
-    expect(statuses).toContain('已达到工具调用上限，正在基于已有结果生成回答...')
-    expect(providerRound).toBe(3)
-    const summaryRequestBody = providerBodies[2] as Record<string, unknown>
-    expect(summaryRequestBody.tools).toBeUndefined()
-    const summaryMessages = summaryRequestBody.messages as Array<{ role?: string; content?: string }>
-    const limitMessage = summaryMessages.find((item) => item.role === 'system')?.content ?? ''
-    expect(limitMessage).toContain('工具调用轮数超过上限：1')
-  })
-
   it('throws duplicate call error when model repeats the same tool call consecutively', async () => {
     let providerRound = 0
     const fetchMock = vi.fn(async (url: string) => {
@@ -204,7 +144,7 @@ describe('streamWithToolOrchestrator', () => {
         vi.fn(),
         undefined,
         {
-          toolSettings: createToolSettings({ maxToolRounds: 3 }),
+          toolSettings: createToolSettings(),
         },
       ),
     ).rejects.toThrow('检测到重复工具调用：tavily_search')
@@ -370,13 +310,10 @@ function createUserMessage(content: string): ChatMessage {
   }
 }
 
-function createToolSettings(
-  overrides: Partial<{ maxToolRounds: number }> = {},
-) {
+function createToolSettings() {
   return {
     enabled: true,
     openaiUseNativeWebSearch: true,
-    maxToolRounds: overrides.maxToolRounds ?? 3,
     builtinTools: {
       currentTime: {
         enabled: true,
@@ -391,14 +328,6 @@ function createToolSettings(
   }
 }
 
-function parseJsonBody(body: BodyInit | null | undefined): Record<string, unknown> {
-  if (typeof body !== 'string') {
-    throw new Error('expected request body to be JSON string')
-  }
-
-  return JSON.parse(body) as Record<string, unknown>
-}
-
 function createReasoningToolCallFlowFetch(providerBodies: Array<Record<string, unknown>>) {
   let providerRound = 0
   return vi.fn(async (url: string, init?: RequestInit) => {
@@ -410,7 +339,10 @@ function createReasoningToolCallFlowFetch(providerBodies: Array<Record<string, u
     }
 
     providerRound += 1
-    providerBodies.push(parseJsonBody(init?.body))
+    if (typeof init?.body !== 'string') {
+      throw new Error('expected request body to be JSON string')
+    }
+    providerBodies.push(JSON.parse(init.body) as Record<string, unknown>)
     return {
       ok: true,
       body: createSseStream(providerRound === 1

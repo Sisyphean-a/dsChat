@@ -30,19 +30,16 @@ import {
 import { runWithAbortTimeout } from './toolTimeouts'
 import type { AiTool, NormalizedToolCall, ToolSettings } from './toolTypes'
 
-const MAX_TOTAL_TOOL_CALLS = 12
 const ORCHESTRATOR_TIMEOUT_MS = 150000
 const PROVIDER_ROUND_TIMEOUT_MS = 45000
 const TOOL_EXECUTION_TIMEOUT_MS = 20000
 const TOOL_STATUS_CONTINUING = '已获得工具结果，正在整理回答...'
-const TOOL_STATUS_LIMIT_REACHED = '已达到工具调用上限，正在基于已有结果生成回答...'
 
 interface RuntimeState {
   timeline: ProcessTimelineItem[]
   timelineCounter: number
   previousCallSignature: string
   roundCount: number
-  toolCallCount: number
   traces: ToolTraceRecord[]
 }
 
@@ -87,12 +84,11 @@ async function runToolLoop(options: {
 }): Promise<string> {
   const startedAtMs = Date.now()
   let aggregatedContent = ''
-  const adapter = getProviderAdapter(options.settings.provider)
 
   while (true) {
     assertOrchestratorWithinTimeBudget(startedAtMs)
     const round = await executeProviderRound({
-      adapter,
+      adapter: getProviderAdapter(options.settings.provider),
       contextMessages: options.contextMessages,
       onDelta: options.onDelta,
       requestOptions: options.requestOptions,
@@ -112,24 +108,6 @@ async function runToolLoop(options: {
     }
 
     options.runtime.roundCount += 1
-    const budgetViolation = resolveToolRoundBudgetError(
-      options.runtime,
-      options.runtimeSettings.maxToolRounds,
-      round.toolCalls.length,
-    )
-    if (budgetViolation) {
-      return finalizeWhenToolBudgetExceeded({
-        adapter,
-        aggregatedContent,
-        contextMessages: options.contextMessages,
-        onDelta: options.onDelta,
-        requestOptions: options.requestOptions,
-        runtime: options.runtime,
-        settings: options.settings,
-        signal: options.signal,
-        violation: budgetViolation,
-      })
-    }
     options.contextMessages.push(createAssistantToolMessage(round))
 
     await executeRoundToolCalls({
@@ -148,46 +126,6 @@ async function runToolLoop(options: {
       toolTraces: cloneToolTraces(options.runtime.traces),
     })
   }
-}
-
-async function finalizeWhenToolBudgetExceeded(options: {
-  adapter: ReturnType<typeof getProviderAdapter>
-  aggregatedContent: string
-  contextMessages: ProviderConversationMessage[]
-  onDelta: (delta: StreamDelta) => void
-  requestOptions?: ChatRequestOptions
-  runtime: RuntimeState
-  settings: ActiveProviderSettings
-  signal?: AbortSignal
-  violation: ToolFlowError
-}): Promise<string> {
-  options.onDelta({
-    streamingStatus: TOOL_STATUS_LIMIT_REACHED,
-    processTimeline: cloneProcessTimeline(options.runtime.timeline),
-    toolTraces: cloneToolTraces(options.runtime.traces),
-  })
-
-  options.contextMessages.push({
-    role: 'system',
-    content: createToolLimitSystemPrompt(options.violation.message),
-  })
-
-  const summaryRound = await executeProviderRound({
-    adapter: options.adapter,
-    contextMessages: options.contextMessages,
-    onDelta: options.onDelta,
-    requestOptions: options.requestOptions,
-    settings: options.settings,
-    signal: options.signal,
-    tools: [],
-  })
-
-  const finalAggregated = summaryRound.content
-    ? `${options.aggregatedContent}${summaryRound.content}`
-    : options.aggregatedContent
-  appendReasoningTimeline(summaryRound, options.runtime)
-  emitRuntimeState(options.onDelta, options.runtime)
-  return finalizeRoundContent(summaryRound, finalAggregated, options.settings.label)
 }
 
 async function executeProviderRound(options: {
@@ -260,7 +198,6 @@ async function executeSingleToolCall(options: {
       toolArgs: parsedToolArgs,
     })
     assertToolCallIsNotDuplicated(options.call, options.runtime)
-    options.runtime.toolCallCount += 1
 
     const tool = resolveToolByCallName(options.tools, options.call.name)
     emitToolCallStatus(options.onDelta, options.call.name, args)
@@ -333,7 +270,6 @@ function createRuntimeState(): RuntimeState {
     timelineCounter: 0,
     previousCallSignature: '',
     roundCount: 0,
-    toolCallCount: 0,
     traces: [],
   }
 }
@@ -351,21 +287,6 @@ function finalizeRoundContent(round: ProviderRoundResult, aggregated: string, pr
   }
 
   return finalContent
-}
-
-function resolveToolRoundBudgetError(
-  state: RuntimeState,
-  maxRoundCount: number,
-  roundCallCount: number,
-): ToolFlowError | null {
-  if (state.roundCount > maxRoundCount) {
-    return new ToolFlowError('tool_round_limit', `工具调用轮数超过上限：${maxRoundCount}`)
-  }
-  if (state.toolCallCount + roundCallCount > MAX_TOTAL_TOOL_CALLS) {
-    return new ToolFlowError('tool_round_limit', `工具调用次数超过上限：${MAX_TOTAL_TOOL_CALLS}`)
-  }
-
-  return null
 }
 
 function createAssistantToolMessage(round: ProviderRoundResult): ProviderConversationMessage {
@@ -484,15 +405,6 @@ function resolveToolCallingHint(toolName: string, toolArgs: unknown): string {
 
 function compactHint(value: string): string {
   return value.length > 42 ? `${value.slice(0, 42)}...` : value
-}
-
-function createToolLimitSystemPrompt(limitMessage: string): string {
-  return [
-    `系统提示：${limitMessage}`,
-    '禁止继续调用任何工具。',
-    '请基于当前上下文中已经返回的工具结果和已有推理，直接给出最终回答。',
-    '若信息不足请明确说明不确定性，不要编造。',
-  ].join('\n')
 }
 
 async function waitForStatusRender(): Promise<void> {

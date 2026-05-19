@@ -684,7 +684,6 @@ describe('useChatApp', () => {
       toolSettings: {
         enabled: true,
         openaiUseNativeWebSearch: true,
-        maxToolRounds: 6,
         builtinTools: {
           currentTime: {
             enabled: true,
@@ -718,7 +717,6 @@ describe('useChatApp', () => {
         toolSettings: {
           enabled: true,
           openaiUseNativeWebSearch: true,
-          maxToolRounds: 6,
           builtinTools: {
             currentTime: {
               enabled: true,

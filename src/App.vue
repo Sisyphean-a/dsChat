@@ -34,7 +34,7 @@ const quickPrompts = computed(() => {
     return [
       { autoSend: true, label: '今天有什么大事件吗？', prompt: '今天有什么大事件吗？' },
       { autoSend: true, label: '整理最近一周的AI新闻', prompt: '整理最近一周的AI新闻' },
-      { autoSend: true, label: '解释大语言模型', prompt: '请解释什么是大语言模型（LLM）？' },
+      { autoSend: true, label: '今天的股市有什么变动吗？', prompt: '今天的股市有什么变动吗？' },
     ]
   }
 
@@ -211,7 +211,6 @@ onMounted(() => {
       @update-font-size="app.updateFontSize"
       @update-theme="app.updateTheme"
       @update-tool-enabled="app.updateToolEnabled"
-      @update-tool-max-rounds="app.updateToolMaxRounds"
       @update-tool-open-ai-native-search="app.updateToolOpenAiNativeSearch"
       @update-utools-upload-mode="app.updateUtoolsUploadMode"
     />

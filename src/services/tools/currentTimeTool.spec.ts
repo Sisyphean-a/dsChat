@@ -56,7 +56,6 @@ describe('currentTimeTool', () => {
 function createToolSettings() {
   return {
     enabled: true,
-    maxToolRounds: 3,
     builtinTools: {
       currentTime: {
         enabled: true,

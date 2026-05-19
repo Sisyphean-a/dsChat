@@ -647,7 +647,6 @@ describe('streamChatCompletion', () => {
           toolSettings: {
             enabled: true,
             openaiUseNativeWebSearch: false,
-            maxToolRounds: 6,
             builtinTools: {
               currentTime: {
                 enabled: true,
@@ -692,7 +691,6 @@ describe('streamChatCompletion', () => {
         toolSettings: {
           enabled: true,
           openaiUseNativeWebSearch: true,
-          maxToolRounds: 6,
           builtinTools: {
             currentTime: {
               enabled: true,

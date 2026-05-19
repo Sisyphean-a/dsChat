@@ -12,7 +12,6 @@ export type ToolTraceErrorCode =
   | 'tool_duplicate_call'
   | 'tool_execute_timeout'
   | 'tool_execute_failure'
-  | 'tool_round_limit'
   | 'tool_unknown'
   | 'provider_round_timeout'
   | 'provider_round_failure'
@@ -129,7 +128,6 @@ export interface CustomToolSettings {
 export interface ToolSettings {
   enabled: boolean
   openaiUseNativeWebSearch: boolean
-  maxToolRounds: number
   builtinTools: BuiltinToolSettings
   customTools: CustomToolSettings[]
 }

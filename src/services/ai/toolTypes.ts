@@ -34,7 +34,6 @@ export interface RuntimeCustomToolSettings {
 
 export interface ToolSettings {
   enabled: boolean
-  maxToolRounds: number
   builtinTools: RuntimeBuiltinToolSettings
   customTools: RuntimeCustomToolSettings[]
 }

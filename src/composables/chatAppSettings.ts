@@ -337,13 +337,11 @@ function normalizeToolSettings(
   const legacy = toolSettings as Partial<{
     tavilyApiKey: string
   }>
-  const maxToolRounds = normalizeMaxToolRounds(toolSettings?.maxToolRounds)
   const builtinTools = normalizeBuiltinToolSettings(toolSettings, legacy.tavilyApiKey)
   const customTools = normalizeCustomToolSettings(toolSettings)
   return {
     enabled: toolSettings?.enabled ?? false,
     openaiUseNativeWebSearch: toolSettings?.openaiUseNativeWebSearch ?? true,
-    maxToolRounds,
     builtinTools,
     customTools,
   }
@@ -415,15 +413,6 @@ function normalizeCustomToolHeaders(
 
 function createCustomToolId(): string {
   return `tool-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-}
-
-function normalizeMaxToolRounds(value: number | undefined): number {
-  if (!Number.isFinite(value)) {
-    return 6
-  }
-
-  const normalized = Math.floor(value as number)
-  return Math.min(10, Math.max(1, normalized))
 }
 
 function providerSupportsToolCalling(

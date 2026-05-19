@@ -58,7 +58,6 @@ export interface ChatAppSettingsActions {
   ) => void
   updateTheme: (theme: ThemeMode) => void
   updateToolEnabled: (enabled: boolean) => void
-  updateToolMaxRounds: (maxToolRounds: number) => void
   updateToolOpenAiNativeSearch: (enabled: boolean) => void
   updateUtoolsUploadMode: (mode: UtoolsUploadMode) => void
 }
@@ -307,16 +306,6 @@ export function createChatAppSettingsActions(
     }
   }
 
-  function updateToolMaxRounds(maxToolRounds: number): void {
-    settings.value = {
-      ...settings.value,
-      toolSettings: {
-        ...settings.value.toolSettings,
-        maxToolRounds,
-      },
-    }
-  }
-
   function updateBuiltinToolEnabled(tool: BuiltinToolField, enabled: boolean): void {
     settings.value = {
       ...settings.value,
@@ -453,7 +442,6 @@ export function createChatAppSettingsActions(
     updateProviderThinking,
     updateTheme,
     updateToolEnabled,
-    updateToolMaxRounds,
     updateToolOpenAiNativeSearch,
     updateUtoolsUploadMode,
   }

@@ -102,7 +102,6 @@ export function toRuntimeToolSettings(settings: ChatToolSettings | undefined): T
   const legacy = settings as Partial<{ tavilyApiKey: string }> | undefined
   return {
     enabled: settings?.enabled ?? false,
-    maxToolRounds: settings?.maxToolRounds ?? 6,
     builtinTools: {
       currentTime: { enabled: settings?.builtinTools?.currentTime?.enabled ?? true },
       tavilySearch: {

@@ -65,7 +65,6 @@ describe('tavilySearchTool', () => {
 function createToolSettings(baseUrl: string = 'https://api.tavily.com/search') {
   return {
     enabled: true,
-    maxToolRounds: 3,
     builtinTools: {
       currentTime: {
         enabled: true,

@@ -18,7 +18,6 @@ const emit = defineEmits<{
     value: string | boolean | CustomToolSettings['headers'],
   ]
   updateToolEnabled: [enabled: boolean]
-  updateToolMaxRounds: [maxToolRounds: number]
   updateToolOpenAiNativeSearch: [enabled: boolean]
 }>()
 </script>
@@ -54,17 +53,6 @@ const emit = defineEmits<{
               @change="emit('updateToolOpenAiNativeSearch', ($event.target as HTMLInputElement).checked)"
             />
             <span>OpenAI 使用原生 web_search，避免与工具编排冲突</span>
-          </label>
-          <label class="rounds-control">
-            <span>最大轮数</span>
-            <input
-              :value="props.settings.toolSettings.maxToolRounds"
-              min="1"
-              max="10"
-              step="1"
-              type="number"
-              @change="emit('updateToolMaxRounds', Number(($event.target as HTMLInputElement).value))"
-            />
           </label>
         </div>
       </article>
