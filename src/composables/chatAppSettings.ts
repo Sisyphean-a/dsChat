@@ -369,50 +369,8 @@ function normalizeBuiltinToolSettings(
 function normalizeCustomToolSettings(
   toolSettings: SettingsForm['toolSettings'] | undefined,
 ): SettingsForm['toolSettings']['customTools'] {
-  if (!Array.isArray(toolSettings?.customTools)) {
-    return []
-  }
-
-  const ids = new Set<string>()
-  const normalized: SettingsForm['toolSettings']['customTools'] = []
-  for (const item of toolSettings.customTools) {
-    const id = item.id?.trim() || createCustomToolId()
-    if (ids.has(id)) {
-      continue
-    }
-
-    ids.add(id)
-    normalized.push({
-      id,
-      name: item.name?.trim() || '未命名工具',
-      description: item.description?.trim() ?? '',
-      enabled: item.enabled ?? false,
-      url: item.url?.trim() ?? '',
-      method: item.method === 'GET' ? 'GET' : 'POST',
-      headers: normalizeCustomToolHeaders(item.headers),
-    })
-  }
-
-  return normalized
-}
-
-function normalizeCustomToolHeaders(
-  headers: SettingsForm['toolSettings']['customTools'][number]['headers'] | undefined,
-): SettingsForm['toolSettings']['customTools'][number]['headers'] {
-  if (!Array.isArray(headers)) {
-    return []
-  }
-
-  return headers
-    .map((item) => ({
-      key: item.key?.trim() ?? '',
-      value: item.value?.trim() ?? '',
-    }))
-    .filter((item) => item.key || item.value)
-}
-
-function createCustomToolId(): string {
-  return `tool-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+  void toolSettings
+  return []
 }
 
 function providerSupportsToolCalling(

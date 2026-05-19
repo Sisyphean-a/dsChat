@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import EditableModelPicker from './EditableModelPicker.vue'
+import { ref } from 'vue'
 import {
   getAddableProviderDefinitions,
   getProviderDefinition,
@@ -23,13 +24,24 @@ const emit = defineEmits<{
 }>()
 
 const addableProviders = getAddableProviderDefinitions()
+const pendingDeleteProvider = ref<{ id: string; name: string } | null>(null)
 
-function removeProviderWithConfirm(id: string, name: string): void {
-  if (!window.confirm(`确认删除服务商「${name || '未命名'}」吗？`)) {
+function requestRemoveProvider(id: string, name: string): void {
+  pendingDeleteProvider.value = { id, name: name || '未命名' }
+}
+
+function cancelRemoveProvider(): void {
+  pendingDeleteProvider.value = null
+}
+
+function confirmRemoveProvider(): void {
+  const target = pendingDeleteProvider.value
+  if (!target) {
     return
   }
 
-  emit('removeCustomModel', id)
+  emit('removeCustomModel', target.id)
+  pendingDeleteProvider.value = null
 }
 </script>
 
@@ -96,7 +108,7 @@ function removeProviderWithConfirm(id: string, name: string): void {
               @input="emit('updateCustomModelField', item.id, 'name', ($event.target as HTMLInputElement).value)"
             />
           </label>
-          <button class="danger-text" type="button" @click="removeProviderWithConfirm(item.id, item.name)">删除</button>
+          <button class="danger-text" type="button" @click="requestRemoveProvider(item.id, item.name)">删除</button>
         </div>
         <div class="field-grid">
           <label class="field-shell">
@@ -131,6 +143,19 @@ function removeProviderWithConfirm(id: string, name: string): void {
               @select="emit('updateCustomModelField', item.id, 'model', $event)"
             />
           </label>
+        </div>
+      </article>
+
+      <article v-if="pendingDeleteProvider" class="setting-card">
+        <div class="setting-card-head">
+          <div>
+            <h4>确认删除</h4>
+            <p>确认删除服务商「{{ pendingDeleteProvider.name }}」吗？</p>
+          </div>
+        </div>
+        <div class="provider-head">
+          <button class="ghost-action" type="button" @click="cancelRemoveProvider">取消</button>
+          <button class="danger-text" type="button" @click="confirmRemoveProvider">确认删除</button>
         </div>
       </article>
 

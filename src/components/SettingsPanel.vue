@@ -161,12 +161,9 @@ function selectSection(id: SettingsSectionId): void {
             <SettingsToolsSection
               v-else
               :settings="props.settings"
-              @add-custom-tool="emit('addCustomTool')"
-              @remove-custom-tool="emit('removeCustomTool', $event)"
               @update-builtin-tool-enabled="(tool, enabled) => emit('updateBuiltinToolEnabled', tool, enabled)"
               @update-builtin-tool-tavily-api-key="emit('updateBuiltinToolTavilyApiKey', $event)"
               @update-builtin-tool-tavily-base-url="emit('updateBuiltinToolTavilyBaseUrl', $event)"
-              @update-custom-tool-field="(id, field, value) => emit('updateCustomToolField', id, field, value)"
               @update-tool-enabled="emit('updateToolEnabled', $event)"
               @update-tool-open-ai-native-search="emit('updateToolOpenAiNativeSearch', $event)"
             />

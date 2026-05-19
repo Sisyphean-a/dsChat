@@ -51,7 +51,7 @@ describe('getSendSettingsError', () => {
     expect(error).toBe('请至少启用一个内置工具。')
   })
 
-  it('shows explicit error when custom tool is enabled', () => {
+  it('clears legacy custom tools during normalization', () => {
     const settings = buildDefaultSettings()
     settings.deepseek.apiKey = 'sk-test'
     settings.toolSettings.enabled = true
@@ -65,8 +65,10 @@ describe('getSendSettingsError', () => {
       headers: [],
     }]
 
-    const error = getSendSettingsError(normalizeSettings(settings))
-    expect(error).toBe('自定义工具暂未接入执行引擎，请先关闭已启用的自定义工具。')
+    const normalized = normalizeSettings(settings)
+    expect(normalized.toolSettings.customTools).toEqual([])
+    const error = getSendSettingsError(normalized)
+    expect(error).toBe('请至少启用一个内置工具。')
   })
 })
 

@@ -1,6 +1,5 @@
 .setting-card,
 .provider-card,
-.tool-card,
 .custom-tool-card {
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -13,7 +12,6 @@
   overflow: visible;
 }
 
-.tool-card,
 .custom-tool-card {
   overflow: hidden;
 }
@@ -34,8 +32,7 @@
 }
 
 .setting-card-head p,
-.provider-head p,
-.tool-card p {
+.provider-head p {
   margin: 4px 0 0;
   color: var(--text-muted);
 }
@@ -57,8 +54,7 @@
 
 .control-label,
 .field-shell span,
-.provider-title-field span,
-.rounds-control span {
+.provider-title-field span {
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 700;
@@ -115,11 +111,88 @@
 
 .field-grid,
 .two-field-grid,
-.builtin-tool-grid,
 .custom-tool-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
+}
+
+.builtin-tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.builtin-tool-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-soft);
+  padding: 12px;
+}
+
+.builtin-tool-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.builtin-tool-meta {
+  margin: 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.builtin-tool-name {
+  color: var(--text);
+  font-family: var(--font-mono, inherit);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.builtin-tool-desc {
+  min-width: 0;
+}
+
+.builtin-tool-actions {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tool-official-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.tool-official-link:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.builtin-tool-fields {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
 }
 
 .field-shell,
@@ -216,8 +289,7 @@
   color: var(--accent-strong);
 }
 
-.switch-row,
-.rounds-control {
+.switch-row {
   color: var(--text);
   font-size: 0.88rem;
   font-weight: 650;
@@ -240,25 +312,11 @@
   color: var(--accent-strong);
 }
 
-.rounds-control {
-  justify-content: space-between;
-}
-
-.rounds-control input {
-  width: 100px !important;
-}
-
-.tool-card,
 .custom-tool-card {
   padding: 14px;
   background: var(--bg-soft);
   box-shadow: none; /* remove shadow for nested elements */
   border-color: var(--border);
-}
-
-.tool-card h5 {
-  font-size: 0.92rem;
-  font-weight: 700;
 }
 
 .empty-card {
@@ -275,5 +333,22 @@
   .field-shell,
   .provider-title-field {
     --inline-label-width: 72px;
+  }
+
+  .builtin-tool-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .builtin-tool-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .builtin-tool-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }

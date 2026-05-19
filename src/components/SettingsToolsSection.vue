@@ -1,25 +1,22 @@
 <script setup lang="ts">
-import type { CustomToolSettings, SettingsForm } from '../types/chat'
-import type { CustomToolEditableField } from '../types/settingsPanel'
+import { openExternalLink } from '../services/linkNavigation'
+import type { SettingsForm } from '../types/chat'
 
 const props = defineProps<{
   settings: SettingsForm
 }>()
 
 const emit = defineEmits<{
-  addCustomTool: []
-  removeCustomTool: [id: string]
   updateBuiltinToolEnabled: [tool: 'currentTime' | 'tavilySearch', enabled: boolean]
   updateBuiltinToolTavilyApiKey: [apiKey: string]
   updateBuiltinToolTavilyBaseUrl: [baseUrl: string]
-  updateCustomToolField: [
-    id: string,
-    field: CustomToolEditableField,
-    value: string | boolean | CustomToolSettings['headers'],
-  ]
   updateToolEnabled: [enabled: boolean]
   updateToolOpenAiNativeSearch: [enabled: boolean]
 }>()
+
+function openTavilyOfficialSite(): void {
+  openExternalLink('https://www.tavily.com')
+}
 </script>
 
 <template>
@@ -63,38 +60,50 @@ const emit = defineEmits<{
             <h4>内置工具</h4>
           </div>
         </div>
-        <div class="builtin-tool-grid">
-          <section class="tool-card compact-tool-card">
-            <div>
-              <h5>当前时间</h5>
-              <p>get_current_time</p>
-            </div>
-            <label class="switch-row">
-              <input
-                :checked="props.settings.toolSettings.builtinTools.currentTime.enabled"
-                type="checkbox"
-                @change="emit('updateBuiltinToolEnabled', 'currentTime', ($event.target as HTMLInputElement).checked)"
-              />
-              <span>启用</span>
-            </label>
-          </section>
-
-          <section class="tool-card tavily-tool-card">
-            <div class="tool-card-head">
-              <div>
-                <h5>Tavily 搜索</h5>
-                <p>tavily_search</p>
-              </div>
+        <div class="builtin-tool-list">
+          <section class="builtin-tool-item">
+            <div class="builtin-tool-row">
+              <p class="builtin-tool-meta">
+                <span class="builtin-tool-name">get_current_time</span>
+                <span class="builtin-tool-desc">用来获取当前的日期时间</span>
+              </p>
               <label class="switch-row">
                 <input
-                  :checked="props.settings.toolSettings.builtinTools.tavilySearch.enabled"
+                  :checked="props.settings.toolSettings.builtinTools.currentTime.enabled"
                   type="checkbox"
-                  @change="emit('updateBuiltinToolEnabled', 'tavilySearch', ($event.target as HTMLInputElement).checked)"
+                  @change="emit('updateBuiltinToolEnabled', 'currentTime', ($event.target as HTMLInputElement).checked)"
                 />
                 <span>启用</span>
               </label>
             </div>
-            <div class="field-grid two-field-grid">
+          </section>
+
+          <section class="builtin-tool-item">
+            <div class="builtin-tool-row">
+              <p class="builtin-tool-meta">
+                <span class="builtin-tool-name">tavily_search</span>
+                <span class="builtin-tool-desc">用来联网查询，需要配置密钥</span>
+              </p>
+              <div class="builtin-tool-actions">
+                <a
+                  class="tool-official-link"
+                  href="https://www.tavily.com"
+                  rel="noreferrer noopener"
+                  @click.prevent="openTavilyOfficialSite"
+                >
+                  官网
+                </a>
+                <label class="switch-row">
+                  <input
+                    :checked="props.settings.toolSettings.builtinTools.tavilySearch.enabled"
+                    type="checkbox"
+                    @change="emit('updateBuiltinToolEnabled', 'tavilySearch', ($event.target as HTMLInputElement).checked)"
+                  />
+                  <span>启用</span>
+                </label>
+              </div>
+            </div>
+            <div class="builtin-tool-fields">
               <label class="field-shell">
                 <span>服务地址</span>
                 <input
@@ -118,77 +127,6 @@ const emit = defineEmits<{
         </div>
       </article>
 
-      <article class="setting-card wide-card">
-        <div class="setting-card-head split-head">
-          <div>
-            <h4>自定义工具</h4>
-            <p>预配置入口先放这里，执行引擎接入后再展开高级能力。</p>
-          </div>
-          <button class="ghost-action" type="button" @click="emit('addCustomTool')">新增</button>
-        </div>
-
-        <div v-if="!props.settings.toolSettings.customTools.length" class="empty-card">
-          暂无自定义工具，保持默认即可。
-        </div>
-
-        <div
-          v-for="item in props.settings.toolSettings.customTools"
-          :key="item.id"
-          class="custom-tool-card"
-        >
-          <div class="provider-head">
-            <label class="provider-title-field">
-              <span>工具名称</span>
-              <input
-                class="provider-name-input"
-                :value="item.name"
-                placeholder="工具名称"
-                type="text"
-                @input="emit('updateCustomToolField', item.id, 'name', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <button class="danger-text" type="button" @click="emit('removeCustomTool', item.id)">删除</button>
-          </div>
-          <label class="switch-row">
-            <input
-              :checked="item.enabled"
-              type="checkbox"
-              @change="emit('updateCustomToolField', item.id, 'enabled', ($event.target as HTMLInputElement).checked)"
-            />
-            <span>启用</span>
-          </label>
-          <div class="field-grid custom-tool-grid">
-            <label class="field-shell custom-tool-description">
-              <span>描述</span>
-              <input
-                :value="item.description"
-                placeholder="给模型看的工具能力说明"
-                type="text"
-                @input="emit('updateCustomToolField', item.id, 'description', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-shell">
-              <span>方法</span>
-              <select
-                :value="item.method"
-                @change="emit('updateCustomToolField', item.id, 'method', ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="POST">POST</option>
-                <option value="GET">GET</option>
-              </select>
-            </label>
-            <label class="field-shell custom-tool-url">
-              <span>Endpoint</span>
-              <input
-                :value="item.url"
-                placeholder="https://example.com/tool-endpoint"
-                type="text"
-                @input="emit('updateCustomToolField', item.id, 'url', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-          </div>
-        </div>
-      </article>
     </div>
   </section>
 </template>

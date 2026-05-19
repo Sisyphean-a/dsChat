@@ -61,8 +61,7 @@
 .settings-title-block,
 .page-heading,
 .setting-card-head,
-.provider-head,
-.tool-card-head {
+.provider-head {
   min-width: 0;
 }
 
@@ -82,8 +81,7 @@
 .settings-header h2,
 .page-heading h3,
 .setting-card h4,
-.provider-card h4,
-.tool-card h5 {
+.provider-card h4 {
   margin: 0;
   color: var(--text);
   font-weight: 750;
@@ -195,8 +193,7 @@
 
 .nav-main,
 .split-head,
-.provider-head,
-.tool-card-head {
+.provider-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -208,8 +205,7 @@
 }
 
 .control-row,
-.switch-row,
-.rounds-control {
+.switch-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -243,7 +239,6 @@
 .page-heading p,
 .setting-card-head p,
 .provider-head p,
-.tool-card p,
 .hint-row,
 .empty-card {
   color: var(--text-muted);
