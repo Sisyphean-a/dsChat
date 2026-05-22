@@ -1,7 +1,7 @@
 import {
   createThinkingPayloadForChatCompletions,
   providerSupportsNativeWebSearch,
-  providerSupportsToolOrchestrator,
+  providerSupportsToolCalling,
   resolveProviderProtocol,
   resolveProviderRequestTemperature,
   shouldIncludeProviderRequestTemperature,
@@ -117,7 +117,7 @@ export async function requestChatCompletion(
   settings: ActiveProviderSettings,
   requestOptions?: ChatRequestOptions,
 ): Promise<string> {
-  const response = await fetch(createRequestUrl(settings.baseUrl, settings.provider), {
+  const response = await fetch(createRequestUrl(settings.baseUrl, settings), {
     body: JSON.stringify(createPayload(messages, settings, false, requestOptions)),
     headers: createHeaders(settings),
     method: 'POST',
@@ -133,7 +133,7 @@ export async function requestChatCompletion(
   }
 
   const data = await response.json()
-  const content = settings.provider === 'openai'
+  const content = resolveProviderProtocol(settings) === 'responses'
     ? extractOpenAiResponseText(data as ResponsesCreateResponse).trim()
     : ((data as ChatCompletionResponse).choices?.[0]?.message?.content?.trim() ?? '')
   if (!content) {
@@ -154,7 +154,7 @@ export async function streamChatCompletion(
     return streamWithToolOrchestrator(messages, settings, onDelta, signal, requestOptions)
   }
 
-  const response = await fetch(createRequestUrl(settings.baseUrl, settings.provider), {
+  const response = await fetch(createRequestUrl(settings.baseUrl, settings), {
     body: JSON.stringify(createPayload(messages, settings, true, requestOptions)),
     headers: createHeaders(settings),
     method: 'POST',
@@ -191,7 +191,7 @@ export async function streamChatCompletion(
     buffer = consumed.rest
 
     for (const event of consumed.events) {
-      const next = appendDelta({ content, reasoningContent }, event, onDelta, settings.provider)
+      const next = appendDelta({ content, reasoningContent }, event, onDelta, settings)
       if (next.done) {
         return finalizeStreamContent(next.content, settings.label)
       }
@@ -203,7 +203,7 @@ export async function streamChatCompletion(
 
   const trailingEvent = extractEventPayload(buffer)
   if (trailingEvent) {
-    const trailing = appendDelta({ content, reasoningContent }, trailingEvent, onDelta, settings.provider)
+    const trailing = appendDelta({ content, reasoningContent }, trailingEvent, onDelta, settings)
     content = trailing.content
   }
 
@@ -218,11 +218,11 @@ function shouldUseToolOrchestrator(
     return false
   }
 
-  if (providerSupportsNativeWebSearch(settings.provider) && !toolSettings.openaiUseNativeWebSearch) {
+  if (providerSupportsNativeWebSearch(settings) && !toolSettings.openaiUseNativeWebSearch) {
     throw new Error(`${settings.label} 当前配置暂不支持工具调用。`)
   }
 
-  return providerSupportsToolOrchestrator(settings.provider)
+  return providerSupportsToolCalling(settings)
 }
 
 function extractEventPayload(frame: string): string {
@@ -238,9 +238,9 @@ function appendDelta(
   current: { content: string; reasoningContent: string },
   event: string,
   onDelta: (delta: StreamDelta) => void,
-  provider: ProviderId,
+  settings: ActiveProviderSettings,
 ): { content: string; done: boolean; reasoningContent: string } {
-  if (provider === 'openai') {
+  if (resolveProviderProtocol(settings) === 'responses') {
     return appendOpenAiResponseDelta(current, event, onDelta)
   }
 
@@ -255,13 +255,13 @@ function appendDelta(
   const data = JSON.parse(event) as ChatCompletionResponse
   const delta = data.choices?.[0]?.delta
 
-  const reasoningDelta = extractReasoningDelta(provider, delta, current.reasoningContent)
+  const reasoningDelta = extractReasoningDelta(settings.provider, delta, current.reasoningContent)
   const nextReasoning = reasoningDelta ? `${current.reasoningContent}${reasoningDelta}` : current.reasoningContent
   if (reasoningDelta) {
     onDelta({ reasoningContent: reasoningDelta })
   }
 
-  const contentDelta = extractContentDelta(provider, delta, current.content)
+  const contentDelta = extractContentDelta(settings.provider, delta, current.content)
   const nextContent = contentDelta ? `${current.content}${contentDelta}` : current.content
   if (contentDelta) {
     onDelta({ content: contentDelta })
@@ -421,8 +421,8 @@ function finalizeStreamContent(content: string, label: string): string {
   return content
 }
 
-function createRequestUrl(baseUrl: string, provider: ProviderId): string {
-  if (resolveProviderProtocol(provider) === 'responses') {
+function createRequestUrl(baseUrl: string, settings: ActiveProviderSettings): string {
+  if (resolveProviderProtocol(settings) === 'responses') {
     return `${baseUrl.replace(/\/$/, '')}/responses`
   }
 
@@ -442,7 +442,7 @@ function createPayload(
   stream: boolean,
   requestOptions?: ChatRequestOptions,
 ): Record<string, unknown> {
-  if (settings.provider === 'openai') {
+  if (resolveProviderProtocol(settings) === 'responses') {
     return createOpenAiPayload(messages, settings, stream, requestOptions)
   }
 
@@ -457,7 +457,7 @@ function createPayload(
 
   if (shouldIncludeProviderRequestTemperature(
     settings.provider,
-    settings.model,
+    settings,
     requestOptions?.thinkingEnabled,
   )) {
     payload.temperature = resolveRequestTemperature(
@@ -471,7 +471,7 @@ function createPayload(
     payload,
     createThinkingPayloadForChatCompletions(
       settings.provider,
-      settings.model,
+      settings,
       requestOptions?.thinkingEnabled,
     ),
   )
@@ -508,7 +508,7 @@ function createOpenAiPayload(
 
   if (shouldIncludeProviderRequestTemperature(
     settings.provider,
-    settings.model,
+    settings,
     requestOptions?.thinkingEnabled,
   )) {
     payload.temperature = resolveProviderRequestTemperature(
@@ -518,7 +518,7 @@ function createOpenAiPayload(
     )
   }
 
-  if (supportsOpenAiNativeWebSearchModel(settings.model)) {
+  if (providerSupportsNativeWebSearch(settings) && supportsOpenAiNativeWebSearchModel(settings.model)) {
     payload.tool_choice = 'auto'
     payload.tools = [{ type: 'web_search' }]
   }

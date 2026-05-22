@@ -40,6 +40,27 @@ describe('getSendSettingsError', () => {
     expect(error).toBeNull()
   })
 
+  it('allows OpenAI-compatible chat completions gateways to use local tools when capabilities are overridden', () => {
+    const settings = buildDefaultSettings()
+    const openai = createAddedModelDraft('openai', [])
+    openai.apiKey = 'sk-openai'
+    openai.baseUrl = 'https://proxy.example.com/v1'
+    openai.capabilities = {
+      ...openai.capabilities,
+      nativeWebSearch: false,
+      protocol: 'chat_completions',
+      toolCalling: true,
+    }
+    settings.customModels = [openai]
+    settings.activeConfigId = openai.id
+    settings.toolSettings.enabled = true
+    settings.toolSettings.openaiUseNativeWebSearch = false
+    settings.toolSettings.builtinTools.tavilySearch.apiKey = 'tvly-key'
+
+    const error = getSendSettingsError(normalizeSettings(settings))
+    expect(error).toBeNull()
+  })
+
   it('requires at least one enabled builtin tool when tool calling is enabled', () => {
     const settings = buildDefaultSettings()
     settings.deepseek.apiKey = 'sk-test'
@@ -73,6 +94,43 @@ describe('getSendSettingsError', () => {
 })
 
 describe('normalizeSettings', () => {
+  it('attaches default provider capabilities to every provider config', () => {
+    const settings = buildDefaultSettings()
+    const openai = createAddedModelDraft('openai', [])
+    settings.customModels = [openai]
+
+    const normalized = normalizeSettings(settings)
+
+    expect(normalized.deepseek.capabilities).toEqual({
+      imageInput: false,
+      nativeWebSearch: false,
+      protocol: 'chat_completions',
+      reasoning: true,
+      toolCalling: true,
+    })
+    expect(normalized.customModels[0]?.capabilities).toEqual({
+      imageInput: true,
+      nativeWebSearch: true,
+      protocol: 'responses',
+      reasoning: false,
+      toolCalling: false,
+    })
+  })
+
+  it('preserves user capability overrides during normalization', () => {
+    const settings = buildDefaultSettings()
+    settings.deepseek.capabilities = {
+      ...settings.deepseek.capabilities,
+      imageInput: true,
+      reasoning: false,
+    }
+
+    const normalized = normalizeSettings(settings)
+
+    expect(normalized.deepseek.capabilities.imageInput).toBe(true)
+    expect(normalized.deepseek.capabilities.reasoning).toBe(false)
+  })
+
   it('migrates legacy tavilyApiKey into builtin tavily config', () => {
     const settings = buildDefaultSettings() as ReturnType<typeof buildDefaultSettings> & {
       toolSettings: ReturnType<typeof buildDefaultSettings>['toolSettings'] & { tavilyApiKey?: string }
@@ -108,6 +166,21 @@ describe('canActiveConversationSearchWeb', () => {
     settings.toolSettings.enabled = false
 
     expect(canActiveConversationSearchWeb(settings)).toBe(true)
+  })
+
+  it('returns false for OpenAI models when native web search capability is disabled', () => {
+    const settings = buildDefaultSettings()
+    const openai = createAddedModelDraft('openai', [])
+    openai.model = 'gpt-5.5'
+    openai.capabilities = {
+      ...openai.capabilities,
+      nativeWebSearch: false,
+    }
+    settings.customModels = [openai]
+    settings.activeConfigId = openai.id
+    settings.toolSettings.enabled = false
+
+    expect(canActiveConversationSearchWeb(settings)).toBe(false)
   })
 
   it('returns true when tavily search is enabled with api key on tool orchestrator providers', () => {

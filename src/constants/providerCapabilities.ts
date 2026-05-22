@@ -1,11 +1,10 @@
 import { providerModelSupportsTemperature, supportsDeepseekThinking } from './providers'
-import type { ProviderId } from '../types/chat'
+import type { ProviderCapabilities, ProviderId, ProviderSettings } from '../types/chat'
 
-export type ProviderProtocol = 'chat_completions' | 'responses'
 export type ThinkingProviderKey = 'deepseek' | 'kimi' | 'minimax'
 
 interface ProviderCapabilityProfile {
-  protocol: ProviderProtocol
+  protocol: ProviderCapabilities['protocol']
   supportsImageInput: boolean
   supportsToolOrchestrator: boolean
   supportsNativeWebSearch: boolean
@@ -90,12 +89,33 @@ const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilityProfile> = {
   },
 }
 
-export function resolveProviderProtocol(provider: ProviderId): ProviderProtocol {
-  return PROVIDER_CAPABILITIES[provider].protocol
+export function getDefaultProviderCapabilities(provider: ProviderId): ProviderCapabilities {
+  const profile = PROVIDER_CAPABILITIES[provider]
+  return {
+    imageInput: profile.supportsImageInput,
+    nativeWebSearch: profile.supportsNativeWebSearch,
+    protocol: profile.protocol,
+    reasoning: profile.thinking.providerKey !== null,
+    toolCalling: profile.supportsToolOrchestrator,
+  }
 }
 
-export function providerSupportsImageInput(provider: ProviderId): boolean {
-  return PROVIDER_CAPABILITIES[provider].supportsImageInput
+export function normalizeProviderCapabilities(
+  provider: ProviderId,
+  capabilities: Partial<ProviderCapabilities> | undefined,
+): ProviderCapabilities {
+  return {
+    ...getDefaultProviderCapabilities(provider),
+    ...(capabilities ?? {}),
+  }
+}
+
+export function resolveProviderProtocol(settings: ProviderSettings): ProviderCapabilities['protocol'] {
+  return settings.capabilities.protocol
+}
+
+export function providerSupportsImageInput(settings: ProviderSettings): boolean {
+  return settings.capabilities.imageInput
 }
 
 export function createImageInputUnsupportedMessage(provider: ProviderId, label: string): string {
@@ -111,16 +131,23 @@ export function resolveThinkingProviderKey(provider: ProviderId): ThinkingProvid
   return PROVIDER_CAPABILITIES[provider].thinking.providerKey
 }
 
-export function providerShowsThinkingToggle(provider: ProviderId, model: string): boolean {
-  return PROVIDER_CAPABILITIES[provider].thinking.showToggle(model)
+export function providerShowsThinkingToggle(
+  provider: ProviderId,
+  settings: ProviderSettings,
+): boolean {
+  return settings.capabilities.reasoning && PROVIDER_CAPABILITIES[provider].thinking.showToggle(settings.model)
 }
 
 export function createThinkingPayloadForChatCompletions(
   provider: ProviderId,
-  model: string,
+  settings: ProviderSettings,
   thinkingEnabled: boolean | undefined,
 ): Record<string, unknown> {
-  if (!PROVIDER_CAPABILITIES[provider].thinking.supportsRequestControl(model)) {
+  if (!settings.capabilities.reasoning) {
+    return {}
+  }
+
+  if (!PROVIDER_CAPABILITIES[provider].thinking.supportsRequestControl(settings.model)) {
     return {}
   }
 
@@ -140,10 +167,10 @@ export function createThinkingPayloadForChatCompletions(
 
 export function shouldIncludeProviderRequestTemperature(
   provider: ProviderId,
-  model: string,
+  settings: ProviderSettings,
   thinkingEnabled: boolean | undefined,
 ): boolean {
-  if (!providerModelSupportsTemperature(provider, model)) {
+  if (!providerModelSupportsTemperature(provider, settings.model)) {
     return false
   }
 
@@ -151,7 +178,7 @@ export function shouldIncludeProviderRequestTemperature(
     return true
   }
 
-  if (!supportsDeepseekThinking(model)) {
+  if (!settings.capabilities.reasoning || !supportsDeepseekThinking(settings.model)) {
     return true
   }
 
@@ -174,8 +201,12 @@ export function providerSupportsToolOrchestrator(provider: ProviderId): boolean 
   return PROVIDER_CAPABILITIES[provider].supportsToolOrchestrator
 }
 
-export function providerSupportsNativeWebSearch(provider: ProviderId): boolean {
-  return PROVIDER_CAPABILITIES[provider].supportsNativeWebSearch
+export function providerSupportsToolCalling(settings: ProviderSettings): boolean {
+  return settings.capabilities.toolCalling
+}
+
+export function providerSupportsNativeWebSearch(settings: ProviderSettings): boolean {
+  return settings.capabilities.nativeWebSearch
 }
 
 export function supportsOpenAiNativeWebSearchModel(model: string): boolean {

@@ -1,5 +1,5 @@
 import type { ActiveProviderSettings, MessageAttachment, ProviderId } from '../../types/chat'
-import { resolveProviderProtocol } from '../../constants/providerCapabilities'
+import { getDefaultProviderCapabilities, resolveProviderProtocol } from '../../constants/providerCapabilities'
 import type { ChatRequestOptions } from '../chatCompletion'
 import type { AiToolDefinition, NormalizedToolCall, ProviderStreamDelta } from './toolTypes'
 import { chatCompletionsAdapter } from './providerAdapters/chatCompletionsAdapter'
@@ -44,7 +44,15 @@ export function createProviderStreamState(): ProviderStreamState {
 }
 
 export function getProviderAdapter(provider: ProviderId): ProviderAdapter {
-  if (resolveProviderProtocol(provider) === 'responses') {
+  if (getDefaultProviderCapabilities(provider).protocol === 'responses') {
+    return openAiResponsesAdapter
+  }
+
+  return chatCompletionsAdapter
+}
+
+export function getProviderAdapterForSettings(settings: ActiveProviderSettings): ProviderAdapter {
+  if (resolveProviderProtocol(settings) === 'responses') {
     return openAiResponsesAdapter
   }
 

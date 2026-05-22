@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { getDefaultProviderCapabilities } from '../../constants/providerCapabilities'
 import type { ActiveProviderSettings, ChatMessage } from '../../types/chat'
 import { streamWithToolOrchestrator } from './toolOrchestrator'
 
@@ -287,12 +288,14 @@ function createSseStream(events: string[]): ReadableStream<Uint8Array> {
 }
 
 function createSettings(overrides: Partial<ActiveProviderSettings> = {}): ActiveProviderSettings {
+  const provider = overrides.provider ?? 'deepseek'
   return {
     configId: 'deepseek',
     label: 'DeepSeek',
-    provider: 'deepseek',
+    provider,
     apiKey: 'sk-test',
     baseUrl: 'https://api.deepseek.com',
+    capabilities: getDefaultProviderCapabilities(provider),
     model: 'deepseek-v4-flash',
     modelOptions: ['deepseek-v4-flash'],
     temperature: 1,

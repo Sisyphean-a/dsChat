@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   createImageInputUnsupportedMessage,
   createThinkingPayloadForChatCompletions,
+  getDefaultProviderCapabilities,
+  normalizeProviderCapabilities,
   providerShowsThinkingToggle,
   providerSupportsImageInput,
   providerSupportsNativeWebSearch,
-  providerSupportsToolOrchestrator,
+  providerSupportsToolCalling,
   resolveProviderProtocol,
   resolveProviderRequestTemperature,
   resolveThinkingProviderKey,
@@ -14,17 +16,44 @@ import {
 } from './providerCapabilities'
 
 describe('providerCapabilities', () => {
-  it('resolves protocol by provider', () => {
-    expect(resolveProviderProtocol('openai')).toBe('responses')
-    expect(resolveProviderProtocol('deepseek')).toBe('chat_completions')
-    expect(resolveProviderProtocol('custom')).toBe('chat_completions')
+  it('builds default capabilities from provider presets', () => {
+    expect(getDefaultProviderCapabilities('openai')).toEqual({
+      imageInput: true,
+      nativeWebSearch: true,
+      protocol: 'responses',
+      reasoning: false,
+      toolCalling: false,
+    })
+    expect(getDefaultProviderCapabilities('deepseek')).toEqual({
+      imageInput: false,
+      nativeWebSearch: false,
+      protocol: 'chat_completions',
+      reasoning: true,
+      toolCalling: true,
+    })
   })
 
-  it('exposes image input support as centralized capability', () => {
-    expect(providerSupportsImageInput('deepseek')).toBe(false)
-    expect(providerSupportsImageInput('minimax')).toBe(false)
-    expect(providerSupportsImageInput('openai')).toBe(true)
-    expect(providerSupportsImageInput('kimi')).toBe(true)
+  it('resolves effective capabilities from provider config', () => {
+    const settings = createProviderSettings('openai', {
+      nativeWebSearch: false,
+      protocol: 'chat_completions',
+      toolCalling: true,
+    })
+
+    expect(resolveProviderProtocol(settings)).toBe('chat_completions')
+    expect(providerSupportsImageInput(settings)).toBe(true)
+    expect(providerSupportsNativeWebSearch(settings)).toBe(false)
+    expect(providerSupportsToolCalling(settings)).toBe(true)
+  })
+
+  it('normalizes partial capability overrides with provider defaults', () => {
+    expect(normalizeProviderCapabilities('deepseek', { imageInput: true })).toEqual({
+      imageInput: true,
+      nativeWebSearch: false,
+      protocol: 'chat_completions',
+      reasoning: true,
+      toolCalling: true,
+    })
   })
 
   it('returns provider-specific image unsupported message when available', () => {
@@ -33,10 +62,11 @@ describe('providerCapabilities', () => {
   })
 
   it('resolves thinking toggle rules per provider and model', () => {
-    expect(providerShowsThinkingToggle('deepseek', 'deepseek-v4-flash')).toBe(true)
-    expect(providerShowsThinkingToggle('deepseek', 'deepseek-reasoner')).toBe(false)
-    expect(providerShowsThinkingToggle('minimax', 'MiniMax-M2.7')).toBe(true)
-    expect(providerShowsThinkingToggle('openai', 'gpt-5.5')).toBe(false)
+    expect(providerShowsThinkingToggle('deepseek', createProviderSettings('deepseek', {}, 'deepseek-v4-flash'))).toBe(true)
+    expect(providerShowsThinkingToggle('deepseek', createProviderSettings('deepseek', {}, 'deepseek-reasoner'))).toBe(false)
+    expect(providerShowsThinkingToggle('minimax', createProviderSettings('minimax', {}, 'MiniMax-M2.7'))).toBe(true)
+    expect(providerShowsThinkingToggle('openai', createProviderSettings('openai', {}, 'gpt-5.5'))).toBe(false)
+    expect(providerShowsThinkingToggle('deepseek', createProviderSettings('deepseek', { reasoning: false }, 'deepseek-v4-flash'))).toBe(false)
   })
 
   it('resolves thinking provider key for persistent settings', () => {
@@ -45,27 +75,20 @@ describe('providerCapabilities', () => {
   })
 
   it('builds thinking payload in one place for chat-completions protocol', () => {
-    expect(createThinkingPayloadForChatCompletions('deepseek', 'deepseek-v4-flash', false)).toEqual({
+    expect(createThinkingPayloadForChatCompletions('deepseek', createProviderSettings('deepseek', {}, 'deepseek-v4-flash'), false)).toEqual({
       thinking: { type: 'disabled' },
     })
-    expect(createThinkingPayloadForChatCompletions('deepseek', 'deepseek-reasoner', true)).toEqual({})
-    expect(createThinkingPayloadForChatCompletions('minimax', 'MiniMax-M2.7', false)).toEqual({
+    expect(createThinkingPayloadForChatCompletions('deepseek', createProviderSettings('deepseek', {}, 'deepseek-reasoner'), true)).toEqual({})
+    expect(createThinkingPayloadForChatCompletions('minimax', createProviderSettings('minimax', {}, 'MiniMax-M2.7'), false)).toEqual({
       reasoning_split: false,
     })
   })
 
   it('normalizes request temperature behavior from centralized policy', () => {
-    expect(shouldIncludeProviderRequestTemperature('deepseek', 'deepseek-v4-flash', true)).toBe(false)
-    expect(shouldIncludeProviderRequestTemperature('deepseek', 'deepseek-v4-flash', false)).toBe(true)
+    expect(shouldIncludeProviderRequestTemperature('deepseek', createProviderSettings('deepseek', {}, 'deepseek-v4-flash'), true)).toBe(false)
+    expect(shouldIncludeProviderRequestTemperature('deepseek', createProviderSettings('deepseek', {}, 'deepseek-v4-flash'), false)).toBe(true)
     expect(resolveProviderRequestTemperature('kimi', 0.2, true)).toBe(1.0)
     expect(resolveProviderRequestTemperature('kimi', 1.8, false)).toBe(0.6)
-  })
-
-  it('exposes tool path capabilities', () => {
-    expect(providerSupportsToolOrchestrator('openai')).toBe(false)
-    expect(providerSupportsToolOrchestrator('deepseek')).toBe(true)
-    expect(providerSupportsNativeWebSearch('openai')).toBe(true)
-    expect(providerSupportsNativeWebSearch('deepseek')).toBe(false)
   })
 
   it('checks OpenAI native web search model compatibility from one list', () => {
@@ -73,3 +96,18 @@ describe('providerCapabilities', () => {
     expect(supportsOpenAiNativeWebSearchModel('gpt-4.1')).toBe(false)
   })
 })
+
+function createProviderSettings(
+  provider: Parameters<typeof getDefaultProviderCapabilities>[0],
+  capabilities: Partial<ReturnType<typeof getDefaultProviderCapabilities>> = {},
+  model = '',
+) {
+  return {
+    apiKey: 'sk-test',
+    baseUrl: 'https://example.com',
+    capabilities: normalizeProviderCapabilities(provider, capabilities),
+    model,
+    modelOptions: model ? [model] : [],
+    temperature: 1,
+  }
+}

@@ -6,7 +6,7 @@ import type {
 } from '../../types/chat'
 import type { ChatRequestOptions, StreamDelta } from '../chatCompletion'
 import { getEnabledTools } from '../tools/toolRegistry'
-import { getProviderAdapter, type ProviderConversationMessage } from './providerAdapter'
+import { getProviderAdapterForSettings, type ProviderConversationMessage } from './providerAdapter'
 import { ToolFlowError, isToolFlowError, toToolFlowError } from './toolFlowErrors'
 import {
   type ProviderRoundResult,
@@ -51,7 +51,7 @@ export async function streamWithToolOrchestrator(
   requestOptions?: ChatRequestOptions,
 ): Promise<string> {
   const runtimeSettings = toRuntimeToolSettings(requestOptions?.toolSettings)
-  const adapter = getProviderAdapter(settings.provider)
+  const adapter = getProviderAdapterForSettings(settings)
   const tools = getEnabledTools(runtimeSettings)
   validateOrchestratorPreconditions(runtimeSettings, tools.length, adapter.supportsTools, settings.label)
 
@@ -88,7 +88,7 @@ async function runToolLoop(options: {
   while (true) {
     assertOrchestratorWithinTimeBudget(startedAtMs)
     const round = await executeProviderRound({
-      adapter: getProviderAdapter(options.settings.provider),
+        adapter: getProviderAdapterForSettings(options.settings),
       contextMessages: options.contextMessages,
       onDelta: options.onDelta,
       requestOptions: options.requestOptions,
@@ -129,7 +129,7 @@ async function runToolLoop(options: {
 }
 
 async function executeProviderRound(options: {
-  adapter: ReturnType<typeof getProviderAdapter>
+  adapter: ReturnType<typeof getProviderAdapterForSettings>
   contextMessages: ProviderConversationMessage[]
   settings: ActiveProviderSettings
   onDelta: (delta: StreamDelta) => void

@@ -58,7 +58,7 @@ function getImageInputSupportError(
     return null
   }
 
-  if (!providerSupportsImageInput(settings.provider)) {
+  if (!providerSupportsImageInput(settings)) {
     return createImageInputUnsupportedMessage(settings.provider, settings.label)
   }
 

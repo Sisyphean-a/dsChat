@@ -276,6 +276,9 @@ describe('useChatApp', () => {
       deepseek: {
         apiKey: 'sk-test',
         baseUrl: 'https://api.deepseek.com/',
+        capabilities: expect.objectContaining({
+          protocol: 'chat_completions',
+        }),
         model: 'deepseek-v4-flash',
         modelOptions: expect.any(Array),
         temperature: 1,
@@ -404,6 +407,75 @@ describe('useChatApp', () => {
     expect(app.lastError.value).toBe('DeepSeek 当前模型仅支持文本输入，不支持图片。请切换支持图片的供应商后再发送。')
     expect(app.isSettingsOpen.value).toBe(true)
     expect(streamChatCompletion).not.toHaveBeenCalled()
+  })
+
+  it('allows images on deepseek when the provider config enables image input capability', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+        capabilities: {
+          imageInput: true,
+          nativeWebSearch: false,
+          protocol: 'chat_completions',
+          reasoning: true,
+          toolCalling: true,
+        },
+      },
+    }))
+    vi.mocked(streamChatCompletion).mockResolvedValue('已收到图片')
+
+    const app = useChatApp()
+    await app.initialize()
+    app.pendingAttachments.value = [{
+      id: 'img-1',
+      type: 'image',
+      name: 'demo.png',
+      mimeType: 'image/png',
+      size: 128,
+      width: 10,
+      height: 10,
+      dataUrl: 'data:image/png;base64,abc',
+    }]
+    app.draftMessage.value = '这是啥图'
+
+    await app.sendMessage()
+
+    expect(app.lastError.value).toBeNull()
+    expect(streamChatCompletion).toHaveBeenCalledWith(
+      [expect.objectContaining({
+        attachments: [expect.objectContaining({ id: 'img-1' })],
+        role: 'user',
+      })],
+      expect.objectContaining({
+        capabilities: expect.objectContaining({
+          imageInput: true,
+        }),
+        provider: 'deepseek',
+      }),
+      expect.any(Function),
+      expect.any(AbortSignal),
+      { thinkingEnabled: true },
+    )
+  })
+
+  it('hides thinking toggle when the active config disables reasoning capability', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+        capabilities: {
+          imageInput: false,
+          nativeWebSearch: false,
+          protocol: 'chat_completions',
+          reasoning: false,
+          toolCalling: true,
+        },
+      },
+    }))
+
+    const app = useChatApp()
+    await app.initialize()
+
+    expect(app.showThinkingToggle.value).toBe(false)
   })
 
   it('auto-clears pending images when switching to a provider that does not support image input', async () => {
@@ -685,16 +757,19 @@ describe('useChatApp', () => {
 
     expect(streamChatCompletion).toHaveBeenCalledWith(
       expect.any(Array),
-      {
+      expect.objectContaining({
         configId: customModel.id,
         label: 'OpenAI 自定义',
         provider: 'openai',
         apiKey: 'sk-openai',
         baseUrl: 'https://api.openai.com/v1/',
+        capabilities: expect.objectContaining({
+          protocol: 'responses',
+        }),
         model: 'gpt-4.1',
         modelOptions: expect.any(Array),
         temperature: 1,
-      },
+      }),
       expect.any(Function),
       expect.any(AbortSignal),
       { thinkingEnabled: true },

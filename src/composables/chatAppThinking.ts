@@ -3,10 +3,10 @@ import {
   resolveThinkingProviderKey,
   type ThinkingProviderKey,
 } from '../constants/providerCapabilities'
-import type { ProviderId, SettingsForm } from '../types/chat'
+import type { ActiveProviderSettings, ProviderId, SettingsForm } from '../types/chat'
 
-export function shouldShowThinkingToggle(provider: ProviderId, model: string): boolean {
-  return providerShowsThinkingToggle(provider, model)
+export function shouldShowThinkingToggle(settings: ActiveProviderSettings): boolean {
+  return providerShowsThinkingToggle(settings.provider, settings)
 }
 
 export function resolveThinkingEnabled(

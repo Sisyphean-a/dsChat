@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import EditableModelPicker from './EditableModelPicker.vue'
+import ProviderCapabilitiesEditor from './ProviderCapabilitiesEditor.vue'
 import { ref } from 'vue'
 import {
   getAddableProviderDefinitions,
   getProviderDefinition,
 } from '../constants/providers'
-import type { AddableProviderId, SettingsForm } from '../types/chat'
+import type { AddableProviderId, ProviderCapabilities, SettingsForm } from '../types/chat'
 import type { CustomModelField, ProviderEditableField } from '../types/settingsPanel'
 
 const props = defineProps<{
@@ -19,12 +20,22 @@ const emit = defineEmits<{
   removeCustomModel: [id: string]
   removeCustomModelOption: [id: string, option: string]
   renameCustomModelOption: [id: string, from: string, to: string]
+  updateCustomModelCapability: [
+    id: string,
+    field: keyof ProviderCapabilities,
+    value: ProviderCapabilities[keyof ProviderCapabilities],
+  ]
   updateCustomModelField: [id: string, field: CustomModelField, value: string | number]
+  updateDeepseekCapability: [
+    field: keyof ProviderCapabilities,
+    value: ProviderCapabilities[keyof ProviderCapabilities],
+  ]
   updateDeepseekField: [field: ProviderEditableField, value: string | number]
 }>()
 
 const addableProviders = getAddableProviderDefinitions()
 const pendingDeleteProvider = ref<{ id: string; name: string } | null>(null)
+const expandedCapabilityCards = ref<Set<string>>(new Set())
 
 function requestRemoveProvider(id: string, name: string): void {
   pendingDeleteProvider.value = { id, name: name || '未命名' }
@@ -42,6 +53,36 @@ function confirmRemoveProvider(): void {
 
   emit('removeCustomModel', target.id)
   pendingDeleteProvider.value = null
+}
+
+function isCapabilitiesExpanded(id: string): boolean {
+  return expandedCapabilityCards.value.has(id)
+}
+
+function toggleCapabilities(id: string): void {
+  const next = new Set(expandedCapabilityCards.value)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+  }
+
+  expandedCapabilityCards.value = next
+}
+
+function updateDeepseekCapability(
+  field: keyof ProviderCapabilities,
+  value: ProviderCapabilities[keyof ProviderCapabilities],
+): void {
+  emit('updateDeepseekCapability', field, value)
+}
+
+function updateCustomCapability(
+  id: string,
+  field: keyof ProviderCapabilities,
+  value: ProviderCapabilities[keyof ProviderCapabilities],
+): void {
+  emit('updateCustomModelCapability', id, field, value)
 }
 </script>
 
@@ -90,6 +131,12 @@ function confirmRemoveProvider(): void {
             />
           </label>
         </div>
+        <ProviderCapabilitiesEditor
+          :expanded="isCapabilitiesExpanded('deepseek')"
+          :settings="props.settings.deepseek"
+          @toggle="toggleCapabilities('deepseek')"
+          @update-capability="updateDeepseekCapability"
+        />
       </article>
 
       <article
@@ -144,6 +191,12 @@ function confirmRemoveProvider(): void {
             />
           </label>
         </div>
+        <ProviderCapabilitiesEditor
+          :expanded="isCapabilitiesExpanded(item.id)"
+          :settings="item"
+          @toggle="toggleCapabilities(item.id)"
+          @update-capability="(field, value) => updateCustomCapability(item.id, field, value)"
+        />
       </article>
 
       <article v-if="pendingDeleteProvider" class="setting-card">

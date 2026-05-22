@@ -5,6 +5,7 @@ import SettingsProvidersSection from './SettingsProvidersSection.vue'
 import SettingsToolsSection from './SettingsToolsSection.vue'
 import type {
   AddableProviderId,
+  ProviderCapabilities,
   CustomToolSettings,
   FontSizeMode,
   SettingsForm,
@@ -39,12 +40,21 @@ const emit = defineEmits<{
   updateBuiltinToolTavilyApiKey: [apiKey: string]
   updateBuiltinToolTavilyBaseUrl: [baseUrl: string]
   updateCustomModelField: [id: string, field: CustomModelField, value: string | number]
+  updateCustomModelCapability: [
+    id: string,
+    field: keyof ProviderCapabilities,
+    value: ProviderCapabilities[keyof ProviderCapabilities],
+  ]
   updateCustomToolField: [
     id: string,
     field: CustomToolEditableField,
     value: string | boolean | CustomToolSettings['headers'],
   ]
   updateDeepseekField: [field: ProviderEditableField, value: string | number]
+  updateDeepseekCapability: [
+    field: keyof ProviderCapabilities,
+    value: ProviderCapabilities[keyof ProviderCapabilities],
+  ]
   updateFontSize: [fontSize: FontSizeMode]
   updateTheme: [theme: ThemeMode]
   updateToolEnabled: [enabled: boolean]
@@ -155,7 +165,9 @@ function selectSection(id: SettingsSectionId): void {
               @remove-custom-model="emit('removeCustomModel', $event)"
               @remove-custom-model-option="(id, option) => emit('removeCustomModelOption', id, option)"
               @rename-custom-model-option="(id, from, to) => emit('renameCustomModelOption', id, from, to)"
+              @update-custom-model-capability="(id, field, value) => emit('updateCustomModelCapability', id, field, value)"
               @update-custom-model-field="(id, field, value) => emit('updateCustomModelField', id, field, value)"
+              @update-deepseek-capability="(field, value) => emit('updateDeepseekCapability', field, value)"
               @update-deepseek-field="(field, value) => emit('updateDeepseekField', field, value)"
             />
             <SettingsToolsSection

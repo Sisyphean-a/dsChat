@@ -25,6 +25,7 @@ import type {
   MessageAttachment,
   ProviderId,
   ProviderSettings,
+  ProviderCapabilities,
   SettingsForm,
 } from '../types/chat'
 import { shouldResetConversation } from '../utils/session'
@@ -72,10 +73,7 @@ export function useChatApp() {
     return isSending.value || messages.value.length > 0
   })
   const showThinkingToggle = computed(() => {
-    return shouldShowThinkingToggle(
-      activeChatConfig.value.provider,
-      activeChatConfig.value.model,
-    )
+    return shouldShowThinkingToggle(activeChatConfig.value)
   })
   const thinkingEnabled = computed(() => {
     return resolveThinkingEnabled(activeChatConfig.value.provider)
@@ -206,8 +204,8 @@ export function useChatApp() {
     }
 
     settingsActions.selectActiveConfig(configId)
-    const nextProvider = getActiveProviderSettings(settings.value).provider
-    if (pendingAttachments.value.length > 0 && !providerSupportsImageInput(nextProvider)) {
+    const nextSettings = getActiveProviderSettings(settings.value)
+    if (pendingAttachments.value.length > 0 && !providerSupportsImageInput(nextSettings)) {
       pendingAttachments.value = []
     }
   }
@@ -304,6 +302,21 @@ export function useChatApp() {
     settingsActions.updateDeepseekField(field, value)
   }
 
+  function updateDeepseekCapability(
+    field: keyof ProviderCapabilities,
+    value: ProviderCapabilities[keyof ProviderCapabilities],
+  ): void {
+    settingsActions.updateDeepseekCapability(field, value)
+  }
+
+  function updateCustomModelCapability(
+    id: string,
+    field: keyof ProviderCapabilities,
+    value: ProviderCapabilities[keyof ProviderCapabilities],
+  ): void {
+    settingsActions.updateCustomModelCapability(id, field, value)
+  }
+
   function saveSettingsAction(): Promise<void> {
     return settingsActions.saveSettingsAction()
   }
@@ -384,8 +397,10 @@ export function useChatApp() {
     startFreshConversation,
     toggleSidebar: settingsActions.toggleSidebar,
     updateCustomModelField: settingsActions.updateCustomModelField,
+    updateCustomModelCapability,
     updateCustomToolField: settingsActions.updateCustomToolField,
     updateDeepseekField,
+    updateDeepseekCapability,
     updateActiveThinkingEnabled,
     updateBuiltinToolEnabled: settingsActions.updateBuiltinToolEnabled,
     updateBuiltinToolTavilyApiKey: settingsActions.updateBuiltinToolTavilyApiKey,

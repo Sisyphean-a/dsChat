@@ -4,6 +4,7 @@ export type FontSizeMode = 'medium' | 'large' | 'x-large'
 export type ThemeMode = 'light' | 'dark'
 export type ProviderId = 'deepseek' | 'openai' | 'minimax' | 'kimi' | 'custom'
 export type AddableProviderId = Exclude<ProviderId, 'deepseek'>
+export type ProviderProtocol = 'chat_completions' | 'responses'
 export type UtoolsUploadMode = 'local-only' | 'settings-only' | 'all-data'
 export type ToolTraceStatus = 'planned' | 'running' | 'succeeded' | 'failed'
 export type ToolTraceErrorCode =
@@ -78,9 +79,18 @@ export interface BaseDoc {
 export interface ProviderSettings {
   apiKey: string
   baseUrl: string
+  capabilities: ProviderCapabilities
   model: string
   modelOptions: string[]
   temperature: number
+}
+
+export interface ProviderCapabilities {
+  imageInput: boolean
+  nativeWebSearch: boolean
+  protocol: ProviderProtocol
+  reasoning: boolean
+  toolCalling: boolean
 }
 
 export interface AddedModelConfig extends ProviderSettings {

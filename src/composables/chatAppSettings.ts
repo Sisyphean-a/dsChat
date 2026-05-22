@@ -8,11 +8,8 @@ import {
   isAddableProviderId,
 } from '../constants/providers'
 import {
-  providerSupportsNativeWebSearch,
-  providerSupportsToolOrchestrator,
-  supportsOpenAiNativeWebSearchModel,
+  normalizeProviderCapabilities,
 } from '../constants/providerCapabilities'
-import { DEFAULT_TAVILY_SEARCH_BASE_URL } from '../constants/tools'
 import {
   DEFAULT_UTOOLS_UPLOAD_MODE,
   UTOOLS_UPLOAD_MODES,
@@ -28,6 +25,11 @@ import type {
   ProviderThinkingSettings,
   SettingsForm,
 } from '../types/chat'
+import {
+  canActiveSettingsSearchWeb,
+  getToolSettingsError,
+  normalizeToolSettings,
+} from './chatAppToolSettings'
 
 const OPENAI_MODEL_REPLACEMENTS: Record<string, string> = {
   'gpt-5-search-api': 'gpt-5.5',
@@ -63,33 +65,14 @@ export function getSendSettingsError(currentSettings: SettingsForm): string | nu
     return `请先在设置面板中选择 ${activeSettings.label} 模型。`
   }
 
-  if (currentSettings.toolSettings.enabled && hasEnabledCustomTool(currentSettings.toolSettings)) {
-    return '自定义工具暂未接入执行引擎，请先关闭已启用的自定义工具。'
-  }
-
-  if (currentSettings.toolSettings.enabled && !hasEnabledBuiltinTool(currentSettings.toolSettings)) {
-    return '请至少启用一个内置工具。'
-  }
-
-  if (currentSettings.toolSettings.enabled && !providerSupportsToolCalling(
-    activeSettings.provider,
-    currentSettings.toolSettings,
-  )) {
-    return `${activeSettings.label} 当前配置暂不支持工具调用。`
-  }
-
-  return null
+  return getToolSettingsError(activeSettings, currentSettings.toolSettings)
 }
 
 export function canActiveConversationSearchWeb(currentSettings: SettingsForm): boolean {
   const normalizedSettings = normalizeSettings(currentSettings)
   const activeSettings = getActiveProviderSettings(normalizedSettings)
 
-  if (canUseOpenAiNativeWebSearch(activeSettings, normalizedSettings.toolSettings)) {
-    return true
-  }
-
-  return canUseBuiltinTavilySearch(activeSettings.provider, normalizedSettings.toolSettings)
+  return canActiveSettingsSearchWeb(activeSettings, normalizedSettings.toolSettings)
 }
 
 export function getActiveProviderSettings(settings: SettingsForm): ActiveProviderSettings {
@@ -229,6 +212,7 @@ function normalizeProviderSettings(
     baseUrl: incomingSettings?.baseUrl === undefined
       ? defaults.baseUrl
       : incomingSettings.baseUrl.trim(),
+    capabilities: normalizeProviderCapabilities(provider, incomingSettings?.capabilities),
     model,
     modelOptions,
     temperature: normalizeTemperature(provider, model, incomingSettings?.temperature),
@@ -329,108 +313,6 @@ function normalizeProviderThinking(
     kimi: providerThinking?.kimi ?? true,
     minimax: providerThinking?.minimax ?? true,
   }
-}
-
-function normalizeToolSettings(
-  toolSettings: SettingsForm['toolSettings'] | undefined,
-): SettingsForm['toolSettings'] {
-  const legacy = toolSettings as Partial<{
-    tavilyApiKey: string
-  }>
-  const builtinTools = normalizeBuiltinToolSettings(toolSettings, legacy.tavilyApiKey)
-  const customTools = normalizeCustomToolSettings(toolSettings)
-  return {
-    enabled: toolSettings?.enabled ?? false,
-    openaiUseNativeWebSearch: toolSettings?.openaiUseNativeWebSearch ?? true,
-    builtinTools,
-    customTools,
-  }
-}
-
-function normalizeBuiltinToolSettings(
-  toolSettings: SettingsForm['toolSettings'] | undefined,
-  legacyTavilyApiKey: string | undefined,
-): SettingsForm['toolSettings']['builtinTools'] {
-  const builtinTavilyApiKey = toolSettings?.builtinTools?.tavilySearch?.apiKey?.trim() ?? ''
-  const builtinTavilyBaseUrl = normalizeTavilySearchBaseUrl(toolSettings?.builtinTools?.tavilySearch?.baseUrl)
-  const normalizedLegacyTavilyApiKey = legacyTavilyApiKey?.trim() ?? ''
-  return {
-    currentTime: {
-      enabled: toolSettings?.builtinTools?.currentTime?.enabled ?? true,
-    },
-    tavilySearch: {
-      enabled: toolSettings?.builtinTools?.tavilySearch?.enabled ?? true,
-      apiKey: builtinTavilyApiKey || normalizedLegacyTavilyApiKey,
-      baseUrl: builtinTavilyBaseUrl,
-    },
-  }
-}
-
-function normalizeCustomToolSettings(
-  toolSettings: SettingsForm['toolSettings'] | undefined,
-): SettingsForm['toolSettings']['customTools'] {
-  void toolSettings
-  return []
-}
-
-function providerSupportsToolCalling(
-  provider: ProviderId,
-  toolSettings: SettingsForm['toolSettings'],
-): boolean {
-  if (providerSupportsToolOrchestrator(provider)) {
-    return true
-  }
-
-  return providerSupportsNativeWebSearch(provider) && toolSettings.openaiUseNativeWebSearch
-}
-
-function canUseOpenAiNativeWebSearch(
-  activeSettings: ActiveProviderSettings,
-  toolSettings: SettingsForm['toolSettings'],
-): boolean {
-  if (!providerSupportsNativeWebSearch(activeSettings.provider)) {
-    return false
-  }
-
-  if (!supportsOpenAiNativeWebSearchModel(activeSettings.model)) {
-    return false
-  }
-
-  if (toolSettings.enabled && !toolSettings.openaiUseNativeWebSearch) {
-    return false
-  }
-
-  return true
-}
-
-function canUseBuiltinTavilySearch(
-  provider: ProviderId,
-  toolSettings: SettingsForm['toolSettings'],
-): boolean {
-  if (!toolSettings.enabled || !providerSupportsToolOrchestrator(provider)) {
-    return false
-  }
-
-  if (toolSettings.customTools.some((item) => item.enabled)) {
-    return false
-  }
-
-  return toolSettings.builtinTools.tavilySearch.enabled
-    && Boolean(toolSettings.builtinTools.tavilySearch.apiKey.trim())
-}
-
-function normalizeTavilySearchBaseUrl(value: string | undefined): string {
-  const normalized = value?.trim() ?? ''
-  return normalized || DEFAULT_TAVILY_SEARCH_BASE_URL
-}
-
-function hasEnabledBuiltinTool(toolSettings: SettingsForm['toolSettings']): boolean {
-  const { currentTime, tavilySearch } = toolSettings.builtinTools
-  return currentTime.enabled || tavilySearch.enabled
-}
-
-function hasEnabledCustomTool(toolSettings: SettingsForm['toolSettings']): boolean {
-  return toolSettings.customTools.some((item) => item.enabled)
 }
 
 export function normalizeUtoolsUploadMode(

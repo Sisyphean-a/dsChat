@@ -15,6 +15,7 @@ import { appendModelOption, replaceModelOption } from './chatAppModelOptions'
 import { normalizeSettings } from './chatAppSettings'
 
 type ProviderEditableField = Exclude<keyof ProviderSettings, 'modelOptions'>
+type ProviderCapabilityField = keyof ProviderSettings['capabilities']
 type CustomModelField = ProviderEditableField | 'name'
 type BuiltinToolField = keyof SettingsForm['toolSettings']['builtinTools']
 type CustomToolField = Exclude<keyof CustomToolSettings, 'id'>
@@ -47,6 +48,15 @@ export interface ChatAppSettingsActions {
   updateBuiltinToolTavilyBaseUrl: (baseUrl: string) => void
   updateCustomToolField: (id: string, field: CustomToolField, value: CustomToolSettings[CustomToolField]) => void
   updateCustomModelField: (id: string, field: CustomModelField, value: string | number) => void
+  updateCustomModelCapability: (
+    id: string,
+    field: ProviderCapabilityField,
+    value: ProviderSettings['capabilities'][ProviderCapabilityField],
+  ) => void
+  updateDeepseekCapability: (
+    field: ProviderCapabilityField,
+    value: ProviderSettings['capabilities'][ProviderCapabilityField],
+  ) => void
   updateDeepseekField: (
     field: ProviderEditableField,
     value: ProviderSettings[ProviderEditableField],
@@ -127,6 +137,45 @@ export function createChatAppSettingsActions(
         return {
           ...item,
           [field]: value,
+        }
+      }),
+    }
+  }
+
+  function updateDeepseekCapability(
+    field: ProviderCapabilityField,
+    value: ProviderSettings['capabilities'][ProviderCapabilityField],
+  ): void {
+    settings.value = {
+      ...settings.value,
+      deepseek: {
+        ...settings.value.deepseek,
+        capabilities: {
+          ...settings.value.deepseek.capabilities,
+          [field]: value,
+        },
+      },
+    }
+  }
+
+  function updateCustomModelCapability(
+    id: string,
+    field: ProviderCapabilityField,
+    value: ProviderSettings['capabilities'][ProviderCapabilityField],
+  ): void {
+    settings.value = {
+      ...settings.value,
+      customModels: settings.value.customModels.map((item) => {
+        if (item.id !== id) {
+          return item
+        }
+
+        return {
+          ...item,
+          capabilities: {
+            ...item.capabilities,
+            [field]: value,
+          },
         }
       }),
     }
@@ -437,6 +486,8 @@ export function createChatAppSettingsActions(
     updateBuiltinToolTavilyBaseUrl,
     updateCustomToolField,
     updateCustomModelField,
+    updateCustomModelCapability,
+    updateDeepseekCapability,
     updateDeepseekField,
     updateFontSize,
     updateProviderThinking,

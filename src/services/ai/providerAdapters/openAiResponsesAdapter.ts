@@ -1,6 +1,7 @@
 import type { ProviderAdapter, ProviderPayloadInput, ProviderStreamState } from '../providerAdapter'
 import type { ProviderStreamDelta } from '../toolTypes'
 import {
+  providerSupportsNativeWebSearch,
   resolveProviderRequestTemperature,
   shouldIncludeProviderRequestTemperature,
   supportsOpenAiNativeWebSearchModel,
@@ -50,7 +51,7 @@ export const openAiResponsesAdapter: ProviderAdapter = {
 
     if (shouldIncludeProviderRequestTemperature(
       input.settings.provider,
-      input.settings.model,
+      input.settings,
       input.requestOptions?.thinkingEnabled,
     )) {
       payload.temperature = resolveProviderRequestTemperature(
@@ -60,7 +61,7 @@ export const openAiResponsesAdapter: ProviderAdapter = {
       )
     }
 
-    if (supportsOpenAiNativeWebSearchModel(input.settings.model)) {
+    if (providerSupportsNativeWebSearch(input.settings) && supportsOpenAiNativeWebSearchModel(input.settings.model)) {
       payload.tool_choice = 'auto'
       payload.tools = [{ type: 'web_search' }]
     }

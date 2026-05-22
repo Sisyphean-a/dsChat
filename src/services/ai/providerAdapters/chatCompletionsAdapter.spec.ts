@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getDefaultProviderCapabilities } from '../../../constants/providerCapabilities'
 import { createProviderStreamState } from '../providerAdapter'
 import { chatCompletionsAdapter } from './chatCompletionsAdapter'
 
@@ -151,6 +152,7 @@ function createDeepseekSettings() {
     provider: 'deepseek' as const,
     apiKey: 'sk-test',
     baseUrl: 'https://api.deepseek.com',
+    capabilities: getDefaultProviderCapabilities('deepseek'),
     model: 'deepseek-v4-flash',
     modelOptions: ['deepseek-v4-flash'],
     temperature: 1,
@@ -164,6 +166,7 @@ function createKimiSettings(overrides: Partial<{ temperature: number }> = {}) {
     provider: 'kimi' as const,
     apiKey: 'sk-test',
     baseUrl: 'https://api.moonshot.cn/v1',
+    capabilities: getDefaultProviderCapabilities('kimi'),
     model: 'kimi-k2-thinking',
     modelOptions: ['kimi-k2-thinking'],
     temperature: overrides.temperature ?? 1,

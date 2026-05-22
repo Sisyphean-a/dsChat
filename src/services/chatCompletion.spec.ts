@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { getDefaultProviderCapabilities } from '../constants/providerCapabilities'
 import { consumeSseBuffer, requestChatCompletion, streamChatCompletion } from './chatCompletion'
 import type { ActiveProviderSettings } from '../types/chat'
 
@@ -224,6 +225,47 @@ describe('streamChatCompletion', () => {
     const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
     expect(body.tool_choice).toBe('auto')
     expect(body.tools).toEqual([{ type: 'web_search' }])
+  })
+
+  it('uses chat completions without native web_search when OpenAI capabilities are overridden', async () => {
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"代理可用"}}]}\n\ndata: [DONE]\n\n'))
+          controller.close()
+        },
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await streamChatCompletion(
+      [{ id: '1', role: 'user', content: '你好', createdAt: 0, status: 'done' }],
+      createSettings({
+        capabilities: {
+          imageInput: true,
+          nativeWebSearch: false,
+          protocol: 'chat_completions',
+          reasoning: false,
+          toolCalling: true,
+        },
+        label: 'OpenAI 代理',
+        provider: 'openai',
+        baseUrl: 'https://proxy.example.com/v1',
+        model: 'gpt-5.5',
+      }),
+      vi.fn(),
+    )
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe('https://proxy.example.com/v1/chat/completions')
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))
+    expect(body.tools).toBeUndefined()
+    expect(body.messages[0]).toEqual({
+      role: 'user',
+      content: '你好',
+    })
   })
 
   it('encodes assistant history as output_text for OpenAI responses input', async () => {
@@ -748,11 +790,14 @@ function createSettings(
     model: 'deepseek-v4-flash',
     modelOptions: ['deepseek-v4-flash', 'deepseek-v4-pro'],
     temperature: 1,
+    capabilities: getDefaultProviderCapabilities('deepseek'),
   }
 
+  const provider = overrides.provider ?? defaults.provider
   return {
     ...defaults,
     ...overrides,
+    capabilities: overrides.capabilities ?? getDefaultProviderCapabilities(provider),
     modelOptions: overrides.modelOptions ?? defaults.modelOptions,
   }
 }

@@ -51,6 +51,13 @@ describe('utools storage routing', () => {
     expect(settings.deepseek).toEqual({
       apiKey: 'sk-legacy',
       baseUrl: 'https://api.deepseek.com/',
+      capabilities: {
+        imageInput: false,
+        nativeWebSearch: false,
+        protocol: 'chat_completions',
+        reasoning: true,
+        toolCalling: true,
+      },
       model: 'deepseek-chat',
       modelOptions: ['deepseek-v4-flash', 'deepseek-v4-pro'],
       temperature: 1.5,
@@ -240,6 +247,13 @@ describe('utools storage routing', () => {
     expect(loaded.customModels[0]).toEqual({
       ...openaiModel,
       baseUrl: 'https://api.openai.com/v1',
+      capabilities: {
+        imageInput: true,
+        nativeWebSearch: true,
+        protocol: 'responses',
+        reasoning: false,
+        toolCalling: false,
+      },
       temperature: 1,
     })
   })

@@ -117,6 +117,79 @@
   gap: 12px;
 }
 
+.capability-summary-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.capability-summary-label {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.capability-pills {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.capability-pill {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid var(--accent-soft);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.capability-pill.off {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.capability-toggle {
+  flex: none;
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.capability-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--accent-strong);
+}
+
+.capability-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-soft);
+}
+
+.capability-switch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
 .builtin-tool-list {
   display: flex;
   flex-direction: column;
@@ -333,6 +406,14 @@
   .field-shell,
   .provider-title-field {
     --inline-label-width: 72px;
+  }
+
+  .capability-summary-row {
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+  }
+
+  .capability-switch-grid {
+    grid-template-columns: 1fr;
   }
 
   .builtin-tool-row {

@@ -59,7 +59,7 @@ export const chatCompletionsAdapter: ProviderAdapter = {
 
     if (shouldIncludeProviderRequestTemperature(
       input.settings.provider,
-      input.settings.model,
+      input.settings,
       input.requestOptions?.thinkingEnabled,
     )) {
       payload.temperature = resolveRequestTemperature(
@@ -71,11 +71,11 @@ export const chatCompletionsAdapter: ProviderAdapter = {
 
     Object.assign(
       payload,
-      createThinkingPayloadForChatCompletions(
-        input.settings.provider,
-        input.settings.model,
-        input.requestOptions?.thinkingEnabled,
-      ),
+        createThinkingPayloadForChatCompletions(
+          input.settings.provider,
+          input.settings,
+          input.requestOptions?.thinkingEnabled,
+        ),
     )
 
     if (input.tools?.length) {

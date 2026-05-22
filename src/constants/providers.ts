@@ -3,6 +3,7 @@ import type {
   AddedModelConfig,
   FontSizeMode,
   ProviderId,
+  ProviderCapabilities,
   ProviderSettings,
   ProviderThinkingSettings,
   SettingsForm,
@@ -193,9 +194,40 @@ export function buildDefaultProviderSettings(provider: ProviderId): ProviderSett
   return {
     apiKey: '',
     baseUrl: definition.baseUrlDefault,
+    capabilities: createDefaultProviderCapabilities(provider),
     model: definition.defaultModels[0]?.value ?? '',
     modelOptions: getProviderDefaultModelValues(provider),
     temperature: definition.temperature.defaultValue,
+  }
+}
+
+function createDefaultProviderCapabilities(provider: ProviderId): ProviderCapabilities {
+  if (provider === 'openai') {
+    return {
+      imageInput: true,
+      nativeWebSearch: true,
+      protocol: 'responses',
+      reasoning: false,
+      toolCalling: false,
+    }
+  }
+
+  if (provider === 'custom' || provider === 'kimi') {
+    return {
+      imageInput: true,
+      nativeWebSearch: false,
+      protocol: 'chat_completions',
+      reasoning: provider === 'kimi',
+      toolCalling: true,
+    }
+  }
+
+  return {
+    imageInput: false,
+    nativeWebSearch: false,
+    protocol: 'chat_completions',
+    reasoning: true,
+    toolCalling: true,
   }
 }
 
