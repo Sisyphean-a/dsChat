@@ -678,6 +678,13 @@ describe('streamChatCompletion', () => {
       streamChatCompletion(
         [{ id: '1', role: 'user', content: '查天气', createdAt: 0, status: 'done' }],
         createSettings({
+          capabilities: {
+            imageInput: true,
+            nativeWebSearch: false,
+            protocol: 'responses',
+            reasoning: false,
+            toolCalling: true,
+          },
           label: 'OpenAI',
           provider: 'openai',
           baseUrl: 'https://api.openai.com/v1',
@@ -688,7 +695,6 @@ describe('streamChatCompletion', () => {
         {
           toolSettings: {
             enabled: true,
-            openaiUseNativeWebSearch: false,
             builtinTools: {
               currentTime: {
                 enabled: true,
@@ -732,7 +738,6 @@ describe('streamChatCompletion', () => {
       {
         toolSettings: {
           enabled: true,
-          openaiUseNativeWebSearch: true,
           builtinTools: {
             currentTime: {
               enabled: true,

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { providerSupportsToolCalling } from '../constants/providerCapabilities'
 import type { ProviderCapabilities, ProviderSettings } from '../types/chat'
 
 const props = defineProps<{
@@ -29,12 +31,35 @@ const CAPABILITY_LABELS = {
   toolCalling: '工具',
 } as const
 
-function enabledCapabilityLabels(settings: ProviderSettings): string {
+const summaryCapabilities = computed(() => ({
+  imageInput: props.settings.capabilities.imageInput,
+  nativeWebSearch: props.settings.capabilities.nativeWebSearch,
+  reasoning: props.settings.capabilities.reasoning,
+  toolCalling: providerSupportsToolCalling(props.settings),
+}))
+
+function enabledCapabilityLabels(): string {
+  const states = summaryCapabilities.value
   const labels = Object.entries(CAPABILITY_LABELS)
-    .filter(([key]) => settings.capabilities[key as keyof typeof CAPABILITY_LABELS])
+    .filter(([key]) => states[key as keyof typeof CAPABILITY_LABELS])
     .map(([, label]) => label)
 
   return labels.length ? labels.join(' / ') : '无'
+}
+
+function resolveCapabilityTitle(key: keyof typeof CAPABILITY_LABELS): string {
+  if (key === 'toolCalling') {
+    return resolveToolCallingTitle()
+  }
+
+  return CAPABILITY_HELP[key]
+}
+
+function updateProtocol(protocol: ProviderCapabilities['protocol']): void {
+  emit('updateCapability', 'protocol', protocol)
+  if (protocol === 'responses' && props.settings.capabilities.toolCalling) {
+    emit('updateCapability', 'toolCalling', false)
+  }
 }
 
 function updateCapability(
@@ -43,18 +68,26 @@ function updateCapability(
 ): void {
   emit('updateCapability', field, value)
 }
+
+function resolveToolCallingTitle(): string {
+  if (props.settings.capabilities.protocol === 'chat_completions') {
+    return CAPABILITY_HELP.toolCalling
+  }
+
+  return '本地工具调用当前只支持 Chat Completions 协议。'
+}
 </script>
 
 <template>
   <div class="capability-summary-row">
     <span class="capability-summary-label">能力</span>
-    <div class="capability-pills" :title="`已启用：${enabledCapabilityLabels(props.settings)}`">
+    <div class="capability-pills" :title="`已启用：${enabledCapabilityLabels()}`">
       <span
         v-for="(label, key) in CAPABILITY_LABELS"
         :key="key"
         class="capability-pill"
-        :class="{ off: !props.settings.capabilities[key] }"
-        :title="CAPABILITY_HELP[key]"
+        :class="{ off: !summaryCapabilities[key] }"
+        :title="resolveCapabilityTitle(key)"
       >
         {{ label }}
       </span>
@@ -74,7 +107,7 @@ function updateCapability(
       <span :title="CAPABILITY_HELP.protocol">协议</span>
       <select
         :value="props.settings.capabilities.protocol"
-        @change="updateCapability('protocol', ($event.target as HTMLSelectElement).value as ProviderCapabilities['protocol'])"
+        @change="updateProtocol(($event.target as HTMLSelectElement).value as ProviderCapabilities['protocol'])"
       >
         <option value="chat_completions">Chat Completions</option>
         <option value="responses">Responses</option>
@@ -97,9 +130,10 @@ function updateCapability(
         />
         <span>思考能力</span>
       </label>
-      <label class="switch-row" :title="CAPABILITY_HELP.toolCalling">
+      <label class="switch-row" :title="resolveToolCallingTitle()">
         <input
-          :checked="props.settings.capabilities.toolCalling"
+          :checked="providerSupportsToolCalling(props.settings)"
+          :disabled="props.settings.capabilities.protocol !== 'chat_completions'"
           type="checkbox"
           @change="updateCapability('toolCalling', ($event.target as HTMLInputElement).checked)"
         />

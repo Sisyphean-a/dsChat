@@ -46,6 +46,16 @@ describe('providerCapabilities', () => {
     expect(providerSupportsToolCalling(settings)).toBe(true)
   })
 
+  it('does not treat local tool calling as available on responses protocol', () => {
+    const settings = createProviderSettings('openai', {
+      nativeWebSearch: false,
+      protocol: 'responses',
+      toolCalling: true,
+    })
+
+    expect(providerSupportsToolCalling(settings)).toBe(false)
+  })
+
   it('normalizes partial capability overrides with provider defaults', () => {
     expect(normalizeProviderCapabilities('deepseek', { imageInput: true })).toEqual({
       imageInput: true,

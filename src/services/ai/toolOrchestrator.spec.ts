@@ -316,7 +316,6 @@ function createUserMessage(content: string): ChatMessage {
 function createToolSettings() {
   return {
     enabled: true,
-    openaiUseNativeWebSearch: true,
     builtinTools: {
       currentTime: {
         enabled: true,

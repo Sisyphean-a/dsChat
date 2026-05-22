@@ -202,7 +202,8 @@ export function providerSupportsToolOrchestrator(provider: ProviderId): boolean 
 }
 
 export function providerSupportsToolCalling(settings: ProviderSettings): boolean {
-  return settings.capabilities.toolCalling
+  return settings.capabilities.protocol === 'chat_completions'
+    && settings.capabilities.toolCalling
 }
 
 export function providerSupportsNativeWebSearch(settings: ProviderSettings): boolean {

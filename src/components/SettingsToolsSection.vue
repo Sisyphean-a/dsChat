@@ -11,7 +11,6 @@ const emit = defineEmits<{
   updateBuiltinToolTavilyApiKey: [apiKey: string]
   updateBuiltinToolTavilyBaseUrl: [baseUrl: string]
   updateToolEnabled: [enabled: boolean]
-  updateToolOpenAiNativeSearch: [enabled: boolean]
 }>()
 
 function openTavilyOfficialSite(): void {
@@ -30,8 +29,7 @@ function openTavilyOfficialSite(): void {
       <article class="setting-card wide-card">
         <div class="setting-card-head split-head">
           <div>
-            <h4>工具调用</h4>
-            <p>总开关关闭时，模型只进行普通对话。</p>
+            <h4>工具调用总开关</h4>
           </div>
           <label class="switch-row emphasized-switch">
             <input
@@ -40,16 +38,6 @@ function openTavilyOfficialSite(): void {
               @change="emit('updateToolEnabled', ($event.target as HTMLInputElement).checked)"
             />
             <span>启用</span>
-          </label>
-        </div>
-        <div class="tool-preferences">
-          <label class="switch-row">
-            <input
-              :checked="props.settings.toolSettings.openaiUseNativeWebSearch"
-              type="checkbox"
-              @change="emit('updateToolOpenAiNativeSearch', ($event.target as HTMLInputElement).checked)"
-            />
-            <span>OpenAI 使用原生 web_search，避免与工具编排冲突</span>
           </label>
         </div>
       </article>

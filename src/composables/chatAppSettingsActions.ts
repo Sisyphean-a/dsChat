@@ -68,7 +68,6 @@ export interface ChatAppSettingsActions {
   ) => void
   updateTheme: (theme: ThemeMode) => void
   updateToolEnabled: (enabled: boolean) => void
-  updateToolOpenAiNativeSearch: (enabled: boolean) => void
   updateUtoolsUploadMode: (mode: UtoolsUploadMode) => void
 }
 
@@ -345,16 +344,6 @@ export function createChatAppSettingsActions(
     }
   }
 
-  function updateToolOpenAiNativeSearch(enabled: boolean): void {
-    settings.value = {
-      ...settings.value,
-      toolSettings: {
-        ...settings.value.toolSettings,
-        openaiUseNativeWebSearch: enabled,
-      },
-    }
-  }
-
   function updateBuiltinToolEnabled(tool: BuiltinToolField, enabled: boolean): void {
     settings.value = {
       ...settings.value,
@@ -493,7 +482,6 @@ export function createChatAppSettingsActions(
     updateProviderThinking,
     updateTheme,
     updateToolEnabled,
-    updateToolOpenAiNativeSearch,
     updateUtoolsUploadMode,
   }
 }

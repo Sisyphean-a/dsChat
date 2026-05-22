@@ -238,7 +238,6 @@ onMounted(async () => {
       @update-font-size="app.updateFontSize"
       @update-theme="app.updateTheme"
       @update-tool-enabled="app.updateToolEnabled"
-      @update-tool-open-ai-native-search="app.updateToolOpenAiNativeSearch"
       @update-utools-upload-mode="app.updateUtoolsUploadMode"
     />
   </div>

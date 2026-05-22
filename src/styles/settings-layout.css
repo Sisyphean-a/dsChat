@@ -93,8 +93,7 @@
 
 .settings-header-actions,
 .settings-nav,
-.stacked-controls,
-.tool-preferences {
+.stacked-controls {
   display: flex;
 }
 

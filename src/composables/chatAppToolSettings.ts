@@ -15,7 +15,6 @@ export function normalizeToolSettings(
   const builtinTools = normalizeBuiltinToolSettings(toolSettings, legacy.tavilyApiKey)
   return {
     enabled: toolSettings?.enabled ?? false,
-    openaiUseNativeWebSearch: toolSettings?.openaiUseNativeWebSearch ?? true,
     builtinTools,
     customTools: [],
   }
@@ -37,7 +36,7 @@ export function getToolSettingsError(
     return '请至少启用一个内置工具。'
   }
 
-  if (!providerSupportsToolCalling(activeSettings, toolSettings)) {
+  if (!providerSupportsToolCalling(activeSettings)) {
     return `${activeSettings.label} 当前配置暂不支持工具调用。`
   }
 
@@ -48,7 +47,7 @@ export function canActiveSettingsSearchWeb(
   activeSettings: ActiveProviderSettings,
   toolSettings: SettingsForm['toolSettings'],
 ): boolean {
-  if (canUseOpenAiNativeWebSearch(activeSettings, toolSettings)) {
+  if (canUseOpenAiNativeWebSearch(activeSettings)) {
     return true
   }
 
@@ -76,28 +75,22 @@ function normalizeBuiltinToolSettings(
 
 function providerSupportsToolCalling(
   activeSettings: ActiveProviderSettings,
-  toolSettings: SettingsForm['toolSettings'],
 ): boolean {
   if (configSupportsToolCalling(activeSettings)) {
     return true
   }
 
-  return providerSupportsNativeWebSearch(activeSettings) && toolSettings.openaiUseNativeWebSearch
+  return providerSupportsNativeWebSearch(activeSettings)
 }
 
 function canUseOpenAiNativeWebSearch(
   activeSettings: ActiveProviderSettings,
-  toolSettings: SettingsForm['toolSettings'],
 ): boolean {
   if (!providerSupportsNativeWebSearch(activeSettings)) {
     return false
   }
 
   if (!supportsOpenAiNativeWebSearchModel(activeSettings.model)) {
-    return false
-  }
-
-  if (toolSettings.enabled && !toolSettings.openaiUseNativeWebSearch) {
     return false
   }
 

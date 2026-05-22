@@ -137,7 +137,6 @@ export interface CustomToolSettings {
 
 export interface ToolSettings {
   enabled: boolean
-  openaiUseNativeWebSearch: boolean
   builtinTools: BuiltinToolSettings
   customTools: CustomToolSettings[]
 }

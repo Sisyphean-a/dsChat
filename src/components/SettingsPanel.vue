@@ -58,7 +58,6 @@ const emit = defineEmits<{
   updateFontSize: [fontSize: FontSizeMode]
   updateTheme: [theme: ThemeMode]
   updateToolEnabled: [enabled: boolean]
-  updateToolOpenAiNativeSearch: [enabled: boolean]
   updateUtoolsUploadMode: [mode: UtoolsUploadMode]
 }>()
 
@@ -177,7 +176,6 @@ function selectSection(id: SettingsSectionId): void {
               @update-builtin-tool-tavily-api-key="emit('updateBuiltinToolTavilyApiKey', $event)"
               @update-builtin-tool-tavily-base-url="emit('updateBuiltinToolTavilyBaseUrl', $event)"
               @update-tool-enabled="emit('updateToolEnabled', $event)"
-              @update-tool-open-ai-native-search="emit('updateToolOpenAiNativeSearch', $event)"
             />
           </main>
         </div>

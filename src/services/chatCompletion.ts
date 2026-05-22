@@ -218,11 +218,15 @@ function shouldUseToolOrchestrator(
     return false
   }
 
-  if (providerSupportsNativeWebSearch(settings) && !toolSettings.openaiUseNativeWebSearch) {
-    throw new Error(`${settings.label} 当前配置暂不支持工具调用。`)
+  if (providerSupportsToolCalling(settings)) {
+    return true
   }
 
-  return providerSupportsToolCalling(settings)
+  if (providerSupportsNativeWebSearch(settings)) {
+    return false
+  }
+
+  throw new Error(`${settings.label} 当前配置暂不支持工具调用。`)
 }
 
 function extractEventPayload(frame: string): string {

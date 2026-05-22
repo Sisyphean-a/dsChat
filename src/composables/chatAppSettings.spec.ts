@@ -13,20 +13,6 @@ describe('getSendSettingsError', () => {
     expect(error).toBeNull()
   })
 
-  it('shows explicit unsupported error for providers without tools support', () => {
-    const settings = buildDefaultSettings()
-    const openai = createAddedModelDraft('openai', [])
-    openai.apiKey = 'sk-openai'
-    settings.customModels = [openai]
-    settings.activeConfigId = openai.id
-    settings.toolSettings.enabled = true
-    settings.toolSettings.openaiUseNativeWebSearch = false
-    settings.toolSettings.builtinTools.tavilySearch.apiKey = 'tvly-key'
-
-    const error = getSendSettingsError(normalizeSettings(settings))
-    expect(error).toBe('OpenAI 当前配置暂不支持工具调用。')
-  })
-
   it('allows openai when native web_search compatibility is enabled', () => {
     const settings = buildDefaultSettings()
     const openai = createAddedModelDraft('openai', [])
@@ -34,7 +20,7 @@ describe('getSendSettingsError', () => {
     settings.customModels = [openai]
     settings.activeConfigId = openai.id
     settings.toolSettings.enabled = true
-    settings.toolSettings.openaiUseNativeWebSearch = true
+    settings.toolSettings.builtinTools.tavilySearch.apiKey = 'tvly-key'
 
     const error = getSendSettingsError(normalizeSettings(settings))
     expect(error).toBeNull()
@@ -54,11 +40,30 @@ describe('getSendSettingsError', () => {
     settings.customModels = [openai]
     settings.activeConfigId = openai.id
     settings.toolSettings.enabled = true
-    settings.toolSettings.openaiUseNativeWebSearch = false
     settings.toolSettings.builtinTools.tavilySearch.apiKey = 'tvly-key'
 
     const error = getSendSettingsError(normalizeSettings(settings))
     expect(error).toBeNull()
+  })
+
+  it('rejects local tools when the provider is still configured for responses protocol', () => {
+    const settings = buildDefaultSettings()
+    const openai = createAddedModelDraft('openai', [])
+    openai.apiKey = 'sk-openai'
+    openai.baseUrl = 'https://proxy.example.com/v1'
+    openai.capabilities = {
+      ...openai.capabilities,
+      nativeWebSearch: false,
+      protocol: 'responses',
+      toolCalling: true,
+    }
+    settings.customModels = [openai]
+    settings.activeConfigId = openai.id
+    settings.toolSettings.enabled = true
+    settings.toolSettings.builtinTools.tavilySearch.apiKey = 'tvly-key'
+
+    const error = getSendSettingsError(normalizeSettings(settings))
+    expect(error).toBe('OpenAI 当前配置暂不支持工具调用。')
   })
 
   it('requires at least one enabled builtin tool when tool calling is enabled', () => {
