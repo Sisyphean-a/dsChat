@@ -506,6 +506,31 @@ describe('useChatApp', () => {
     expect(app.settings.value.activeConfigId).toBe('deepseek')
   })
 
+  it('interprets /new as a composer command and does not send it to the model', async () => {
+    vi.mocked(loadSettings).mockResolvedValue(createSettings({
+      deepseek: {
+        apiKey: 'sk-test',
+      },
+    }))
+    vi.mocked(streamChatCompletion).mockResolvedValue('你好')
+
+    const app = useChatApp()
+    await app.initialize()
+    app.draftMessage.value = '第一条'
+    await app.sendMessage()
+
+    expect(app.activeConversationId.value).toBeTruthy()
+    expect(app.messages.value).toHaveLength(2)
+
+    app.draftMessage.value = '  /new  '
+    await app.sendMessage()
+
+    expect(streamChatCompletion).toHaveBeenCalledTimes(1)
+    expect(app.activeConversationId.value).toBeNull()
+    expect(app.messages.value).toEqual([])
+    expect(app.draftMessage.value).toBe('')
+  })
+
   it('allows adding and removing custom model options', async () => {
     const app = useChatApp()
     await app.initialize()

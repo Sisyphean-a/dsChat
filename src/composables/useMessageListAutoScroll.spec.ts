@@ -298,6 +298,51 @@ describe('useMessageListAutoScroll', () => {
 
     expect(list.scrollTop).toBe(2180)
   })
+
+  it('shows the scroll-to-bottom button after the user scrolls far away from the bottom', async () => {
+    const activeConversationId = ref<string | null>('c1')
+    const messages = ref<ChatMessage[]>(createStreamingMessages('a'))
+    const autoScroll = useMessageListAutoScroll({
+      activeConversationId,
+      messages,
+    }) as ReturnType<typeof useMessageListAutoScroll> & {
+      showScrollToBottomButton: { value: boolean }
+    }
+
+    const list = createMessageListElement({
+      clientHeight: 500,
+      scrollHeight: 2000,
+      scrollTop: 1200,
+    })
+    autoScroll.messageListRef.value = list
+    await flushWatchers()
+    autoScroll.handleMessageListScroll()
+
+    expect(autoScroll.showScrollToBottomButton.value).toBe(true)
+  })
+
+  it('hides the scroll-to-bottom button after jumping back to the bottom', async () => {
+    const activeConversationId = ref<string | null>('c1')
+    const messages = ref<ChatMessage[]>(createStreamingMessages('a'))
+    const autoScroll = useMessageListAutoScroll({
+      activeConversationId,
+      messages,
+    }) as ReturnType<typeof useMessageListAutoScroll> & {
+      showScrollToBottomButton: { value: boolean }
+    }
+
+    const list = createMessageListElement({
+      clientHeight: 500,
+      scrollHeight: 2000,
+      scrollTop: 1200,
+    })
+    autoScroll.messageListRef.value = list
+    await flushWatchers()
+    autoScroll.handleMessageListScroll()
+    await autoScroll.scrollToBottom(true)
+
+    expect(autoScroll.showScrollToBottomButton.value).toBe(false)
+  })
 })
 
 function createStreamingMessages(content: string): ChatMessage[] {

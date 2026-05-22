@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import ChatComposer from './components/ChatComposer.vue'
 import MessageBubble from './components/MessageBubble.vue'
 import ModelPicker from './components/ModelPicker.vue'
@@ -15,11 +15,14 @@ const {
   handleMessageListScroll,
   handleMessageListWheel,
   messageListRef,
+  scrollToBottom,
+  showScrollToBottomButton,
 } = useMessageListAutoScroll({
   activeConversationId: app.activeConversationId,
   messages: app.messages,
 })
 void messageListRef
+const composerFocusSignal = ref(0)
 
 const currentTitle = computed(() => {
   if (!app.activeConversationId.value) return '新对话'
@@ -62,8 +65,16 @@ function applyQuickPrompt(prompt: string, autoSend = false): void {
   }
 }
 
-onMounted(() => {
-  void app.initialize()
+function requestComposerFocus(): void {
+  composerFocusSignal.value += 1
+}
+
+onMounted(async () => {
+  await app.initialize()
+  requestComposerFocus()
+  window.utools?.onPluginEnter(() => {
+    requestComposerFocus()
+  })
 })
 </script>
 
@@ -148,11 +159,25 @@ onMounted(() => {
         </div>
       </section>
 
+      <button
+        v-if="app.messages.value.length && showScrollToBottomButton"
+        class="scroll-to-bottom-button"
+        type="button"
+        title="回到底部"
+        @click="void scrollToBottom(true)"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14"></path>
+          <path d="m6 13 6 6 6-6"></path>
+        </svg>
+      </button>
+
       <div class="composer-container">
         <ChatComposer
           v-model="app.draftMessage.value"
           :attachments="app.pendingAttachments.value"
           :can-send="app.canSendMessage.value"
+          :focus-signal="composerFocusSignal"
           :is-sending="app.isSending.value"
           :placeholder="composerPlaceholder"
           :show-thinking-toggle="app.showThinkingToggle.value"

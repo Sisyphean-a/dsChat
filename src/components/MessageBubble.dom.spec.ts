@@ -38,6 +38,7 @@ describe('MessageBubble', () => {
       },
     })
 
+    expect(wrapper.find('[data-testid="message-row"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="message-copy-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="message-regenerate-button"]').exists()).toBe(false)
   })
@@ -58,6 +59,53 @@ describe('MessageBubble', () => {
 
     expect(wrapper.find('[data-testid="message-copy-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="message-regenerate-button"]').exists()).toBe(true)
+  })
+
+  it('renders message action buttons without circular chrome', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        canRetry: true,
+        message: {
+          id: 'assistant-plain-actions',
+          content: '这是完整回答',
+          createdAt: 2,
+          role: 'assistant',
+          status: 'done',
+        },
+      },
+    })
+
+    const copyButton = wrapper.get('[data-testid="message-copy-button"]')
+    const regenerateButton = wrapper.get('[data-testid="message-regenerate-button"]')
+
+    expect(copyButton.classes()).toContain('message-action-button')
+    expect(regenerateButton.classes()).toContain('message-action-button')
+    expect(copyButton.attributes('data-button-style')).toBe('plain')
+    expect(regenerateButton.attributes('data-button-style')).toBe('plain')
+    expect(regenerateButton.attributes('data-icon-id')).toBe('ec66f0')
+  })
+
+  it('collapses long user messages by default and expands on demand', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: {
+          id: 'user-long',
+          content: `${'这是一段很长的代码说明。\n'.repeat(8)}const answer = 42`,
+          createdAt: 1,
+          role: 'user',
+          status: 'done',
+        },
+      },
+    })
+
+    const collapseButton = wrapper.get('[data-testid="message-collapse-toggle"]')
+
+    expect(collapseButton.attributes('data-button-style')).toBe('plain')
+    expect(wrapper.find('.plain-body-shell').classes()).toContain('is-collapsed')
+
+    await collapseButton.trigger('click')
+
+    expect(wrapper.find('.plain-body-shell').classes()).not.toContain('is-collapsed')
   })
 
   it('renders unified process timeline collapsed by default and expands on toggle', async () => {

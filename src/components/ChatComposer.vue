@@ -5,6 +5,7 @@ import type { MessageAttachment } from '../types/chat'
 const props = defineProps<{
   attachments: MessageAttachment[]
   canSend: boolean
+  focusSignal?: number
   isSending: boolean
   modelValue: string
   placeholder?: string
@@ -72,6 +73,11 @@ function syncTextareaHeight(): void {
   resizeTextarea(target)
 }
 
+async function focusTextarea(): Promise<void> {
+  await nextTick()
+  textareaRef.value?.focus()
+}
+
 watch(
   () => props.modelValue,
   async () => {
@@ -80,8 +86,22 @@ watch(
   },
 )
 
+watch(
+  () => props.focusSignal,
+  (next, prev) => {
+    if (!next || next === prev) {
+      return
+    }
+
+    void focusTextarea()
+  },
+)
+
 onMounted(() => {
   syncTextareaHeight()
+  if (props.focusSignal) {
+    void focusTextarea()
+  }
 })
 
 function openImagePicker(): void {

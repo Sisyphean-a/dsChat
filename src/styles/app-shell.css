@@ -26,7 +26,6 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   z-index: 10;
-  border-bottom: 1px solid var(--border);
 }
 
 .chat-title {
@@ -123,6 +122,36 @@
   background: linear-gradient(0deg, var(--bg) 60%, transparent);
 }
 
+.scroll-to-bottom-button {
+  position: absolute;
+  left: 50%;
+  bottom: 125px;
+  z-index: 12;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--text);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  transform: translateX(-50%);
+  transition: transform 140ms ease, box-shadow 140ms ease, color 140ms ease;
+}
+
+.scroll-to-bottom-button:hover {
+  color: var(--accent);
+  transform: translateX(-50%) translateY(-1px);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+}
+
+.scroll-to-bottom-button:focus-visible {
+  outline: 2px solid rgba(16, 163, 127, 0.24);
+  outline-offset: 2px;
+}
+
 .composer-pickers {
   display: flex;
   align-items: center;
@@ -150,6 +179,10 @@
 }
 
 @media (max-width: 640px) {
+  .scroll-to-bottom-button {
+    bottom: 88px;
+  }
+
   .composer-pickers {
     gap: 4px;
   }

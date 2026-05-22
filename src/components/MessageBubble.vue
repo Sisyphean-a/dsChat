@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import AssistantMessageContent from './AssistantMessageContent.vue'
+import CopyIcon from './icons/CopyIcon.vue'
+import RegenerateIcon from './icons/RegenerateIcon.vue'
 import { useBufferedTextStream } from '../composables/useBufferedTextStream'
+import { buildFallbackTimeline, shouldCollapsePlainMessage } from '../utils/messageBubble'
 import type {
   ChatMessage,
   MessageAttachment,
   ProcessTimelineItem,
-  ToolTraceRecord,
 } from '../types/chat'
 
 const props = defineProps<{
@@ -23,9 +25,11 @@ const COPY_RESET_DELAY_MS = 1400
 
 const isProcessExpanded = ref(false)
 const isAssistantMessage = computed(() => props.message.role === 'assistant')
+const isUserMessage = computed(() => props.message.role === 'user')
 const isStreamingStatus = computed(() => props.message.status === 'streaming')
 const previewAttachment = ref<MessageAttachment | null>(null)
 const copyState = ref<MessageCopyState>('idle')
+const isUserMessageExpanded = ref(false)
 let copyResetTimer: number | null = null
 
 const bubbleClass = computed(() => ({
@@ -139,6 +143,22 @@ const isStreamingStatusOnly = computed(() => {
     && imageAttachments.value.length === 0
 })
 
+const shouldCollapseUserMessage = computed(() => {
+  if (!isUserMessage.value) {
+    return false
+  }
+
+  return shouldCollapsePlainMessage(props.message.content)
+})
+
+const isUserMessageCollapsed = computed(() => {
+  return shouldCollapseUserMessage.value && !isUserMessageExpanded.value
+})
+
+const collapseActionLabel = computed(() => {
+  return isUserMessageExpanded.value ? '收起消息' : '展开消息'
+})
+
 function toggleProcessTimeline(): void {
   if (!hasProcessTimeline.value) return
   isProcessExpanded.value = !isProcessExpanded.value
@@ -154,6 +174,14 @@ function closeImagePreview(): void {
 
 function retryAssistantMessage(): void {
   emit('retry')
+}
+
+function toggleUserMessageCollapse(): void {
+  if (!shouldCollapseUserMessage.value) {
+    return
+  }
+
+  isUserMessageExpanded.value = !isUserMessageExpanded.value
 }
 
 async function copyMessage(): Promise<void> {
@@ -216,83 +244,47 @@ watch(isStreamingStatus, (next, prev) => {
   }
 })
 
-function buildFallbackTimeline(
-  reasoningContent: string,
-  traces: ToolTraceRecord[],
-): ProcessTimelineItem[] {
-  const items: ProcessTimelineItem[] = []
-  if (reasoningContent.trim()) {
-    items.push({
-      id: 'fallback-reasoning',
-      type: 'reasoning',
-      round: 1,
-      status: 'done',
-      text: summarizeReasoning(reasoningContent),
-    })
-  }
-
-  for (const trace of traces) {
-    items.push({
-      id: `fallback-tool-${trace.id}`,
-      type: 'tool',
-      round: trace.round,
-      status: mapToolTraceStatus(trace.status),
-      durationMs: trace.durationMs,
-      text: describeToolTraceFallback(trace.toolName, trace.status, trace.errorMessage),
-    })
-  }
-
-  return items
-}
-
-function mapToolTraceStatus(status: string): ProcessTimelineItem['status'] {
-  if (status === 'failed') return 'error'
-  if (status === 'running' || status === 'planned') return 'running'
-  return 'done'
-}
-
-function describeToolTraceFallback(toolName: string, status: string, errorMessage?: string): string {
-  if (status === 'failed') {
-    return `${resolveToolDisplayName(toolName)}失败：${errorMessage?.trim() || '未知错误'}`
-  }
-
-  if (status === 'running' || status === 'planned') {
-    return `正在执行${resolveToolDisplayName(toolName)}`
-  }
-
-  return `${resolveToolDisplayName(toolName)}已完成`
-}
-
-function resolveToolDisplayName(toolName: string): string {
-  if (toolName === 'tavily_search') {
-    return '联网检索'
-  }
-
-  if (toolName === 'get_current_time') {
-    return '时间查询'
-  }
-
-  return `工具 ${toolName}`
-}
-
-function summarizeReasoning(content: string): string {
-  const normalized = content
-    .split('\n')
-    .map((line) => line.trim().replace(/^[-*]\s+/, ''))
-    .filter(Boolean)
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  if (!normalized) {
-    return ''
-  }
-
-  return normalized.length > 180 ? `${normalized.slice(0, 180)}...` : normalized
-}
+watch(
+  () => [props.message.id, props.message.content],
+  () => {
+    isUserMessageExpanded.value = false
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
-  <article :class="bubbleClass" :data-message-id="props.message.id">
+  <div
+    class="message-row"
+    :class="{
+      'is-user-row': isUserMessage,
+      'is-assistant-row': isAssistantMessage,
+    }"
+    data-testid="message-row"
+  >
+    <div
+      v-if="isUserMessage && shouldShowMessageActions"
+      class="message-actions message-actions-inline"
+      :class="{
+        'is-user-compact-actions': props.message.role === 'user',
+      }"
+    >
+      <button
+        v-if="canCopyMessage"
+        data-testid="message-copy-button"
+        data-button-style="plain"
+        class="message-action-button"
+        :data-copy-state="copyState"
+        type="button"
+        :aria-label="copyActionLabel"
+        :title="copyActionLabel"
+        @click="copyMessage"
+      >
+        <CopyIcon class="message-action-icon" />
+      </button>
+    </div>
+
+    <article :class="bubbleClass" :data-message-id="props.message.id">
     <p class="message-role">
       {{ props.message.role === 'user' ? '你' : 'DeepSeek' }}
     </p>
@@ -334,42 +326,62 @@ function summarizeReasoning(content: string): string {
         />
       </button>
     </div>
-    <p v-if="props.message.role === 'user'" class="plain-body">{{ props.message.content }}</p>
+    <div
+      v-if="isUserMessage"
+      class="plain-body-shell"
+      :class="{
+        'has-collapse-toggle': shouldCollapseUserMessage,
+        'is-collapsed': isUserMessageCollapsed,
+      }"
+    >
+      <p class="plain-body">{{ props.message.content }}</p>
+      <div v-if="isUserMessageCollapsed" class="plain-body-fade" aria-hidden="true"></div>
+      <button
+        v-if="shouldCollapseUserMessage"
+        data-testid="message-collapse-toggle"
+        class="message-collapse-toggle"
+        data-button-style="plain"
+        :class="{ 'is-expanded': isUserMessageExpanded }"
+        type="button"
+        :aria-label="collapseActionLabel"
+        :title="collapseActionLabel"
+        @click="toggleUserMessageCollapse"
+      >
+        <svg class="message-collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
 
     <div
-      v-if="shouldShowMessageActions"
+      v-if="shouldShowMessageActions && !isUserMessage"
       class="message-actions"
-      :class="{
-        'is-user-compact-actions': props.message.role === 'user',
-      }"
     >
       <button
         v-if="canCopyMessage"
         data-testid="message-copy-button"
+        data-button-style="plain"
         class="message-action-button"
+        :data-copy-state="copyState"
         type="button"
         :aria-label="copyActionLabel"
         :title="copyActionLabel"
         @click="copyMessage"
       >
-        <svg class="message-action-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="8" y="8" width="14" height="14" rx="2"></rect>
-          <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>
-        </svg>
+        <CopyIcon class="message-action-icon" />
       </button>
       <button
         v-if="canRegenerateMessage"
         data-testid="message-regenerate-button"
+        data-button-style="plain"
+        data-icon-id="ec66f0"
         class="message-action-button"
         type="button"
         :aria-label="retryActionLabel"
         :title="retryActionLabel"
         @click="retryAssistantMessage"
       >
-        <svg class="message-action-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 3v6h-6"></path>
-          <path d="M21 9a9 9 0 1 0 2.02 9.19"></path>
-        </svg>
+        <RegenerateIcon class="message-action-icon" />
       </button>
     </div>
 
@@ -395,7 +407,8 @@ function summarizeReasoning(content: string): string {
         <button class="preview-close" type="button" @click="closeImagePreview">关闭</button>
       </div>
     </div>
-  </article>
+    </article>
+  </div>
 </template>
 
 <style scoped src="../styles/message-bubble.css"></style>

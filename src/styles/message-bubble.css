@@ -1,3 +1,18 @@
+.message-row {
+  width: 100%;
+  display: flex;
+}
+
+.message-row.is-user-row {
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.message-row.is-assistant-row {
+  justify-content: flex-start;
+}
+
 .bubble {
   max-width: min(85%, 720px);
   padding: 12px 16px;
@@ -163,31 +178,106 @@
   font-size: 0.95rem;
 }
 
+.plain-body-shell {
+  position: relative;
+}
+
+.plain-body-shell.has-collapse-toggle {
+  padding-right: 28px;
+}
+
+.plain-body-shell.is-collapsed {
+  max-height: calc(1.6em * 4);
+  overflow: hidden;
+}
+
+.plain-body-fade {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 40px;
+  background: linear-gradient(180deg, transparent 0%, var(--bg-hover) 88%);
+  pointer-events: none;
+}
+
+.message-collapse-toggle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 140ms ease, color 140ms ease, opacity 140ms ease;
+}
+
+.message-collapse-toggle:hover {
+  color: var(--text);
+  opacity: 0.9;
+}
+
+.message-collapse-toggle:focus-visible {
+  outline: 2px solid rgba(16, 163, 127, 0.24);
+  outline-offset: 2px;
+}
+
+.message-collapse-icon {
+  transition: transform 160ms ease;
+}
+
+.message-collapse-toggle.is-expanded .message-collapse-icon {
+  transform: rotate(180deg);
+}
+
 .message-actions {
-  margin-top: 5px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
 .message-actions.is-user-compact-actions {
-  margin-top: 0;
-  position: absolute;
-  top: 10px;
-  left: -40px;
-  z-index: 1;
+  align-self: stretch;
+  flex: none;
+  width: 26px;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(4px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.message-row.is-user-row:hover .message-actions.is-user-compact-actions,
+.message-row.is-user-row:focus-within .message-actions.is-user-compact-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.message-actions-inline {
+  display: inline-flex;
+  align-items: center;
 }
 
 .message-action-button {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  border: 1px solid transparent;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 0;
+  border: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+  background: transparent;
+  box-shadow: none;
+  transition: color 140ms ease, opacity 140ms ease;
 }
 
 .message-actions.is-user-compact-actions .message-action-button {
@@ -195,20 +285,26 @@
 }
 
 .message-action-button:hover {
-  background: var(--bg-hover);
-  border-color: var(--border);
   color: var(--text);
 }
 
 .message-action-button:focus-visible {
-  outline: 2px solid var(--accent-soft);
+  outline: 2px solid rgba(16, 163, 127, 0.24);
   outline-offset: 2px;
 }
 
 .message-action-icon {
   display: block;
-  width: 17px;
-  height: 17px;
+  width: 20px;
+  height: 20px;
+}
+
+.message-action-button[data-copy-state='success'] {
+  color: var(--accent);
+}
+
+.message-action-button[data-copy-state='error'] {
+  color: var(--danger);
 }
 
 .message-images {
@@ -303,5 +399,11 @@
 @media (max-width: 640px) {
   .bubble {
     max-width: 100%;
+  }
+
+  .message-actions.is-user-compact-actions {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
   }
 }

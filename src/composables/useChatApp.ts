@@ -29,6 +29,7 @@ import type {
 } from '../types/chat'
 import { shouldResetConversation } from '../utils/session'
 import { cloneMessages } from '../utils/chat'
+import { resolveComposerCommand } from '../utils/composerCommands'
 import { preparePendingImages } from './chatAppAttachments'
 import { finalizeStreamingMessages } from './chatAppMessages'
 import { createChatAppConversationPersistence } from './chatAppConversationPersistence'
@@ -146,6 +147,19 @@ export function useChatApp() {
 
     registerLifecycleHooks()
     await restoreSession()
+  }
+
+  async function sendMessage(): Promise<void> {
+    const command = pendingAttachments.value.length
+      ? null
+      : resolveComposerCommand(draftMessage.value)
+    if (command?.type === 'new-conversation') {
+      draftMessage.value = ''
+      startFreshConversation()
+      return
+    }
+
+    await sendActions.sendMessage()
   }
 
   function startFreshConversation(): void {
@@ -364,7 +378,7 @@ export function useChatApp() {
     selectActiveConfig,
     selectActiveModel: settingsActions.selectActiveModel,
     selectConversation,
-    sendMessage: sendActions.sendMessage,
+    sendMessage,
     settings,
     stopGenerating: sendActions.stopGenerating,
     startFreshConversation,

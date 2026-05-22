@@ -3,6 +3,7 @@ import type { Ref } from 'vue'
 import type { ChatMessage } from '../types/chat'
 
 const AUTO_SCROLL_UNLOCK_BOTTOM_GAP_PX = 2
+const SCROLL_TO_BOTTOM_VISIBILITY_GAP_PX = 240
 
 interface UseMessageListAutoScrollOptions {
   activeConversationId: Ref<string | null>
@@ -17,6 +18,7 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
   const lockedAnchorMessageId = ref<string | null>(null)
   const lockedAnchorOffsetTop = ref<number | null>(null)
   const isProgrammaticAdjustment = ref(false)
+  const showScrollToBottomButton = ref(false)
   const resizeObserver = createResizeObserver(() => {
     if (releasedForStreamingMessageId.value === currentStreamingMessageId.value) {
       syncLockedScrollPosition()
@@ -52,6 +54,16 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
 
   function isAtBottom(element: HTMLElement): boolean {
     return element.scrollHeight - element.scrollTop - element.clientHeight <= AUTO_SCROLL_UNLOCK_BOTTOM_GAP_PX
+  }
+
+  function updateScrollToBottomVisibility(): void {
+    const element = messageListRef.value
+    if (!element) {
+      showScrollToBottomButton.value = false
+      return
+    }
+
+    showScrollToBottomButton.value = resolveDistanceFromBottom(element) > SCROLL_TO_BOTTOM_VISIBILITY_GAP_PX
   }
 
   function lockCurrentStreamingAutoFollow(): void {
@@ -90,6 +102,7 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
     const currentTop = messageListRef.value.scrollTop
     const previousTop = previousScrollTop.value
     previousScrollTop.value = currentTop
+    updateScrollToBottomVisibility()
 
     if (isProgrammaticAdjustment.value) {
       return
@@ -122,12 +135,14 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
 
     if (!force && releasedForStreamingMessageId.value === currentStreamingMessageId.value) {
       syncLockedScrollPosition()
+      updateScrollToBottomVisibility()
       return
     }
 
     messageListRef.value.scrollTop = messageListRef.value.scrollHeight
     previousScrollTop.value = messageListRef.value.scrollTop
     resetAnchorSnapshot()
+    updateScrollToBottomVisibility()
   }
 
   watch(currentStreamingMessageId, (next, prev) => {
@@ -148,6 +163,7 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
     previousScrollTop.value = element?.scrollTop ?? null
     releasedForStreamingMessageId.value = null
     resetAnchorSnapshot()
+    updateScrollToBottomVisibility()
     observeMessageItems()
   })
 
@@ -167,6 +183,7 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
     handleMessageListWheel,
     messageListRef,
     scrollToBottom,
+    showScrollToBottomButton,
   }
 
   function syncLockedScrollPosition(): void {
@@ -254,10 +271,15 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
     isProgrammaticAdjustment.value = true
     element.scrollTop = nextScrollTop
     previousScrollTop.value = element.scrollTop
+    updateScrollToBottomVisibility()
     queueMicrotask(() => {
       isProgrammaticAdjustment.value = false
     })
   }
+}
+
+function resolveDistanceFromBottom(element: HTMLElement): number {
+  return Math.max(element.scrollHeight - element.scrollTop - element.clientHeight, 0)
 }
 
 function createResizeObserver(callback: () => void): ResizeObserver | null {

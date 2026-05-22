@@ -22,6 +22,26 @@ describe('ChatComposer', () => {
     expect(wrapper.get('textarea').attributes('placeholder')).toBe('给 OpenAI 发送消息...')
   })
 
+  it('focuses the textarea when the focus signal is set on mount', async () => {
+    const wrapper = mount(ChatComposer as any, {
+      attachTo: document.body,
+      props: {
+        attachments: [],
+        canSend: true,
+        focusSignal: 1,
+        isSending: false,
+        modelValue: '',
+        sendDisabled: false,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
+      },
+    })
+
+    await nextTick()
+
+    expect(document.activeElement).toBe(wrapper.get('textarea').element)
+  })
+
   it('keeps the textarea editable while sending', async () => {
     const wrapper = mount(ChatComposer, {
       props: {
