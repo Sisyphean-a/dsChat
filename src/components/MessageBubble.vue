@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import AssistantMessageContent from './AssistantMessageContent.vue'
+import CheckIcon from './icons/CheckIcon.vue'
 import CopyIcon from './icons/CopyIcon.vue'
 import RegenerateIcon from './icons/RegenerateIcon.vue'
 import { useBufferedTextStream } from '../composables/useBufferedTextStream'
@@ -280,7 +281,12 @@ watch(
         :title="copyActionLabel"
         @click="copyMessage"
       >
-        <CopyIcon class="message-action-icon" />
+        <CheckIcon
+          v-if="copyState === 'success'"
+          class="message-action-icon"
+          data-testid="message-copy-success-icon"
+        />
+        <CopyIcon v-else class="message-action-icon" />
       </button>
     </div>
 
@@ -368,7 +374,12 @@ watch(
         :title="copyActionLabel"
         @click="copyMessage"
       >
-        <CopyIcon class="message-action-icon" />
+        <CheckIcon
+          v-if="copyState === 'success'"
+          class="message-action-icon"
+          data-testid="message-copy-success-icon"
+        />
+        <CopyIcon v-else class="message-action-icon" />
       </button>
       <button
         v-if="canRegenerateMessage"

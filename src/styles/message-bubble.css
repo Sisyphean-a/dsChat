@@ -277,7 +277,7 @@
   color: var(--text-muted);
   background: transparent;
   box-shadow: none;
-  transition: color 140ms ease, opacity 140ms ease;
+  transition: background 140ms ease, border-radius 140ms ease, color 140ms ease, opacity 140ms ease, transform 140ms ease;
 }
 
 .message-actions.is-user-compact-actions .message-action-button {
@@ -300,10 +300,15 @@
 }
 
 .message-action-button[data-copy-state='success'] {
-  color: var(--accent);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  transform: scale(1.04);
 }
 
 .message-action-button[data-copy-state='error'] {
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.1);
   color: var(--danger);
 }
 

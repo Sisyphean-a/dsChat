@@ -146,6 +146,9 @@ function createMessagePayload(
   }
 
   if (message.role === 'assistant' && message.toolCalls?.length) {
+    if (!message.content.trim()) {
+      payload.content = null
+    }
     payload.tool_calls = message.toolCalls.map((call) => ({
       id: call.id,
       type: 'function',

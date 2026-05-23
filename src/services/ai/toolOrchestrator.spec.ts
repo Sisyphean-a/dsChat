@@ -225,6 +225,7 @@ describe('streamWithToolOrchestrator', () => {
     const secondRoundMessages = providerBodies[1]?.messages as Array<Record<string, unknown>>
     const toolCallMessage = secondRoundMessages.find((message) => 'tool_calls' in message)
     expect(toolCallMessage).toMatchObject({
+      content: null,
       role: 'assistant',
       reasoning_content: '先推理',
     })

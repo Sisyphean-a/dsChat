@@ -282,6 +282,26 @@
   grid-template-columns: 1fr;
 }
 
+.confirm-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.confirm-dialog {
+  width: min(420px, 100%);
+  gap: 16px;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.2);
+}
+
+.confirm-dialog-actions {
+  justify-content: flex-end;
+}
+
 @media (max-width: 520px) {
   .nav-badge {
     display: none;

@@ -57,6 +57,7 @@ describe('chatCompletionsAdapter', () => {
 
     const messages = payload.messages as Array<Record<string, unknown>>
     expect(messages[0]).toMatchObject({
+      content: null,
       role: 'assistant',
       reasoning_content: '先推理',
       tool_calls: [{
@@ -91,6 +92,7 @@ describe('chatCompletionsAdapter', () => {
 
     const messages = payload.messages as Array<Record<string, unknown>>
     expect(messages[0]).toMatchObject({
+      content: null,
       role: 'assistant',
       reasoning_content: '先推理',
       tool_calls: [{

@@ -15,6 +15,7 @@ import type {
   ToolSettings,
   ToolTraceRecord,
 } from '../types/chat'
+import { readProviderFailureDetail } from './ai/providerFailureDetail'
 import { streamWithToolOrchestrator } from './ai/toolOrchestrator'
 
 interface StreamDeltaPayload {
@@ -645,19 +646,6 @@ function createResponsesInputContent(
   }
 
   return parts
-}
-
-async function readProviderFailureDetail(response: Response): Promise<string> {
-  try {
-    const payload = await response.clone().json() as {
-      error?: { message?: string | null }
-      message?: string | null
-    }
-    const message = payload.error?.message ?? payload.message ?? ''
-    return typeof message === 'string' ? message.trim() : ''
-  } catch {
-    return ''
-  }
 }
 
 function containsImageInputUnsupportedError(detail: string): boolean {

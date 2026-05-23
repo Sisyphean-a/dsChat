@@ -1,6 +1,11 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import MessageBubble from './MessageBubble.vue'
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 describe('MessageBubble', () => {
   it('shows an inline retry action for a retryable assistant failure', async () => {
@@ -83,6 +88,42 @@ describe('MessageBubble', () => {
     expect(copyButton.attributes('data-button-style')).toBe('plain')
     expect(regenerateButton.attributes('data-button-style')).toBe('plain')
     expect(regenerateButton.attributes('data-icon-id')).toBe('ec66f0')
+  })
+
+  it('switches the copy action to success feedback after copying', async () => {
+    vi.useFakeTimers()
+    const writeText = vi.fn(async () => undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: {
+          id: 'assistant-copy-feedback',
+          content: '这是完整回答',
+          createdAt: 2,
+          role: 'assistant',
+          status: 'done',
+        },
+      },
+    })
+
+    const copyButton = wrapper.get('[data-testid="message-copy-button"]')
+
+    await copyButton.trigger('click')
+    await Promise.resolve()
+
+    expect(writeText).toHaveBeenCalledWith('这是完整回答')
+    expect(copyButton.attributes('aria-label')).toBe('已复制')
+    expect(copyButton.attributes('data-copy-state')).toBe('success')
+    expect(copyButton.find('[data-testid="message-copy-success-icon"]').exists()).toBe(true)
+
+    vi.advanceTimersByTime(1400)
+    await wrapper.vm.$nextTick()
+
+    expect(copyButton.attributes('aria-label')).toBe('复制')
+    expect(copyButton.attributes('data-copy-state')).toBe('idle')
   })
 
   it('collapses long user messages by default and expands on demand', async () => {

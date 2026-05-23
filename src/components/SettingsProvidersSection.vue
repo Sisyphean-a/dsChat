@@ -231,5 +231,28 @@ function updateCustomCapability(
         </div>
       </article>
     </div>
+
+    <div
+      v-if="pendingDeleteProvider"
+      class="confirm-dialog-overlay"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="provider-delete-title"
+      aria-describedby="provider-delete-description"
+      @click.self="cancelRemoveProvider"
+    >
+      <article class="setting-card confirm-dialog">
+        <div class="setting-card-head">
+          <div>
+            <h4 id="provider-delete-title">确认删除</h4>
+            <p id="provider-delete-description">确认删除服务商「{{ pendingDeleteProvider.name }}」吗？</p>
+          </div>
+        </div>
+        <div class="provider-head confirm-dialog-actions">
+          <button class="ghost-action" type="button" @click="cancelRemoveProvider">取消</button>
+          <button class="danger-text" type="button" @click="confirmRemoveProvider">确认删除</button>
+        </div>
+      </article>
+    </div>
   </section>
 </template>
