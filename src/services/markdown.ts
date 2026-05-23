@@ -22,6 +22,8 @@ const AUTO_DETECT_LANGUAGES = [
 ] as const
 
 const LANGUAGE_ALIASES: Record<string, string> = {
+  bat: 'bash',
+  cmd: 'bash',
   cjs: 'javascript',
   html: 'xml',
   htms: 'xml',
@@ -44,6 +46,7 @@ type CopyButtonState = 'idle' | 'success' | 'error'
 let highlighterPromise: Promise<HighlightJsInstance> | null = null
 const copyResetTimers = new WeakMap<HTMLButtonElement, number>()
 const COPY_RESET_DELAY_MS = 1600
+const CODE_BLOCK_SHELL_CLASS = 'code-block-shell'
 const COPY_BUTTON_CLASS = 'code-copy-button'
 const COPY_STATUS_CLASS = 'code-copy-status'
 const COPY_BUTTON_TEXT: Record<CopyButtonState, string> = {
@@ -67,12 +70,7 @@ export async function highlightCodeBlocks(container: HTMLElement): Promise<void>
     }
 
     const requestedLanguage = resolveRequestedLanguage(block.className)
-    const result = requestedLanguage
-      ? highlighter.highlight(source, {
-        ignoreIllegals: true,
-        language: requestedLanguage,
-      })
-      : highlighter.highlightAuto(source, [...AUTO_DETECT_LANGUAGES])
+    const result = highlightSource(highlighter, source, requestedLanguage)
 
     block.classList.add('hljs')
     if (result.language) {
@@ -81,6 +79,25 @@ export async function highlightCodeBlocks(container: HTMLElement): Promise<void>
     block.innerHTML = result.value
     upsertCopyButton(block, normalizeCopySource(source))
   })
+}
+
+function highlightSource(
+  highlighter: HighlightJsInstance,
+  source: string,
+  requestedLanguage: string | null,
+): { language?: string; value: string } {
+  if (!requestedLanguage || !highlighter.getLanguage(requestedLanguage)) {
+    return highlighter.highlightAuto(source, [...AUTO_DETECT_LANGUAGES])
+  }
+
+  try {
+    return highlighter.highlight(source, {
+      ignoreIllegals: true,
+      language: requestedLanguage,
+    })
+  } catch {
+    return highlighter.highlightAuto(source, [...AUTO_DETECT_LANGUAGES])
+  }
 }
 
 async function loadHighlighter(): Promise<HighlightJsInstance> {
@@ -152,13 +169,27 @@ function upsertCopyButton(block: HTMLElement, source: string): void {
     return
   }
 
-  const button = ensureCopyButton(pre)
-  ensureCopyStatusNode(pre)
+  const host = ensureCodeBlockShell(pre)
+  const button = ensureCopyButton(host)
+  ensureCopyStatusNode(host)
   button.dataset.copySource = source
 }
 
-function ensureCopyButton(pre: HTMLPreElement): HTMLButtonElement {
-  const existed = pre.querySelector<HTMLButtonElement>(`:scope > .${COPY_BUTTON_CLASS}`)
+function ensureCodeBlockShell(pre: HTMLPreElement): HTMLElement {
+  const parent = pre.parentElement
+  if (parent?.classList.contains(CODE_BLOCK_SHELL_CLASS)) {
+    return parent
+  }
+
+  const shell = document.createElement('div')
+  shell.className = CODE_BLOCK_SHELL_CLASS
+  pre.replaceWith(shell)
+  shell.append(pre)
+  return shell
+}
+
+function ensureCopyButton(host: HTMLElement): HTMLButtonElement {
+  const existed = host.querySelector<HTMLButtonElement>(`:scope > .${COPY_BUTTON_CLASS}`)
   if (existed) {
     return existed
   }
@@ -173,12 +204,12 @@ function ensureCopyButton(pre: HTMLPreElement): HTMLButtonElement {
   button.addEventListener('click', () => {
     void handleCopyClick(button)
   })
-  pre.append(button)
+  host.append(button)
   return button
 }
 
-function ensureCopyStatusNode(pre: HTMLPreElement): HTMLSpanElement {
-  const existed = pre.querySelector<HTMLSpanElement>(`:scope > .${COPY_STATUS_CLASS}`)
+function ensureCopyStatusNode(host: HTMLElement): HTMLSpanElement {
+  const existed = host.querySelector<HTMLSpanElement>(`:scope > .${COPY_STATUS_CLASS}`)
   if (existed) {
     return existed
   }
@@ -188,7 +219,7 @@ function ensureCopyStatusNode(pre: HTMLPreElement): HTMLSpanElement {
   status.setAttribute('role', 'status')
   status.setAttribute('aria-live', 'polite')
   status.setAttribute('aria-atomic', 'true')
-  pre.append(status)
+  host.append(status)
   return status
 }
 

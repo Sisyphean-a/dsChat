@@ -19,23 +19,23 @@ const emit = defineEmits<{
 const CAPABILITY_HELP = {
   imageInput: '允许把用户上传的图片随消息发给模型。',
   nativeWebSearch: '使用服务商 API 自带的联网搜索能力，不经过本地工具编排。',
-  protocol: '决定请求使用 Chat Completions 还是 Responses 格式。',
+  protocol: '决定请求使用 Chat Completions API 还是 Responses API 格式。',
   reasoning: '允许显示思考开关，并在请求中发送厂商支持的推理参数。',
   toolCalling: '允许模型调用本地内置工具，例如时间工具、Tavily 搜索。',
 } as const
 
 const CAPABILITY_LABELS = {
   imageInput: '图片',
-  nativeWebSearch: '联网',
   reasoning: '思考',
   toolCalling: '工具',
+  nativeWebSearch: '联网',
 } as const
 
 const summaryCapabilities = computed(() => ({
   imageInput: props.settings.capabilities.imageInput,
-  nativeWebSearch: props.settings.capabilities.nativeWebSearch,
   reasoning: props.settings.capabilities.reasoning,
   toolCalling: providerSupportsToolCalling(props.settings),
+  nativeWebSearch: props.settings.capabilities.nativeWebSearch,
 }))
 
 function enabledCapabilityLabels(): string {
@@ -74,7 +74,7 @@ function resolveToolCallingTitle(): string {
     return CAPABILITY_HELP.toolCalling
   }
 
-  return '本地工具调用当前只支持 Chat Completions 协议。'
+  return '本地工具调用当前只支持 Chat Completions API 协议。'
 }
 </script>
 
@@ -109,8 +109,8 @@ function resolveToolCallingTitle(): string {
         :value="props.settings.capabilities.protocol"
         @change="updateProtocol(($event.target as HTMLSelectElement).value as ProviderCapabilities['protocol'])"
       >
-        <option value="chat_completions">Chat Completions</option>
-        <option value="responses">Responses</option>
+        <option value="chat_completions">Chat Completions API</option>
+        <option value="responses">Responses API</option>
       </select>
     </label>
     <div class="capability-switch-grid">

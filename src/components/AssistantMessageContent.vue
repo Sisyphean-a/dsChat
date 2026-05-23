@@ -167,6 +167,10 @@ if (getCurrentScope()) {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+.markdown-segment :deep(.code-block-shell) {
+  position: relative;
+}
+
 .markdown-segment :deep(ul),
 .markdown-segment :deep(ol) {
   padding-inline-start: 1.4rem;
@@ -195,20 +199,18 @@ if (getCurrentScope()) {
   font-size: 0.68rem;
   font-weight: 500;
   line-height: 1;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-1px);
+  opacity: 0.82;
+  pointer-events: auto;
+  transform: translateY(0);
   transition: background 150ms ease, border-color 150ms ease, color 150ms ease, opacity 150ms ease, transform 150ms ease;
 }
 
-.markdown-segment :deep(pre:hover .code-copy-button),
-.markdown-segment :deep(pre:focus-within .code-copy-button),
+.markdown-segment :deep(.code-block-shell:hover .code-copy-button),
+.markdown-segment :deep(.code-block-shell:focus-within .code-copy-button),
 .markdown-segment :deep(.code-copy-button:focus-visible),
 .markdown-segment :deep(.code-copy-button[data-copy-state='success']),
 .markdown-segment :deep(.code-copy-button[data-copy-state='error']) {
   opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
 }
 
 .markdown-segment :deep(.code-copy-button:hover) {

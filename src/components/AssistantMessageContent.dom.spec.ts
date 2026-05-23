@@ -26,7 +26,7 @@ describe('AssistantMessageContent', () => {
     await waitForHighlight(wrapper)
 
     const code = wrapper.find('pre code')
-    const copyButton = wrapper.find('pre .code-copy-button')
+    const copyButton = wrapper.find('.code-block-shell > .code-copy-button')
 
     expect(code.exists()).toBe(true)
     expect(code.classes()).toContain('hljs')
@@ -76,7 +76,7 @@ async function waitForHighlight(
   const maxAttempts = 20
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const code = wrapper.find('pre code')
-    const copyButton = wrapper.find('pre .code-copy-button')
+    const copyButton = wrapper.find('.code-block-shell > .code-copy-button')
     if (code.classes().includes('hljs') && copyButton.exists()) {
       return
     }

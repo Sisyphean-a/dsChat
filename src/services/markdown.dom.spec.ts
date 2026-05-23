@@ -32,6 +32,22 @@ describe('markdown highlighting', () => {
     expect(code?.innerHTML).toContain('hljs-built_in')
   })
 
+  it('falls back to auto highlight and still injects copy button for unknown fence language', async () => {
+    const container = document.createElement('div')
+    container.innerHTML = renderMarkdown([
+      '```batch',
+      'echo off',
+      '```',
+    ].join('\n'))
+
+    await highlightCodeBlocks(container)
+
+    const code = container.querySelector('pre code')
+    const copyButton = container.querySelector('.code-block-shell > .code-copy-button')
+    expect(code?.className).toContain('hljs')
+    expect(copyButton).toBeTruthy()
+  })
+
   it('injects a copy button and updates feedback state after copy succeeds', async () => {
     const writeText = vi.fn(async () => undefined)
     Object.defineProperty(navigator, 'clipboard', {
@@ -49,7 +65,7 @@ describe('markdown highlighting', () => {
     await highlightCodeBlocks(container)
     await highlightCodeBlocks(container)
 
-    const buttons = container.querySelectorAll<HTMLButtonElement>('pre .code-copy-button')
+    const buttons = container.querySelectorAll<HTMLButtonElement>('.code-block-shell > .code-copy-button')
     expect(buttons).toHaveLength(1)
 
     const button = buttons[0]
@@ -80,7 +96,7 @@ describe('markdown highlighting', () => {
 
     await highlightCodeBlocks(container)
 
-    const button = container.querySelector<HTMLButtonElement>('pre .code-copy-button')
+    const button = container.querySelector<HTMLButtonElement>('.code-block-shell > .code-copy-button')
     expect(button).toBeTruthy()
 
     button?.click()
