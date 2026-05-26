@@ -3,6 +3,7 @@ import { computed, defineComponent, h, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const pluginEnterCallbacks: Array<() => void> = []
+const pluginEnterSignal = ref(0)
 const initialize = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('./composables/chatAppSettings', () => ({
@@ -46,6 +47,7 @@ vi.mock('./composables/useChatApp', () => ({
     modelOptions: computed(() => []),
     openSettings: vi.fn(),
     pendingAttachments: ref([]),
+    pluginEnterSignal,
     removeCustomModel: vi.fn(),
     removeCustomModelOption: vi.fn(),
     removeCustomTool: vi.fn(),
@@ -174,6 +176,7 @@ describe('App', () => {
   beforeEach(() => {
     initialize.mockClear()
     pluginEnterCallbacks.length = 0
+    pluginEnterSignal.value = 0
     Object.defineProperty(window, 'utools', {
       configurable: true,
       value: {
@@ -193,12 +196,43 @@ describe('App', () => {
     await vi.waitFor(() => {
       expect(initialize).toHaveBeenCalledTimes(1)
     })
+    await vi.waitFor(() => {
+      expect(wrapper.get('.chat-composer-stub').attributes('data-focus-signal')).toBe('1')
+    })
 
-    expect(wrapper.get('.chat-composer-stub').attributes('data-focus-signal')).toBe('1')
+    pluginEnterSignal.value += 1
+    await vi.waitFor(() => {
+      expect(wrapper.get('.chat-composer-stub').attributes('data-focus-signal')).toBe('2')
+    })
+  })
 
-    pluginEnterCallbacks[0]?.()
+  it('does not overwrite the chat lifecycle plugin-enter handler', async () => {
+    let latestPluginEnterCallback: (() => void) | undefined
+    const restoreSessionOnEnter = vi.fn()
+
+    initialize.mockImplementationOnce(async () => {
+      window.utools?.onPluginEnter(() => {
+        restoreSessionOnEnter()
+      })
+    })
+
+    Object.defineProperty(window, 'utools', {
+      configurable: true,
+      value: {
+        onPluginEnter: vi.fn((callback: () => void) => {
+          latestPluginEnterCallback = callback
+        }),
+      },
+    })
+
+    const wrapper = mount(App)
+    await vi.waitFor(() => {
+      expect(initialize).toHaveBeenCalledTimes(1)
+    })
+
+    latestPluginEnterCallback?.()
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.get('.chat-composer-stub').attributes('data-focus-signal')).toBe('2')
+    expect(restoreSessionOnEnter).toHaveBeenCalledTimes(1)
   })
 })

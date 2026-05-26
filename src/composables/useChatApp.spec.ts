@@ -30,16 +30,26 @@ import {
   loadSession,
   loadSettings,
   saveConversation,
+  saveSession,
   saveSettings,
 } from '../services/utools'
 import { useChatApp } from './useChatApp'
 
+let pluginEnterHandler: (() => void | Promise<void>) | undefined
+let pluginOutHandler: ((isKill: boolean) => void | Promise<void>) | undefined
+
 describe('useChatApp', () => {
   beforeEach(() => {
+    pluginEnterHandler = undefined
+    pluginOutHandler = undefined
     vi.stubGlobal('window', {
       utools: {
-        onPluginEnter: vi.fn(),
-        onPluginOut: vi.fn(),
+        onPluginEnter: vi.fn((callback: () => void | Promise<void>) => {
+          pluginEnterHandler = callback
+        }),
+        onPluginOut: vi.fn((callback: (isKill: boolean) => void | Promise<void>) => {
+          pluginOutHandler = callback
+        }),
       },
     })
     vi.mocked(hasUtools).mockReturnValue(false)
@@ -894,6 +904,62 @@ describe('useChatApp', () => {
     expect(app.messages.value[1]?.status).toBe('interrupted')
     expect(app.messages.value[1]?.content).toBe('本次响应已中断，请重新发送。')
     expect(saveConversation).toHaveBeenCalled()
+  })
+
+  it('starts a fresh conversation when re-entering after the idle timeout', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-26T10:00:00.000Z'))
+    vi.mocked(hasUtools).mockReturnValue(true)
+    vi.mocked(loadConversations).mockResolvedValue([
+      {
+        _id: 'conversation/existing',
+        type: 'conversation',
+        id: 'existing',
+        title: '已有会话',
+        createdAt: 1,
+        updatedAt: 1,
+        messages: [
+          { id: 'm-user', role: 'user', content: '旧消息', createdAt: 1, status: 'done' },
+        ],
+      },
+    ])
+    vi.mocked(loadSession)
+      .mockResolvedValueOnce({
+        _id: 'session/runtime',
+        type: 'session',
+        currentConversationId: 'existing',
+        lastOutAt: Date.now(),
+      })
+      .mockResolvedValueOnce({
+        _id: 'session/runtime',
+        type: 'session',
+        currentConversationId: 'existing',
+        lastOutAt: Date.now(),
+      })
+
+    const app = useChatApp()
+    await app.initialize()
+
+    expect(app.activeConversationId.value).toBe('existing')
+    expect(app.messages.value[0]?.content).toBe('旧消息')
+    expect(pluginOutHandler).toBeTypeOf('function')
+    expect(pluginEnterHandler).toBeTypeOf('function')
+
+    await pluginOutHandler?.(false)
+
+    vi.setSystemTime(new Date('2026-05-26T10:01:01.000Z'))
+    await pluginEnterHandler?.()
+
+    expect(app.activeConversationId.value).toBeNull()
+    expect(app.messages.value).toEqual([])
+    expect(saveSession).toHaveBeenCalledWith({
+      _id: 'session/runtime',
+      type: 'session',
+      currentConversationId: null,
+      lastOutAt: null,
+    })
+
+    vi.useRealTimers()
   })
 
   it('deletes the active conversation and clears the current session pointer', async () => {

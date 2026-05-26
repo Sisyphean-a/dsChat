@@ -63,6 +63,7 @@ export function useChatApp() {
   const isSavingSettings = ref(false)
   const lastError = ref<string | null>(null)
   const environmentNotice = ref<string | null>(null)
+  const pluginEnterSignal = ref(0)
   const isBrowserMode = computed(() => !hasUtools())
   const activeChatConfig = computed(() => getActiveProviderSettings(settings.value))
   const modelOptions = computed(() => getActiveModelSelectionOptions(settings.value))
@@ -260,7 +261,11 @@ export function useChatApp() {
 
     lifecycleRegistered = true
     window.utools?.onPluginEnter(async () => {
-      await restoreSession()
+      try {
+        await restoreSession()
+      } finally {
+        pluginEnterSignal.value += 1
+      }
     })
 
     window.utools?.onPluginOut(async () => {
@@ -378,6 +383,7 @@ export function useChatApp() {
     modelOptions,
     openSettings: settingsActions.openSettings,
     pendingAttachments,
+    pluginEnterSignal,
     retryLastAssistantMessage: sendActions.retryLastAssistantMessage,
     retryableAssistantMessageId,
     showThinkingToggle,

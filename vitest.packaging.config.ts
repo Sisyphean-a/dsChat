@@ -1,11 +1,17 @@
 import { defineConfig, mergeConfig } from 'vitest/config'
 import viteConfig from './vite.config'
 
-export default mergeConfig(viteConfig, defineConfig({
-  test: {
-    environment: 'node',
-    include: ['scripts/**/*.spec.ts'],
-    maxWorkers: 1,
-    pool: 'threads',
-  },
-}))
+export default defineConfig(async (env) => {
+  const resolvedViteConfig = typeof viteConfig === 'function'
+    ? await viteConfig(env)
+    : viteConfig
+
+  return mergeConfig(resolvedViteConfig, {
+    test: {
+      environment: 'node',
+      include: ['scripts/**/*.spec.ts'],
+      maxWorkers: 1,
+      pool: 'threads',
+    },
+  })
+})

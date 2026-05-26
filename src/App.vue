@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import ChatComposer from './components/ChatComposer.vue'
 import MessageBubble from './components/MessageBubble.vue'
 import ModelPicker from './components/ModelPicker.vue'
@@ -72,9 +72,10 @@ function requestComposerFocus(): void {
 onMounted(async () => {
   await app.initialize()
   requestComposerFocus()
-  window.utools?.onPluginEnter(() => {
-    requestComposerFocus()
-  })
+})
+
+watch(app.pluginEnterSignal, () => {
+  requestComposerFocus()
 })
 </script>
 
