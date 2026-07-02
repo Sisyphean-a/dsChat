@@ -12,6 +12,7 @@ dist
 dist-ssr
 package
 *.local
+.codegraph
 
 # Editor directories and files
 .vscode/*
