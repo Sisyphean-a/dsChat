@@ -6,7 +6,7 @@ export type ProviderId = 'deepseek' | 'openai' | 'minimax' | 'kimi' | 'custom'
 export type AddableProviderId = Exclude<ProviderId, 'deepseek'>
 export type ProviderProtocol = 'chat_completions' | 'responses'
 export type UtoolsUploadMode = 'local-only' | 'settings-only' | 'all-data'
-export type ToolTraceStatus = 'planned' | 'running' | 'succeeded' | 'failed'
+export type ToolTraceStatus = 'planned' | 'running' | 'succeeded' | 'failed' | 'stopped'
 export type ToolTraceErrorCode =
   | 'tool_args_parse'
   | 'tool_config'
@@ -19,7 +19,7 @@ export type ToolTraceErrorCode =
   | 'tool_orchestrator_timeout'
   | 'tool_protocol'
 export type ProcessTimelineItemType = 'reasoning' | 'tool'
-export type ProcessTimelineItemStatus = 'running' | 'done' | 'error'
+export type ProcessTimelineItemStatus = 'running' | 'done' | 'error' | 'stopped'
 
 export interface ProcessTimelineItem {
   id: string

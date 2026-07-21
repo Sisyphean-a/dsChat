@@ -62,6 +62,16 @@ export function markToolTraceFailed(
   }
 }
 
+export function markToolTraceStopped(trace: ToolTraceRecord, finishedAtMs: number): ToolTraceRecord {
+  const startedAtMs = trace.startedAtMs ?? finishedAtMs
+  return {
+    ...trace,
+    durationMs: Math.max(0, finishedAtMs - startedAtMs),
+    finishedAtMs,
+    status: 'stopped',
+  }
+}
+
 export function createToolCallSignature(call: NormalizedToolCall): string {
   const parsed = safeParseJson(call.argumentsJson)
   if (parsed === null) {

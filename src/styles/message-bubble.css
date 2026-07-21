@@ -171,6 +171,11 @@
   border-left-color: rgba(220, 38, 38, 0.45);
 }
 
+.process-item.is-stopped .process-text {
+  color: var(--text-muted);
+  border-left-color: var(--text-muted);
+}
+
 .plain-body {
   margin: 0;
   white-space: pre-wrap;

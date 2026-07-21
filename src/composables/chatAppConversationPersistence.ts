@@ -1,6 +1,7 @@
 import type { Ref } from 'vue'
 import { SESSION_DOC_ID } from '../constants/app'
-import type { ChatMessage, ConversationDoc, SessionDoc } from '../types/chat'
+import type { ActiveProviderSettings, ChatMessage, ConversationDoc, SessionDoc } from '../types/chat'
+import { getErrorMessage } from './chatAppErrors'
 import {
   buildConversationDoc,
   cloneConversationDoc,
@@ -23,6 +24,14 @@ export interface ChatAppConversationPersistenceActions {
   deleteConversation: (conversationId: string) => Promise<void>
   persistConversation: () => Promise<void>
   persistSession: (conversationId: string | null) => Promise<void>
+}
+
+export interface ConversationTitleManager {
+  generate: (input: {
+    conversationId: string
+    firstMessageContent: string
+    settings: ActiveProviderSettings
+  }) => void
 }
 
 export function createChatAppConversationPersistence(
@@ -146,4 +155,43 @@ export function createChatAppConversationPersistence(
     persistConversation,
     persistSession,
   }
+}
+
+export function createConversationTitleManager(options: {
+  conversations: Ref<ConversationDoc[]>
+  lastError: Ref<string | null>
+  persistence: ChatAppConversationPersistenceActions
+  requestTitle: (settings: ActiveProviderSettings, firstMessageContent: string) => Promise<string>
+}): ConversationTitleManager {
+  return {
+    generate(input) {
+      void generateTitle(options, input)
+    },
+  }
+}
+
+async function generateTitle(
+  options: {
+    conversations: Ref<ConversationDoc[]>
+    lastError: Ref<string | null>
+    persistence: ChatAppConversationPersistenceActions
+    requestTitle: (settings: ActiveProviderSettings, firstMessageContent: string) => Promise<string>
+  },
+  input: { conversationId: string; firstMessageContent: string; settings: ActiveProviderSettings },
+): Promise<void> {
+  try {
+    const title = await options.requestTitle(input.settings, input.firstMessageContent)
+    if (!hasConversation(options.conversations.value, input.conversationId)) {
+      return
+    }
+    await options.persistence.applyGeneratedConversationTitle(input.conversationId, title)
+  } catch (error) {
+    if (hasConversation(options.conversations.value, input.conversationId)) {
+      options.lastError.value = getErrorMessage(error, '会话标题生成失败。')
+    }
+  }
+}
+
+function hasConversation(conversations: ConversationDoc[], conversationId: string): boolean {
+  return conversations.some((conversation) => conversation.id === conversationId)
 }

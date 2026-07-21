@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import type { ChatMessage, ConversationDoc, SessionDoc } from '../types/chat'
-import { createChatAppConversationPersistence } from './chatAppConversationPersistence'
+import { createChatAppConversationPersistence, createConversationTitleManager } from './chatAppConversationPersistence'
 
 describe('createChatAppConversationPersistence', () => {
   it('saves a structured-cloneable conversation when applying a generated title', async () => {
@@ -90,6 +90,48 @@ describe('createChatAppConversationPersistence', () => {
     expect(conversations.value[0]?.messages[1]?.content).toBe('大语言模型是基于海量语料训练的生成模型')
   })
 
+  it('writes title generation failures to the shared error state', async () => {
+    const conversations = ref<ConversationDoc[]>([createConversation()])
+    const lastError = ref<string | null>(null)
+    const manager = createConversationTitleManager({
+      conversations,
+      lastError,
+      persistence: createPersistence(conversations),
+      requestTitle: vi.fn(async () => { throw new Error('title failed') }),
+    })
+
+    manager.generate({
+      conversationId: 'conversation-1',
+      firstMessageContent: '解释一下什么是大语言模型',
+      settings: createActiveSettings(),
+    })
+
+    await vi.waitFor(() => expect(lastError.value).toBe('title failed'))
+  })
+
+  it('drops a title result after its conversation was deleted', async () => {
+    const conversations = ref<ConversationDoc[]>([])
+    const applyGeneratedConversationTitle = vi.fn(async () => undefined)
+    const manager = createConversationTitleManager({
+      conversations,
+      lastError: ref<string | null>(null),
+      persistence: {
+        ...createPersistence(conversations),
+        applyGeneratedConversationTitle,
+      },
+      requestTitle: vi.fn(async () => '迟到标题'),
+    })
+
+    manager.generate({
+      conversationId: 'deleted',
+      firstMessageContent: '已经删除',
+      settings: createActiveSettings(),
+    })
+
+    await Promise.resolve()
+    expect(applyGeneratedConversationTitle).not.toHaveBeenCalled()
+  })
+
   it('serializes deletion behind an in-flight title write for the same conversation', async () => {
     const activeConversationId = ref('conversation-1')
     const conversations = ref<ConversationDoc[]>([])
@@ -138,6 +180,51 @@ describe('createChatAppConversationPersistence', () => {
     expect(conversations.value).toEqual([])
   })
 })
+
+function createPersistence(conversations: Ref<ConversationDoc[]>) {
+  const activeConversationId = ref('conversation-1')
+  return createChatAppConversationPersistence({
+    getActiveConfigId: () => 'deepseek',
+    activeConversationId,
+    conversations,
+    deleteConversationDoc: vi.fn(async () => undefined),
+    messages: ref<ChatMessage[]>([createMessage('user', '解释一下什么是大语言模型')]),
+    saveConversation: vi.fn(async (conversation: ConversationDoc) => conversation),
+    saveSession: vi.fn(async (session: SessionDoc) => session),
+  })
+}
+
+function createConversation(): ConversationDoc {
+  return {
+    _id: 'conversation/conversation-1',
+    createdAt: 1,
+    id: 'conversation-1',
+    messages: [],
+    title: '新对话',
+    type: 'conversation',
+    updatedAt: 1,
+  }
+}
+
+function createActiveSettings() {
+  return {
+    apiKey: 'sk-test',
+    baseUrl: 'https://api.deepseek.com',
+    capabilities: {
+      imageInput: false,
+      nativeWebSearch: false,
+      protocol: 'chat_completions' as const,
+      reasoning: true,
+      toolCalling: true,
+    },
+    configId: 'deepseek',
+    label: 'DeepSeek',
+    model: 'deepseek-v4-flash',
+    modelOptions: ['deepseek-v4-flash'],
+    provider: 'deepseek' as const,
+    temperature: 1,
+  }
+}
 
 function createMessage(
   role: ChatMessage['role'],

@@ -4,8 +4,12 @@ import {
   resolveProviderRequestTemperature,
   shouldIncludeProviderRequestTemperature,
 } from '../../../constants/providerCapabilities'
-import type { ProviderAdapter, ProviderPayloadInput, ProviderStreamState } from '../providerAdapter'
-import type { ProviderStreamDelta } from '../toolTypes'
+import type {
+  ProviderAdapter,
+  ProviderConversationMessage,
+  ProviderRequestInput,
+  ProviderStreamState,
+} from '../providerAdapter'
 
 interface StreamDeltaPayload {
   content?: string | null
@@ -18,7 +22,6 @@ interface StreamDeltaPayload {
       arguments?: string
       name?: string
     }
-    type?: 'function'
   }>
 }
 
@@ -30,15 +33,13 @@ interface ChatCompletionChunk {
 }
 
 interface ChatCompletionTextPart {
-  type: 'text'
   text: string
+  type: 'text'
 }
 
 interface ChatCompletionImagePart {
+  image_url: { url: string }
   type: 'image_url'
-  image_url: {
-    url: string
-  }
 }
 
 type ChatCompletionMessageContent = string | Array<ChatCompletionTextPart | ChatCompletionImagePart>
@@ -46,51 +47,25 @@ type ChatCompletionMessageContent = string | Array<ChatCompletionTextPart | Chat
 const DONE_EVENT = '[DONE]'
 
 export const chatCompletionsAdapter: ProviderAdapter = {
-  supportsTools: true,
-  createRequestUrl(baseUrl: string): string {
-    return `${baseUrl.replace(/\/$/, '')}/chat/completions`
+  createRequest(input) {
+    return {
+      body: createPayload(input),
+      headers: createHeaders(input.settings.apiKey),
+      url: `${input.settings.baseUrl.replace(/\/$/, '')}/chat/completions`,
+    }
   },
-  createPayload(input: ProviderPayloadInput): Record<string, unknown> {
-    const payload: Record<string, unknown> = {
-      messages: input.messages.map((message) => createMessagePayload(message, input.settings.provider)),
-      model: input.settings.model,
-      stream: input.stream,
+  createStreamState(settings) {
+    return {
+      lastContent: '',
+      lastReasoning: '',
+      provider: settings.provider,
+      toolCalls: new Map(),
     }
-
-    if (shouldIncludeProviderRequestTemperature(
-      input.settings.provider,
-      input.settings,
-      input.requestOptions?.thinkingEnabled,
-    )) {
-      payload.temperature = resolveRequestTemperature(
-        input.settings.provider,
-        input.settings.temperature,
-        input.requestOptions,
-      )
-    }
-
-    Object.assign(
-      payload,
-        createThinkingPayloadForChatCompletions(
-          input.settings.provider,
-          input.settings,
-          input.requestOptions?.thinkingEnabled,
-        ),
-    )
-
-    if (input.tools?.length) {
-      payload.parallel_tool_calls = false
-      payload.tool_choice = 'auto'
-      payload.tools = input.tools
-    }
-
-    return payload
   },
-  parseSseEvent(event: string, state: ProviderStreamState): ProviderStreamDelta[] {
+  parseSseEvent(event, state) {
     if (!event) {
       return []
     }
-
     if (event === DONE_EVENT) {
       return [{ type: 'done' }]
     }
@@ -101,117 +76,106 @@ export const chatCompletionsAdapter: ProviderAdapter = {
       return []
     }
 
-    const deltas: ProviderStreamDelta[] = []
+    const deltas: ReturnType<ProviderAdapter['parseSseEvent']> = []
     const delta = choice.delta
     if (delta) {
-      const reasoningDelta = extractReasoningDelta(delta, state)
-      if (reasoningDelta) {
-        deltas.push({ type: 'reasoning_delta', content: reasoningDelta })
+      const reasoning = extractReasoningDelta(delta, state)
+      if (reasoning) {
+        deltas.push({ type: 'reasoning', content: reasoning })
       }
 
-      const contentDelta = extractContentDelta(delta, state)
-      if (contentDelta) {
-        deltas.push({ type: 'content_delta', content: contentDelta })
+      const content = extractContentDelta(delta, state)
+      if (content) {
+        deltas.push({ type: 'content', content })
       }
 
       appendToolCalls(delta, state)
     }
 
     if (choice.finish_reason === 'tool_calls') {
-      deltas.push({
-        type: 'tool_calls_done',
-        calls: flushToolCalls(state),
-      })
+      deltas.push({ type: 'tool-calls', calls: flushToolCalls(state) })
     }
 
     return deltas
   },
+  supportsTools: true,
 }
 
-function createMessagePayload(
-  message: ProviderPayloadInput['messages'][number],
-  provider: ProviderId,
-): Record<string, unknown> {
-  if (message.role === 'tool') {
-    return {
-      role: 'tool',
-      content: message.content,
-      tool_call_id: message.toolCallId,
-    }
-  }
-
+function createPayload(input: ProviderRequestInput): Record<string, unknown> {
   const payload: Record<string, unknown> = {
-    role: message.role,
-    content: createMessageContent(message.content, message.attachments ?? []),
+    messages: input.messages.map((message) => createMessagePayload(message, input.settings.provider)),
+    model: input.settings.model,
+    stream: input.stream,
   }
 
-  if (message.role === 'assistant' && message.toolCalls?.length) {
-    if (!message.content.trim()) {
-      payload.content = null
-    }
-    payload.tool_calls = message.toolCalls.map((call) => ({
-      id: call.id,
-      type: 'function',
-      function: {
-        name: call.name,
-        arguments: call.argumentsJson,
-      },
-    }))
+  if (shouldIncludeProviderRequestTemperature(input.settings.provider, input.settings, input.thinkingEnabled)) {
+    payload.temperature = resolveProviderRequestTemperature(
+      input.settings.provider,
+      input.settings.temperature,
+      input.thinkingEnabled,
+    )
   }
 
-  if (requiresReasoningContentEcho(provider) && message.role === 'assistant' && message.reasoningContent) {
-    payload.reasoning_content = message.reasoningContent
+  Object.assign(payload, createThinkingPayloadForChatCompletions(
+    input.settings.provider,
+    input.settings,
+    input.thinkingEnabled,
+  ))
+
+  if (input.tools.length) {
+    payload.parallel_tool_calls = false
+    payload.tool_choice = 'auto'
+    payload.tools = input.tools
   }
 
   return payload
 }
 
+function createHeaders(apiKey: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  }
+}
+
+function createMessagePayload(message: ProviderConversationMessage, provider: ProviderId): Record<string, unknown> {
+  if (message.role === 'tool') {
+    return { content: message.content, role: 'tool', tool_call_id: message.toolCallId }
+  }
+
+  const payload: Record<string, unknown> = {
+    content: createMessageContent(message.content, message.attachments ?? []),
+    role: message.role,
+  }
+  if (message.role === 'assistant' && message.toolCalls?.length) {
+    payload.content = message.content.trim() ? payload.content : null
+    payload.tool_calls = message.toolCalls.map((call) => ({
+      function: { arguments: call.argumentsJson, name: call.name },
+      id: call.id,
+      type: 'function',
+    }))
+  }
+  if (requiresReasoningContentEcho(provider) && message.role === 'assistant' && message.reasoningContent) {
+    payload.reasoning_content = message.reasoningContent
+  }
+  return payload
+}
+
 function createMessageContent(
   content: string,
-  attachments: ProviderPayloadInput['messages'][number]['attachments'],
+  attachments: ProviderConversationMessage['attachments'],
 ): ChatCompletionMessageContent {
   if (!attachments?.length) {
     return content
   }
-
   const parts: Array<ChatCompletionTextPart | ChatCompletionImagePart> = []
   if (content.trim()) {
-    parts.push({
-      type: 'text',
-      text: content,
-    })
+    parts.push({ text: content, type: 'text' })
   }
-
   for (const attachment of attachments) {
-    if (attachment.type !== 'image') {
-      continue
-    }
-
-    parts.push({
-      type: 'image_url',
-      image_url: {
-        url: attachment.dataUrl,
-      },
-    })
+    parts.push({ image_url: { url: attachment.dataUrl }, type: 'image_url' })
   }
-
-  if (!parts.length) {
-    return content
-  }
-
-  return parts
-}
-
-function resolveRequestTemperature(
-  provider: ProviderId,
-  configuredTemperature: number,
-  requestOptions?: { thinkingEnabled?: boolean },
-): number {
-  return resolveProviderRequestTemperature(
-    provider,
-    configuredTemperature,
-    requestOptions?.thinkingEnabled,
-  )
+  return parts.length ? parts : content
 }
 
 function extractReasoningDelta(delta: StreamDeltaPayload, state: ProviderStreamState): string {
@@ -219,68 +183,46 @@ function extractReasoningDelta(delta: StreamDeltaPayload, state: ProviderStreamS
     state.lastReasoning += delta.reasoning_content
     return delta.reasoning_content
   }
-
-  if (!delta.reasoning_details?.length) {
-    return ''
+  const complete = delta.reasoning_details?.map((item) => item.text ?? '').join('') ?? ''
+  const result = resolveCumulativeDelta(complete, state.lastReasoning)
+  if (complete) {
+    state.lastReasoning = complete
   }
-
-  const fullReasoning = delta.reasoning_details.map((item) => item.text ?? '').join('')
-  const reasoningDelta = resolveCumulativeDelta(fullReasoning, state.lastReasoning)
-  if (fullReasoning) {
-    state.lastReasoning = fullReasoning
-  }
-  return reasoningDelta
+  return result
 }
 
 function extractContentDelta(delta: StreamDeltaPayload, state: ProviderStreamState): string {
-  if (!delta.content) {
-    return ''
-  }
+  const complete = delta.content ?? ''
+  if (!complete) return ''
+  if (state.provider !== 'minimax') return complete
 
-  const current = delta.content
-  const contentDelta = resolveCumulativeDelta(current, state.lastContent)
-  if (current) {
-    state.lastContent = current
-  }
-  return contentDelta
+  const result = resolveCumulativeDelta(complete, state.lastContent)
+  state.lastContent = complete
+  return result
 }
 
 function appendToolCalls(delta: StreamDeltaPayload, state: ProviderStreamState): void {
   for (const item of delta.tool_calls ?? []) {
-    const index = typeof item.index === 'number' ? item.index : 0
-    const current = state.toolCalls.get(index)
-    const nextName = item.function?.name ?? current?.name ?? ''
-    const nextArguments = `${current?.argumentsJson ?? ''}${item.function?.arguments ?? ''}`
-    const nextId = item.id ?? current?.id ?? `call-${index}`
-
-    state.toolCalls.set(index, {
-      argumentsJson: nextArguments,
-      id: nextId,
-      name: nextName,
-    })
+    const index = item.index ?? 0
+    const previous = state.toolCalls.get(index)
+    const id = item.id ?? previous?.id ?? ''
+    const name = item.function?.name ?? previous?.name ?? ''
+    const argumentsJson = `${previous?.argumentsJson ?? ''}${item.function?.arguments ?? ''}`
+    state.toolCalls.set(index, { argumentsJson, id, name })
   }
 }
 
 function flushToolCalls(state: ProviderStreamState): Array<{ argumentsJson: string; id: string; name: string }> {
-  const calls = [...state.toolCalls.entries()]
-    .sort(([left], [right]) => left - right)
-    .map(([, call]) => call)
+  const calls = [...state.toolCalls.entries()].sort(([left], [right]) => left - right).map(([, call]) => call)
   state.toolCalls.clear()
   return calls
 }
 
-function resolveCumulativeDelta(nextValue: string, currentValue: string): string {
-  if (!nextValue) {
+function resolveCumulativeDelta(next: string, previous: string): string {
+  if (!next) {
     return ''
   }
-
-  if (!currentValue) {
-    return nextValue
-  }
-
-  return nextValue.startsWith(currentValue)
-    ? nextValue.slice(currentValue.length)
-    : nextValue
+  return previous && next.startsWith(previous) ? next.slice(previous.length) : next
 }
 
 function requiresReasoningContentEcho(provider: ProviderId): boolean {

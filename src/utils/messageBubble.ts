@@ -45,6 +45,7 @@ export function buildFallbackTimeline(
 
 function mapToolTraceStatus(status: string): ProcessTimelineItem['status'] {
   if (status === 'failed') return 'error'
+  if (status === 'stopped') return 'stopped'
   if (status === 'running' || status === 'planned') return 'running'
   return 'done'
 }
@@ -56,6 +57,10 @@ function describeToolTraceFallback(toolName: string, status: string, errorMessag
 
   if (status === 'running' || status === 'planned') {
     return `正在执行${resolveToolDisplayName(toolName)}`
+  }
+
+  if (status === 'stopped') {
+    return `${resolveToolDisplayName(toolName)}已停止`
   }
 
   return `${resolveToolDisplayName(toolName)}已完成`

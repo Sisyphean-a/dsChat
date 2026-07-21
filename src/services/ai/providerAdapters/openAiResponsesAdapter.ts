@@ -1,27 +1,25 @@
-import type { ProviderAdapter, ProviderPayloadInput, ProviderStreamState } from '../providerAdapter'
-import type { ProviderStreamDelta } from '../toolTypes'
 import {
   providerSupportsNativeWebSearch,
   resolveProviderRequestTemperature,
   shouldIncludeProviderRequestTemperature,
   supportsOpenAiNativeWebSearchModel,
 } from '../../../constants/providerCapabilities'
+import type {
+  ProviderAdapter,
+  ProviderConversationMessage,
+  ProviderRequestInput,
+  ProviderStreamState,
+} from '../providerAdapter'
 
 interface ResponsesInputContentPart {
-  type: 'input_image' | 'input_text' | 'output_text'
   image_url?: string
   text?: string
+  type: 'input_image' | 'input_text' | 'output_text'
 }
 
 interface ResponsesStreamEvent {
-  error?: {
-    message?: string
-  }
-  item?: {
-    action?: { query?: string }
-    phase?: string
-    type?: string
-  }
+  error?: { message?: string }
+  item?: { action?: { query?: string }; phase?: string; type?: string }
   delta?: string
   text?: string
   type?: string
@@ -35,144 +33,127 @@ const STREAM_STATUS_SEARCH_DONE = '已完成检索，正在整理结果...'
 const STREAM_STATUS_ANSWERING = '正在生成回答...'
 
 export const openAiResponsesAdapter: ProviderAdapter = {
-  supportsTools: false,
-  createRequestUrl(baseUrl: string): string {
-    return `${baseUrl.replace(/\/$/, '')}/responses`
+  createRequest(input) {
+    return {
+      body: createPayload(input),
+      headers: {
+        Authorization: `Bearer ${input.settings.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      url: `${input.settings.baseUrl.replace(/\/$/, '')}/responses`,
+    }
   },
-  createPayload(input: ProviderPayloadInput): Record<string, unknown> {
-    const payload: Record<string, unknown> = {
-      input: input.messages.map((message) => ({
-        role: message.role === 'tool' ? 'assistant' : message.role,
-        content: createResponsesInputContent(message),
-      })),
-      model: input.settings.model,
-      stream: input.stream,
-    }
-
-    if (shouldIncludeProviderRequestTemperature(
-      input.settings.provider,
-      input.settings,
-      input.requestOptions?.thinkingEnabled,
-    )) {
-      payload.temperature = resolveProviderRequestTemperature(
-        input.settings.provider,
-        input.settings.temperature,
-        input.requestOptions?.thinkingEnabled,
-      )
-    }
-
-    if (providerSupportsNativeWebSearch(input.settings) && supportsOpenAiNativeWebSearchModel(input.settings.model)) {
-      payload.tool_choice = 'auto'
-      payload.tools = [{ type: 'web_search' }]
-    }
-
-    return payload
+  createStreamState(settings) {
+    return { lastContent: '', lastReasoning: '', provider: settings.provider, toolCalls: new Map() }
   },
-  parseSseEvent(event: string, _state: ProviderStreamState): ProviderStreamDelta[] {
+  parseSseEvent(event, state) {
     if (!event) {
       return []
     }
-
     if (event === DONE_EVENT) {
       return [{ type: 'done' }]
     }
 
     const data = JSON.parse(event) as ResponsesStreamEvent
     if (data.type === 'response.error') {
-      const detail = data.error?.message?.trim()
-      throw new Error(detail || 'OpenAI 请求失败：web_search 调用异常。')
+      throw new Error(data.error?.message?.trim() || 'OpenAI 请求失败：web_search 调用异常。')
     }
-
     if (data.type === 'response.completed') {
       return [{ type: 'done' }]
     }
 
-    const deltas: ProviderStreamDelta[] = []
+    const deltas: ReturnType<ProviderAdapter['parseSseEvent']> = []
     const status = resolveOpenAiStreamingStatus(data)
     if (status) {
       deltas.push({ type: 'status', status })
     }
-
-    let contentDelta = ''
-    if (data.type === 'response.output_text.delta') {
-      contentDelta = data.delta ?? ''
-    } else if (data.type === 'response.output_text.done') {
-      contentDelta = resolveCumulativeDelta(data.text ?? '', _state.lastContent)
+    const content = resolveContentDelta(data, state)
+    if (content) {
+      deltas.push({ type: 'content', content })
     }
-
-    if (contentDelta) {
-      _state.lastContent = `${_state.lastContent}${contentDelta}`
-      deltas.push({ type: 'content_delta', content: contentDelta })
-    }
-
     return deltas
   },
+  supportsTools: false,
 }
 
-function createResponsesInputContent(
-  message: ProviderPayloadInput['messages'][number],
-): ResponsesInputContentPart[] {
+function createPayload(input: ProviderRequestInput): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    input: input.messages.map((message) => ({
+      content: createResponsesInputContent(message),
+      role: message.role === 'tool' ? 'assistant' : message.role,
+    })),
+    model: input.settings.model,
+    stream: input.stream,
+  }
+  if (shouldIncludeProviderRequestTemperature(input.settings.provider, input.settings, input.thinkingEnabled)) {
+    payload.temperature = resolveProviderRequestTemperature(
+      input.settings.provider,
+      input.settings.temperature,
+      input.thinkingEnabled,
+    )
+  }
+  if (providerSupportsNativeWebSearch(input.settings) && supportsOpenAiNativeWebSearchModel(input.settings.model)) {
+    payload.tool_choice = 'auto'
+    payload.tools = [{ type: 'web_search' }]
+  }
+  return payload
+}
+
+function createResponsesInputContent(message: ProviderConversationMessage): ResponsesInputContentPart[] {
   const role = message.role === 'tool' ? 'assistant' : message.role
   const textType: ResponsesInputContentPart['type'] = role === 'assistant' ? 'output_text' : 'input_text'
   const parts: ResponsesInputContentPart[] = []
-
   if (message.content.trim()) {
-    parts.push({
-      type: textType,
-      text: message.content,
-    })
+    parts.push({ text: message.content, type: textType })
   }
-
   if (role !== 'assistant') {
     for (const attachment of message.attachments ?? []) {
-      if (attachment.type !== 'image') {
-        continue
-      }
-
-      parts.push({
-        type: 'input_image',
-        image_url: attachment.dataUrl,
-      })
+      parts.push({ image_url: attachment.dataUrl, type: 'input_image' })
     }
   }
-
-  if (parts.length) {
-    return parts
-  }
-
-  return [{
-    type: textType,
-    text: message.content,
-  }]
+  return parts.length ? parts : [{ text: message.content, type: textType }]
 }
 
-function resolveOpenAiStreamingStatus(event: ResponsesStreamEvent): string | '' {
+function resolveContentDelta(event: ResponsesStreamEvent, state: ProviderStreamState): string {
+  if (event.type === 'response.output_text.delta') {
+    const content = event.delta ?? ''
+    state.lastContent += content
+    return content
+  }
+
+  if (event.type !== 'response.output_text.done') {
+    return ''
+  }
+
+  const complete = event.text ?? ''
+  const content = complete.startsWith(state.lastContent)
+    ? complete.slice(state.lastContent.length)
+    : complete
+  state.lastContent += content
+  return content
+}
+
+function resolveOpenAiStreamingStatus(event: ResponsesStreamEvent): string {
   if (event.type === 'response.created' || event.type === 'response.in_progress') {
     return STREAM_STATUS_PROCESSING
   }
-
   if (event.type === 'response.web_search_call.in_progress' || event.type === 'response.web_search_call.searching') {
     return STREAM_STATUS_SEARCHING
   }
-
   if (event.type === 'response.web_search_call.completed') {
     return STREAM_STATUS_SEARCH_DONE
   }
-
   if (event.type === 'response.output_item.added') {
     if (event.item?.type === 'web_search_call') {
       return STREAM_STATUS_SEARCH_START
     }
-
     if (event.item?.type === 'message' && event.item.phase === 'final_answer') {
       return STREAM_STATUS_ANSWERING
     }
   }
-
   if (event.type === 'response.output_item.done' && event.item?.type === 'web_search_call') {
     return describeSearchActionStatus(event.item.action?.query)
   }
-
   return ''
 }
 
@@ -181,21 +162,5 @@ function describeSearchActionStatus(query: string | undefined): string {
   if (!value) {
     return STREAM_STATUS_SEARCH_DONE
   }
-
-  const compact = value.length > 42 ? `${value.slice(0, 42)}...` : value
-  return `已完成检索：${compact}`
-}
-
-function resolveCumulativeDelta(nextValue: string, currentValue: string): string {
-  if (!nextValue) {
-    return ''
-  }
-
-  if (!currentValue) {
-    return nextValue
-  }
-
-  return nextValue.startsWith(currentValue)
-    ? nextValue.slice(currentValue.length)
-    : nextValue
+  return `已完成检索：${value.length > 42 ? `${value.slice(0, 42)}...` : value}`
 }

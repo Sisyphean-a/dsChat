@@ -1,364 +1,140 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { getDefaultProviderCapabilities } from '../../constants/providerCapabilities'
-import type { ActiveProviderSettings, ChatMessage } from '../../types/chat'
-import { streamWithToolOrchestrator } from './toolOrchestrator'
+import { createToolOrchestrator } from './toolOrchestrator'
+import { messageMapping } from './messageMapping'
+import type { ProviderStream } from './providerStream'
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
+describe('ToolOrchestrator', () => {
+  it('executes a tool batch serially and forwards the final text', async () => {
+    const calls: string[] = []
+    const providerStream = scriptedProviderStream([
+      [{ type: 'tool-calls', calls: [
+        { id: 'call-1', name: 'first', argumentsJson: '{}' },
+        { id: 'call-2', name: 'second', argumentsJson: '{}' },
+      ] }],
+      [{ type: 'content', content: '最终回答' }],
+    ])
+    const orchestrator = createToolOrchestrator({
+      getEnabledTools: () => [
+        tool('first', async () => { calls.push('first'); return { content: 'one' } }),
+        tool('second', async () => { calls.push('second'); return { content: 'two' } }),
+      ],
+      messageMapping,
+      providerStream,
+    })
 
-describe('streamWithToolOrchestrator', () => {
-  it('returns direct answer when model does not call tools', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      body: createSseStream([
-        'data: {"choices":[{"delta":{"content":"直接回答"}}]}',
-        'data: [DONE]',
-      ]),
+    const events = await collect(orchestrator.stream(request()))
+
+    expect(calls).toEqual(['first', 'second'])
+    expect(events).toContainEqual({ type: 'content', content: '最终回答' })
+    expect(events.filter((event) => event.type === 'tool-trace').map((event) => event.trace.status)).toEqual([
+      'planned', 'running', 'succeeded', 'planned', 'running', 'succeeded',
+    ])
+  })
+
+  it('emits a failed trace before propagating a tool error', async () => {
+    const providerStream = scriptedProviderStream([[{
+      type: 'tool-calls', calls: [{ id: 'call-1', name: 'broken', argumentsJson: '{}' }],
+    }]])
+    const orchestrator = createToolOrchestrator({
+      getEnabledTools: () => [tool('broken', async () => { throw new Error('boom') })],
+      messageMapping,
+      providerStream,
+    })
+    const iterator = orchestrator.stream(request())[Symbol.asyncIterator]()
+    const events: unknown[] = []
+    await expect((async () => {
+      while (true) {
+        const next = await iterator.next()
+        if (next.done) return
+        events.push(next.value)
+      }
+    })()).rejects.toThrow('boom')
+
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'tool-trace', trace: expect.objectContaining({ status: 'failed' }),
     }))
-
-    const deltas: string[] = []
-    const content = await streamWithToolOrchestrator(
-      [createUserMessage('你好')],
-      createSettings(),
-      (delta) => {
-        if (delta.content) {
-          deltas.push(delta.content)
-        }
-      },
-      undefined,
-      {
-        thinkingEnabled: true,
-        toolSettings: createToolSettings(),
-      },
-    )
-
-    expect(content).toBe('直接回答')
-    expect(deltas).toEqual(['直接回答'])
   })
 
-  it('executes tavily tool call and continues to final answer', async () => {
-    let providerRound = 0
-    const fetchMock = vi.fn(async (url: string) => {
-      if (url === 'https://api.tavily.com/search') {
-        return new Response(JSON.stringify({
-          query: 'weather',
-          results: [{
-            title: 'title',
-            url: 'https://example.com',
-            content: 'summary',
-            score: 0.8,
-          }],
-        }), { status: 200 })
-      }
-
-      providerRound += 1
-      if (providerRound === 1) {
-        return {
-          ok: true,
-          body: createSseStream([
-            'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"tavily_search","arguments":"{\\"query\\":\\"weather\\"}"}}]}}]}',
-            'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
-            'data: [DONE]',
-          ]),
-        }
-      }
-
-      return {
-        ok: true,
-        body: createSseStream([
-          'data: {"choices":[{"delta":{"content":"天气如下"}}]}',
-          'data: [DONE]',
-        ]),
-      }
+  it('marks a running tool as stopped when its signal aborts', async () => {
+    const controller = new AbortController()
+    const providerStream = scriptedProviderStream([[{
+      type: 'tool-calls', calls: [{ id: 'call-1', name: 'slow', argumentsJson: '{}' }],
+    }]])
+    const orchestrator = createToolOrchestrator({
+      getEnabledTools: () => [tool('slow', async () => new Promise(() => undefined))],
+      messageMapping,
+      providerStream,
     })
+    const iterator = orchestrator.stream({ ...request(), signal: controller.signal })[Symbol.asyncIterator]()
+    const events: unknown[] = []
+    const consume = (async () => {
+      while (true) {
+        const next = await iterator.next()
+        if (next.done) return
+        events.push(next.value)
+      }
+    })()
 
-    vi.stubGlobal('fetch', fetchMock)
-
-    const statuses: string[] = []
-    const traceSnapshots: Array<NonNullable<Parameters<Parameters<typeof streamWithToolOrchestrator>[2]>[0]['toolTraces']>> = []
-    const timelineSnapshots: Array<NonNullable<Parameters<Parameters<typeof streamWithToolOrchestrator>[2]>[0]['processTimeline']>> = []
-    const content = await streamWithToolOrchestrator(
-      [createUserMessage('查天气')],
-      createSettings(),
-      (delta) => {
-        if (delta.streamingStatus) {
-          statuses.push(delta.streamingStatus)
-        }
-        if (delta.toolTraces) {
-          traceSnapshots.push(delta.toolTraces.map((item) => ({ ...item })))
-        }
-        if (delta.processTimeline) {
-          timelineSnapshots.push(delta.processTimeline.map((item) => ({ ...item })))
-        }
-      },
-      undefined,
-      {
-        thinkingEnabled: true,
-        toolSettings: createToolSettings(),
-      },
-    )
-
-    expect(content).toBe('天气如下')
-    expect(statuses).toContain('正在调用联网搜索（关键词：weather）')
-    expect(statuses).toContain('已获得工具结果，正在整理回答...')
-    const latestTrace = traceSnapshots[traceSnapshots.length - 1]
-    expect(latestTrace).toBeDefined()
-    expect(latestTrace?.[0]).toMatchObject({
-      id: 'call_1',
-      status: 'succeeded',
-      toolName: 'tavily_search',
-    })
-    const latestTimeline = timelineSnapshots[timelineSnapshots.length - 1]
-    expect(latestTimeline).toBeDefined()
-    expect(latestTimeline?.some((item) => item.type === 'tool' && item.status === 'done')).toBe(true)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    controller.abort()
+    await expect(consume).rejects.toThrow('流式回复已停止。')
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'tool-trace', trace: expect.objectContaining({ status: 'stopped' }),
+    }))
   })
 
-  it('throws duplicate call error when model repeats the same tool call consecutively', async () => {
-    let providerRound = 0
-    const fetchMock = vi.fn(async (url: string) => {
-      if (url === 'https://api.tavily.com/search') {
-        return new Response(JSON.stringify({
-          query: 'news',
-          results: [],
-        }), { status: 200 })
-      }
-
-      providerRound += 1
-      const callId = providerRound === 1 ? 'call_1' : 'call_2'
-      return {
-        ok: true,
-        body: createSseStream([
-          `data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"${callId}","type":"function","function":{"name":"tavily_search","arguments":"{\\"query\\":\\"news\\"}"}}]}}]}`,
-          'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
-          'data: [DONE]',
-        ]),
-      }
+  it('requires final text after tools finish', async () => {
+    const providerStream = scriptedProviderStream([
+      [{ type: 'tool-calls', calls: [{ id: 'call-1', name: 'first', argumentsJson: '{}' }] }],
+      [{ type: 'status', status: 'done' }],
+    ])
+    const orchestrator = createToolOrchestrator({
+      getEnabledTools: () => [tool('first', async () => ({ content: 'one' }))],
+      messageMapping,
+      providerStream,
     })
 
-    vi.stubGlobal('fetch', fetchMock)
-
-    await expect(
-      streamWithToolOrchestrator(
-        [createUserMessage('查新闻')],
-        createSettings(),
-        vi.fn(),
-        undefined,
-        {
-          toolSettings: createToolSettings(),
-        },
-      ),
-    ).rejects.toThrow('检测到重复工具调用：tavily_search')
-  })
-
-  it('continues execution when provider returns multiple tool calls in one round', async () => {
-    let providerRound = 0
-    const statuses: string[] = []
-    const fetchMock = vi.fn(async (url: string) => {
-      if (url === 'https://api.tavily.com/search') {
-        return new Response(JSON.stringify({
-          query: 'AI news this week',
-          results: [],
-        }), { status: 200 })
-      }
-
-      providerRound += 1
-      if (providerRound === 1) {
-        return {
-          ok: true,
-          body: createSseStream([
-            'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"get_current_time","arguments":"{}"}},{"index":1,"id":"call_2","type":"function","function":{"name":"tavily_search","arguments":"{\\"query\\":\\"AI news this week\\"}"}}]}}]}',
-            'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
-            'data: [DONE]',
-          ]),
-        }
-      }
-
-      return {
-        ok: true,
-        body: createSseStream([
-          'data: {"choices":[{"delta":{"content":"已整理完成"}}]}',
-          'data: [DONE]',
-        ]),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    const content = await streamWithToolOrchestrator(
-      [createUserMessage('整理最近一周AI新闻')],
-      createSettings(),
-      (delta) => {
-        if (delta.streamingStatus) {
-          statuses.push(delta.streamingStatus)
-        }
-      },
-      undefined,
-      {
-        toolSettings: createToolSettings(),
-      },
-    )
-
-    expect(content).toBe('已整理完成')
-    expect(statuses).toContain('正在调用时间工具')
-    expect(statuses).toContain('正在调用联网搜索（关键词：AI news this week）')
-  })
-
-  it('passes reasoning_content back for deepseek thinking mode after tool calls', async () => {
-    const providerBodies: Array<Record<string, unknown>> = []
-    const fetchMock = createReasoningToolCallFlowFetch(providerBodies)
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    await streamWithToolOrchestrator(
-      [createUserMessage('查天气')],
-      createSettings(),
-      vi.fn(),
-      undefined,
-      {
-        thinkingEnabled: true,
-        toolSettings: createToolSettings(),
-      },
-    )
-
-    expect(providerBodies).toHaveLength(2)
-    const secondRoundMessages = providerBodies[1]?.messages as Array<Record<string, unknown>>
-    const toolCallMessage = secondRoundMessages.find((message) => 'tool_calls' in message)
-    expect(toolCallMessage).toMatchObject({
-      content: null,
-      role: 'assistant',
-      reasoning_content: '先推理',
-    })
-  })
-
-  it('does not throw when final round has no content but previous tool round already streamed content', async () => {
-    let providerRound = 0
-    const fetchMock = vi.fn(async (url: string) => {
-      if (url === 'https://api.tavily.com/search') {
-        return new Response(JSON.stringify({
-          query: 'today news',
-          results: [],
-        }), { status: 200 })
-      }
-
-      providerRound += 1
-      if (providerRound === 1) {
-        return {
-          ok: true,
-          body: createSseStream([
-            'data: {"choices":[{"delta":{"content":"先确认当前时间，然后继续。"}}]}',
-            'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"tavily_search","arguments":"{\\"query\\":\\"today news\\"}"}}]}}]}',
-            'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
-            'data: [DONE]',
-          ]),
-        }
-      }
-
-      return {
-        ok: true,
-        body: createSseStream([
-          'data: [DONE]',
-        ]),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-    const content = await streamWithToolOrchestrator(
-      [createUserMessage('查今天新闻')],
-      createSettings({ provider: 'kimi', label: 'Kimi', model: 'kimi-k2-thinking' }),
-      vi.fn(),
-      undefined,
-      {
-        thinkingEnabled: true,
-        toolSettings: createToolSettings(),
-      },
-    )
-
-    expect(content).toBe('先确认当前时间，然后继续。')
+    await expect(collect(orchestrator.stream(request()))).rejects.toMatchObject({ code: 'empty-result' })
   })
 })
 
-function createSseStream(events: string[]): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder()
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(encoder.encode(`${events.join('\n\n')}\n\n`))
-      controller.close()
+function request() {
+  return {
+    messages: [{ content: '查资料', role: 'user' as const }],
+    settings: {
+      apiKey: 'sk-test', baseUrl: 'https://api.deepseek.com',
+      capabilities: getDefaultProviderCapabilities('deepseek'), configId: 'deepseek', label: 'DeepSeek',
+      model: 'deepseek-v4-flash', modelOptions: ['deepseek-v4-flash'], provider: 'deepseek' as const, temperature: 1,
     },
-  })
-}
-
-function createSettings(overrides: Partial<ActiveProviderSettings> = {}): ActiveProviderSettings {
-  const provider = overrides.provider ?? 'deepseek'
-  return {
-    configId: 'deepseek',
-    label: 'DeepSeek',
-    provider,
-    apiKey: 'sk-test',
-    baseUrl: 'https://api.deepseek.com',
-    capabilities: getDefaultProviderCapabilities(provider),
-    model: 'deepseek-v4-flash',
-    modelOptions: ['deepseek-v4-flash'],
-    temperature: 1,
-    ...overrides,
-  }
-}
-
-function createUserMessage(content: string): ChatMessage {
-  return {
-    id: 'u-1',
-    role: 'user',
-    content,
-    createdAt: 0,
-    status: 'done',
-  }
-}
-
-function createToolSettings() {
-  return {
-    enabled: true,
-    builtinTools: {
-      currentTime: {
-        enabled: true,
-      },
-      tavilySearch: {
-        enabled: true,
-        apiKey: 'tvly-key',
-        baseUrl: 'https://api.tavily.com/search',
-      },
+    thinkingEnabled: true,
+    toolSettings: {
+      enabled: true,
+      builtinTools: { currentTime: { enabled: true }, tavilySearch: { apiKey: 'key', baseUrl: 'https://example.com', enabled: false } },
+      customTools: [],
     },
-    customTools: [],
   }
 }
 
-function createReasoningToolCallFlowFetch(providerBodies: Array<Record<string, unknown>>) {
-  let providerRound = 0
-  return vi.fn(async (url: string, init?: RequestInit) => {
-    if (url === 'https://api.tavily.com/search') {
-      return new Response(JSON.stringify({
-        query: 'weather',
-        results: [],
-      }), { status: 200 })
-    }
+function tool(name: string, execute: () => Promise<{ content: string }>) {
+  return {
+    definition: { type: 'function' as const, function: { description: name, name, parameters: {} } },
+    execute,
+  }
+}
 
-    providerRound += 1
-    if (typeof init?.body !== 'string') {
-      throw new Error('expected request body to be JSON string')
-    }
-    providerBodies.push(JSON.parse(init.body) as Record<string, unknown>)
-    return {
-      ok: true,
-      body: createSseStream(providerRound === 1
-        ? [
-          'data: {"choices":[{"delta":{"reasoning_content":"先推理"}}]}',
-          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"tavily_search","arguments":"{\\"query\\":\\"weather\\"}"}}]}}]}',
-          'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
-          'data: [DONE]',
-        ]
-        : [
-          'data: {"choices":[{"delta":{"content":"done"}}]}',
-          'data: [DONE]',
-        ]),
-    }
-  })
+function scriptedProviderStream(rounds: Array<Array<{ type: string; [key: string]: unknown }>>): ProviderStream {
+  let round = 0
+  return {
+    async *stream() {
+      const events = rounds[round++] ?? []
+      for (const event of events) yield event as never
+    },
+  }
+}
+
+async function collect<T>(stream: AsyncIterable<T>): Promise<T[]> {
+  const values: T[] = []
+  for await (const event of stream) values.push(event)
+  return values
 }

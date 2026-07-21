@@ -1,456 +1,202 @@
-import type {
-  ActiveProviderSettings,
-  ChatMessage,
-  ProcessTimelineItem,
-  ToolTraceRecord,
-} from '../../types/chat'
-import type { ChatRequestOptions, StreamDelta } from '../chatCompletion'
-import { getEnabledTools } from '../tools/toolRegistry'
-import { getProviderAdapterForSettings, type ProviderConversationMessage } from './providerAdapter'
-import { ToolFlowError, isToolFlowError, toToolFlowError } from './toolFlowErrors'
-import {
-  type ProviderRoundResult,
-  streamProviderRound,
-  toProviderConversationMessages,
-  toRuntimeToolSettings,
-} from './toolOrchestratorCore'
-import {
-  cloneToolTraces,
-  createPlannedToolTrace,
-  createToolCallSignature,
-  markToolTraceFailed,
-  markToolTraceRunning,
-  markToolTraceSucceeded,
-  safeParseJson,
-} from './toolTraceRuntime'
-import {
-  createReasoningTimelineItem,
-  createToolTimelineItem,
-} from './toolTimelineNarration'
-import { runWithAbortTimeout } from './toolTimeouts'
+import type { ActiveProviderSettings } from '../../types/chat'
+import type { MessageMapping } from './messageMapping'
+import type { ProviderConversationMessage } from './providerAdapter'
+import { ProviderRequestError, type ProviderStream } from './providerStream'
+import type { ReplyStreamEvent } from './replyStreamEvents'
+import { ToolFlowError, toToolFlowError } from './toolFlowErrors'
+import { executeToolCall } from './toolExecution'
+import { createToolCallSignature } from './toolTraceRuntime'
+import { createReasoningTimelineItem } from './toolTimelineNarration'
 import type { AiTool, NormalizedToolCall, ToolSettings } from './toolTypes'
 
 const ORCHESTRATOR_TIMEOUT_MS = 150000
 const PROVIDER_ROUND_TIMEOUT_MS = 45000
-const TOOL_EXECUTION_TIMEOUT_MS = 20000
 const TOOL_STATUS_CONTINUING = '已获得工具结果，正在整理回答...'
 
-interface RuntimeState {
-  timeline: ProcessTimelineItem[]
-  timelineCounter: number
-  previousCallSignature: string
-  roundCount: number
-  traces: ToolTraceRecord[]
-}
+export type { ReplyStreamEvent } from './replyStreamEvents'
 
-export async function streamWithToolOrchestrator(
-  messages: ChatMessage[],
-  settings: ActiveProviderSettings,
-  onDelta: (delta: StreamDelta) => void,
-  signal?: AbortSignal,
-  requestOptions?: ChatRequestOptions,
-): Promise<string> {
-  const runtimeSettings = toRuntimeToolSettings(requestOptions?.toolSettings)
-  const adapter = getProviderAdapterForSettings(settings)
-  const tools = getEnabledTools(runtimeSettings)
-  validateOrchestratorPreconditions(runtimeSettings, tools.length, adapter.supportsTools, settings.label)
-
-  const contextMessages = toProviderConversationMessages(messages)
-  const runtime = createRuntimeState()
-
-  onDelta({ processTimeline: [], toolTraces: [] })
-
-  return runToolLoop({
-    contextMessages,
-    onDelta,
-    requestOptions,
-    runtime,
-    settings,
-    signal,
-    tools,
-    runtimeSettings,
-  })
-}
-
-async function runToolLoop(options: {
-  contextMessages: ProviderConversationMessage[]
-  onDelta: (delta: StreamDelta) => void
-  requestOptions?: ChatRequestOptions
-  runtime: RuntimeState
+export interface ToolOrchestratorRequest {
+  messages: ProviderConversationMessage[]
   settings: ActiveProviderSettings
   signal?: AbortSignal
-  tools: AiTool[]
-  runtimeSettings: ToolSettings
-}): Promise<string> {
-  const startedAtMs = Date.now()
-  let aggregatedContent = ''
+  thinkingEnabled: boolean
+  toolSettings: ToolSettings
+}
+
+export interface ToolOrchestrator {
+  stream: (request: ToolOrchestratorRequest) => AsyncIterable<ReplyStreamEvent>
+}
+
+export interface ToolOrchestratorOptions {
+  getEnabledTools: (settings: ToolSettings) => AiTool[]
+  messageMapping: MessageMapping
+  providerStream: ProviderStream
+}
+
+interface RoundOutcome {
+  content: string
+  reasoningContent: string
+  toolCalls: NormalizedToolCall[]
+}
+
+export function createToolOrchestrator(options: ToolOrchestratorOptions): ToolOrchestrator {
+  return { stream: (request) => streamToolReply(options, request) }
+}
+
+async function* streamToolReply(
+  options: ToolOrchestratorOptions,
+  request: ToolOrchestratorRequest,
+): AsyncGenerator<ReplyStreamEvent> {
+  const settings = structuredClone(request.toolSettings)
+  const tools = resolveEnabledTools(options.getEnabledTools, settings)
+  assertToolsAvailable(settings, tools)
+
+  const context = request.messages.map(cloneConversationMessage)
+  const startedAt = Date.now()
+  let previousCallSignatures = new Set<string>()
+  let round = 1
+  let usedTools = false
 
   while (true) {
-    assertOrchestratorWithinTimeBudget(startedAtMs)
-    const round = await executeProviderRound({
-        adapter: getProviderAdapterForSettings(options.settings),
-      contextMessages: options.contextMessages,
-      onDelta: options.onDelta,
-      requestOptions: options.requestOptions,
-      settings: options.settings,
-      signal: options.signal,
-      tools: options.tools,
-    })
-
-    if (round.content) {
-      aggregatedContent += round.content
-    }
-    appendReasoningTimeline(round, options.runtime)
-    emitRuntimeState(options.onDelta, options.runtime)
-
-    if (!round.toolCalls.length) {
-      return finalizeRoundContent(round, aggregatedContent, options.settings.label)
+    assertWithinTimeBudget(startedAt)
+    const outcome = yield* streamProviderRound(options.providerStream, context, request, tools, round)
+    if (!outcome.toolCalls.length) {
+      if (usedTools && !outcome.content.trim()) {
+        throw new ProviderRequestError('empty-result', `${request.settings.label} 未返回最终回答。`)
+      }
+      return
     }
 
-    options.runtime.roundCount += 1
-    options.contextMessages.push(createAssistantToolMessage(round))
-
-    await executeRoundToolCalls({
-      contextMessages: options.contextMessages,
-      onDelta: options.onDelta,
-      round: options.runtime.roundCount,
-      runtime: options.runtime,
-      settings: options.runtimeSettings,
-      signal: options.signal,
-      toolCalls: round.toolCalls,
-      tools: options.tools,
-    })
-    options.onDelta({
-      streamingStatus: TOOL_STATUS_CONTINUING,
-      processTimeline: cloneProcessTimeline(options.runtime.timeline),
-      toolTraces: cloneToolTraces(options.runtime.traces),
-    })
+    previousCallSignatures = assertNoRepeatedCalls(outcome.toolCalls, previousCallSignatures)
+    usedTools = true
+    context.push(options.messageMapping.createToolAssistantMessage(outcome))
+    yield* executeBatch(options.messageMapping, context, tools, settings, request.signal, outcome.toolCalls, round)
+    yield { type: 'status', status: TOOL_STATUS_CONTINUING }
+    round += 1
   }
 }
 
-async function executeProviderRound(options: {
-  adapter: ReturnType<typeof getProviderAdapterForSettings>
-  contextMessages: ProviderConversationMessage[]
-  settings: ActiveProviderSettings
-  onDelta: (delta: StreamDelta) => void
-  signal?: AbortSignal
-  requestOptions?: ChatRequestOptions
-  tools: AiTool[]
-}): Promise<ProviderRoundResult> {
+async function* streamProviderRound(
+  providerStream: ProviderStream,
+  messages: ProviderConversationMessage[],
+  request: ToolOrchestratorRequest,
+  tools: AiTool[],
+  round: number,
+): AsyncGenerator<ReplyStreamEvent, RoundOutcome> {
+  const timeout = createTimedSignal(request.signal, PROVIDER_ROUND_TIMEOUT_MS)
+  let content = ''
+  let reasoningContent = ''
+  let toolCalls: NormalizedToolCall[] = []
+  let reasoningIndex = 0
   try {
-    return await runWithAbortTimeout({
-      operation: (roundSignal) => streamProviderRound({
-        ...options,
-        signal: roundSignal,
-      }),
-      parentSignal: options.signal,
-      timeoutCode: 'provider_round_timeout',
-      timeoutMessage: `${options.settings.label} 模型请求超时（${PROVIDER_ROUND_TIMEOUT_MS}ms）。`,
-      timeoutMs: PROVIDER_ROUND_TIMEOUT_MS,
-    })
-  } catch (error) {
-    if (isToolFlowError(error)) {
-      throw error
+    for await (const event of providerStream.stream({
+      messages,
+      settings: request.settings,
+      signal: timeout.signal,
+      thinkingEnabled: request.thinkingEnabled,
+      tools: tools.map((tool) => tool.definition),
+    })) {
+      if (event.type === 'content') content += event.content
+      if (event.type === 'reasoning') reasoningContent += event.content
+      if (event.type === 'tool-calls') toolCalls = event.calls
+      yield event
+      if (event.type === 'reasoning') {
+        reasoningIndex += 1
+        const timeline = createReasoningTimelineItem({
+          content: event.content,
+          id: `reasoning-${round}-${reasoningIndex}`,
+          round,
+        })
+        if (timeline) yield { type: 'timeline', item: timeline }
+      }
     }
-
-    throw toToolFlowError(error, 'provider_round_failure', `${options.settings.label} 工具轮次请求失败。`)
-  }
-}
-
-async function executeRoundToolCalls(options: {
-  contextMessages: ProviderConversationMessage[]
-  onDelta: (delta: StreamDelta) => void
-  round: number
-  runtime: RuntimeState
-  settings: ToolSettings
-  signal?: AbortSignal
-  toolCalls: NormalizedToolCall[]
-  tools: AiTool[]
-}): Promise<void> {
-  for (const call of options.toolCalls) {
-    await executeSingleToolCall({ ...options, call })
-  }
-}
-
-async function executeSingleToolCall(options: {
-  contextMessages: ProviderConversationMessage[]
-  onDelta: (delta: StreamDelta) => void
-  runtime: RuntimeState
-  settings: ToolSettings
-  signal?: AbortSignal
-  call: NormalizedToolCall
-  tools: AiTool[]
-  round: number
-}): Promise<void> {
-  const traceIndex = appendPlannedToolTrace(options.call, options.onDelta, options.round, options.runtime)
-  let parsedToolArgs: unknown = undefined
-  const timelineIndex = appendRunningToolTimeline(options.call.name, options.round, options.runtime, parsedToolArgs)
-  const traceStartAt = Date.now()
-
-  try {
-    const args = parseToolArguments(options.call.argumentsJson)
-    parsedToolArgs = args
-    options.runtime.timeline[timelineIndex] = createToolTimelineItem({
-      id: options.runtime.timeline[timelineIndex].id,
-      round: options.round,
-      status: 'running',
-      toolName: options.call.name,
-      toolArgs: parsedToolArgs,
-    })
-    assertToolCallIsNotDuplicated(options.call, options.runtime)
-
-    const tool = resolveToolByCallName(options.tools, options.call.name)
-    emitToolCallStatus(options.onDelta, options.call.name, args)
-    options.runtime.traces[traceIndex] = markToolTraceRunning(options.runtime.traces[traceIndex], traceStartAt)
-    emitRuntimeState(options.onDelta, options.runtime)
-    await waitForStatusRender()
-
-    const result = await runWithAbortTimeout({
-      operation: (toolSignal) => tool.execute(args, { settings: options.settings, signal: toolSignal }),
-      parentSignal: options.signal,
-      timeoutCode: 'tool_execute_timeout',
-      timeoutMessage: `工具调用超时（${options.call.name}，${TOOL_EXECUTION_TIMEOUT_MS}ms）。`,
-      timeoutMs: TOOL_EXECUTION_TIMEOUT_MS,
-    })
-
-    options.runtime.traces[traceIndex] = markToolTraceSucceeded(options.runtime.traces[traceIndex], result.content, Date.now())
-    options.runtime.timeline[timelineIndex] = createToolTimelineItem({
-      id: options.runtime.timeline[timelineIndex].id,
-      round: options.round,
-      status: 'done',
-      toolName: options.call.name,
-      toolArgs: parsedToolArgs,
-      durationMs: options.runtime.traces[traceIndex].durationMs,
-      resultContent: result.content,
-    })
-    emitRuntimeState(options.onDelta, options.runtime)
-    options.contextMessages.push({ role: 'tool', content: result.content, toolCallId: options.call.id })
   } catch (error) {
-    const typed = classifyToolCallError(error, options.call.name)
-    options.runtime.traces[traceIndex] = markToolTraceFailed(
-      options.runtime.traces[traceIndex],
-      typed.code,
-      typed.message,
-      Date.now(),
-    )
-    options.runtime.timeline[timelineIndex] = createToolTimelineItem({
-      id: options.runtime.timeline[timelineIndex].id,
-      round: options.round,
-      status: 'error',
-      toolName: options.call.name,
-      toolArgs: parsedToolArgs,
-      durationMs: options.runtime.traces[traceIndex].durationMs,
-      errorMessage: typed.message,
-    })
-    emitRuntimeState(options.onDelta, options.runtime)
-    throw typed
+    if (timeout.timedOut()) {
+      throw new ToolFlowError('provider_round_timeout', `${request.settings.label} 模型请求超时（${PROVIDER_ROUND_TIMEOUT_MS}ms）。`, error)
+    }
+    throw error
+  } finally {
+    timeout.clear()
   }
+  return { content, reasoningContent, toolCalls }
 }
 
-function validateOrchestratorPreconditions(
+async function* executeBatch(
+  mapping: MessageMapping,
+  context: ProviderConversationMessage[],
+  tools: AiTool[],
   settings: ToolSettings,
-  enabledToolsCount: number,
-  supportsTools: boolean,
-  label: string,
-): void {
-  if (!settings.enabled) {
-    throw new ToolFlowError('tool_config', '工具调用未启用。')
+  signal: AbortSignal | undefined,
+  calls: NormalizedToolCall[],
+  round: number,
+): AsyncGenerator<ReplyStreamEvent> {
+  for (const call of calls) {
+    const result = yield* executeToolCall({ call, round, settings, signal, tools })
+    context.push(mapping.createToolResultMessage(call.id, result))
   }
-  if (!supportsTools) {
-    throw new ToolFlowError('tool_protocol', `${label} 当前配置暂不支持工具调用。`)
+}
+
+function resolveEnabledTools(getTools: ToolOrchestratorOptions['getEnabledTools'], settings: ToolSettings): AiTool[] {
+  try {
+    return getTools(settings)
+  } catch (error) {
+    throw toToolFlowError(error, 'tool_config', '工具配置无效。')
   }
-  if (!enabledToolsCount) {
+}
+
+function assertNoRepeatedCalls(
+  calls: NormalizedToolCall[],
+  previous: Set<string>,
+): Set<string> {
+  const current = new Set(calls.map(createToolCallSignature))
+  const repeated = [...current].find((signature) => previous.has(signature))
+  if (repeated) {
+    const call = calls.find((item) => createToolCallSignature(item) === repeated)
+    throw new ToolFlowError('tool_duplicate_call', `检测到重复工具调用：${call?.name ?? ''}`)
+  }
+  return current
+}
+
+function assertToolsAvailable(settings: ToolSettings, tools: AiTool[]): void {
+  if (!settings.enabled || !tools.length) {
     throw new ToolFlowError('tool_config', '请至少启用一个工具。')
   }
 }
 
-function createRuntimeState(): RuntimeState {
-  return {
-    timeline: [],
-    timelineCounter: 0,
-    previousCallSignature: '',
-    roundCount: 0,
-    traces: [],
-  }
-}
-
-function assertOrchestratorWithinTimeBudget(startedAtMs: number): void {
-  if (Date.now() - startedAtMs > ORCHESTRATOR_TIMEOUT_MS) {
+function assertWithinTimeBudget(startedAt: number): void {
+  if (Date.now() - startedAt > ORCHESTRATOR_TIMEOUT_MS) {
     throw new ToolFlowError('tool_orchestrator_timeout', `工具总流程超时（${ORCHESTRATOR_TIMEOUT_MS}ms）。`)
   }
 }
 
-function finalizeRoundContent(round: ProviderRoundResult, aggregated: string, providerLabel: string): string {
-  const finalContent = round.content.trim() ? round.content : aggregated
-  if (!finalContent.trim()) {
-    throw new ToolFlowError('provider_round_failure', `${providerLabel} 未返回可用内容。`)
-  }
-
-  return finalContent
-}
-
-function createAssistantToolMessage(round: ProviderRoundResult): ProviderConversationMessage {
+function cloneConversationMessage(message: ProviderConversationMessage): ProviderConversationMessage {
   return {
-    role: 'assistant',
-    content: '',
-    reasoningContent: round.reasoningContent,
-    toolCalls: round.toolCalls,
+    ...message,
+    attachments: message.attachments?.map((attachment) => ({ ...attachment })),
+    toolCalls: message.toolCalls?.map((call) => ({ ...call })),
   }
 }
 
-function appendPlannedToolTrace(
-  call: NormalizedToolCall,
-  onDelta: (delta: StreamDelta) => void,
-  round: number,
-  runtime: RuntimeState,
-): number {
-  const parsedArgs = safeParseJson(call.argumentsJson) ?? { raw: call.argumentsJson.trim() }
-  runtime.traces.push(createPlannedToolTrace(call, round, parsedArgs))
-  emitRuntimeState(onDelta, runtime)
-  return runtime.traces.length - 1
-}
-
-function assertToolCallIsNotDuplicated(call: NormalizedToolCall, state: RuntimeState): void {
-  const signature = createToolCallSignature(call)
-  if (signature === state.previousCallSignature) {
-    throw new ToolFlowError('tool_duplicate_call', `检测到重复工具调用：${call.name}`)
+function createTimedSignal(parent: AbortSignal | undefined, timeoutMs: number): {
+  clear: () => void
+  signal: AbortSignal
+  timedOut: () => boolean
+} {
+  const controller = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
+  const onAbort = () => controller.abort()
+  parent?.addEventListener('abort', onAbort, { once: true })
+  if (parent?.aborted) controller.abort()
+  return {
+    clear: () => {
+      clearTimeout(timer)
+      parent?.removeEventListener('abort', onAbort)
+    },
+    signal: controller.signal,
+    timedOut: () => timedOut,
   }
-
-  state.previousCallSignature = signature
-}
-
-function resolveToolByCallName(tools: AiTool[], name: string): AiTool {
-  const tool = tools.find((item) => item.definition.function.name === name)
-  if (!tool) {
-    throw new ToolFlowError('tool_unknown', `未知工具：${name}`)
-  }
-
-  return tool
-}
-
-function classifyToolCallError(error: unknown, toolName: string): ToolFlowError {
-  if (isToolFlowError(error)) {
-    return error
-  }
-
-  return toToolFlowError(error, 'tool_execute_failure', `工具执行失败：${toolName}`)
-}
-
-function parseToolArguments(argumentsJson: string): unknown {
-  const parsed = safeParseJson(argumentsJson)
-  if (parsed !== null) {
-    return parsed
-  }
-
-  throw new ToolFlowError('tool_args_parse', `工具参数解析失败：${argumentsJson}`)
-}
-
-function emitToolCallStatus(
-  onDelta: (delta: StreamDelta) => void,
-  toolName: string,
-  toolArgs: unknown,
-): void {
-  onDelta({
-    streamingStatus: buildToolCallingStatusText(toolName, toolArgs),
-  })
-}
-
-function buildToolCallingStatusText(toolName: string, toolArgs: unknown): string {
-  const displayName = resolveToolDisplayName(toolName)
-  const hint = resolveToolCallingHint(toolName, toolArgs)
-  if (!hint) {
-    return `正在调用${displayName}`
-  }
-
-  return `正在调用${displayName}（${hint}）`
-}
-
-function resolveToolDisplayName(toolName: string): string {
-  if (toolName === 'tavily_search') {
-    return '联网搜索'
-  }
-
-  if (toolName === 'get_current_time') {
-    return '时间工具'
-  }
-
-  return `工具 ${toolName}`
-}
-
-function resolveToolCallingHint(toolName: string, toolArgs: unknown): string {
-  if (toolName === 'tavily_search') {
-    const query = typeof (toolArgs as { query?: unknown } | null)?.query === 'string'
-      ? (toolArgs as { query: string }).query.trim()
-      : ''
-    if (!query) {
-      return ''
-    }
-
-    return `关键词：${compactHint(query)}`
-  }
-
-  if (toolName === 'get_current_time') {
-    const timezone = typeof (toolArgs as { timezone?: unknown } | null)?.timezone === 'string'
-      ? (toolArgs as { timezone: string }).timezone.trim()
-      : ''
-    if (!timezone) {
-      return ''
-    }
-
-    return `时区：${compactHint(timezone)}`
-  }
-
-  return ''
-}
-
-function compactHint(value: string): string {
-  return value.length > 42 ? `${value.slice(0, 42)}...` : value
-}
-
-async function waitForStatusRender(): Promise<void> {
-  await Promise.resolve()
-}
-
-function emitRuntimeState(onDelta: (delta: StreamDelta) => void, runtime: RuntimeState): void {
-  onDelta({
-    processTimeline: cloneProcessTimeline(runtime.timeline),
-    toolTraces: cloneToolTraces(runtime.traces),
-  })
-}
-
-function appendReasoningTimeline(round: ProviderRoundResult, runtime: RuntimeState): void {
-  const nextRound = runtime.roundCount + 1
-  const id = `reasoning-${nextRound}-${runtime.timelineCounter + 1}`
-  const item = createReasoningTimelineItem({
-    content: round.reasoningContent,
-    id,
-    round: nextRound,
-  })
-  if (!item) {
-    return
-  }
-
-  runtime.timelineCounter += 1
-  runtime.timeline.push(item)
-}
-
-function appendRunningToolTimeline(
-  toolName: string,
-  round: number,
-  runtime: RuntimeState,
-  toolArgs: unknown,
-): number {
-  runtime.timelineCounter += 1
-  runtime.timeline.push(createToolTimelineItem({
-    id: `tool-${round}-${runtime.timelineCounter}`,
-    round,
-    status: 'running',
-    toolName,
-    toolArgs,
-  }))
-  return runtime.timeline.length - 1
-}
-
-function cloneProcessTimeline(items: ProcessTimelineItem[]): ProcessTimelineItem[] {
-  return items.map((item) => ({ ...item }))
 }

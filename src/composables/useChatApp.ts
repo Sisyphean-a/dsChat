@@ -6,8 +6,6 @@ import {
   SESSION_DOC_ID,
   STOPPED_RESPONSE_MESSAGE,
 } from '../constants/app'
-import { requestConversationTitle } from '../services/conversationTitle'
-import { streamChatCompletion } from '../services/chatCompletion'
 import { applyAppearance } from '../services/theme'
 import {
   deleteConversation as deleteConversationDoc,
@@ -41,7 +39,7 @@ import {
   resolveThinkingProvider,
   shouldShowThinkingToggle,
 } from './chatAppThinking'
-import { createChatAppSendActions } from './chatAppSendActions'
+import { createChatAppProduction } from './chatAppProduction'
 import { createChatAppSettingsActions } from './chatAppSettingsActions'
 import {
   getActiveProviderSettings,
@@ -83,7 +81,6 @@ export function useChatApp() {
     return resolveRetryableAssistantReply(messages.value)?.assistantId ?? null
   })
 
-  let activeAbortController: AbortController | null = null
   let lifecycleRegistered = false
 
   const settingsActions = createChatAppSettingsActions({
@@ -106,26 +103,20 @@ export function useChatApp() {
     saveSession,
   })
 
-  const sendActions = createChatAppSendActions({
+  const replyLifecycle = createChatAppProduction({
     activeConversationId,
-    applyGeneratedConversationTitle: conversationPersistence.applyGeneratedConversationTitle,
+    conversationPersistence,
+    conversations,
     draftMessage,
-    getAbortController: () => activeAbortController,
+    getThinkingEnabled: (provider) => getThinkingEnabledForProvider(settings.value, provider),
     interruptedResponseMessage: INTERRUPTED_RESPONSE_MESSAGE,
     isSending,
     lastError,
     messages,
     openSettings: settingsActions.openSettings,
     pendingAttachments,
-    persistConversation: conversationPersistence.persistConversation,
-      requestConversationTitle,
-      getThinkingEnabled: (provider) => getThinkingEnabledForProvider(settings.value, provider),
-      setAbortController: (controller) => {
-        activeAbortController = controller
-      },
     settings,
     stoppedResponseMessage: STOPPED_RESPONSE_MESSAGE,
-    streamChatCompletion,
   })
 
   async function initialize(): Promise<void> {
@@ -158,7 +149,7 @@ export function useChatApp() {
       return
     }
 
-    await sendActions.sendMessage()
+    await replyLifecycle.send()
   }
 
   function startFreshConversation(): void {
@@ -224,7 +215,7 @@ export function useChatApp() {
 
   async function deleteConversation(id: string): Promise<void> {
     if (isSending.value && activeConversationId.value === id) {
-      await sendActions.stopGenerating()
+      await replyLifecycle.stop()
     }
 
     await conversationPersistence.deleteConversation(id)
@@ -269,7 +260,7 @@ export function useChatApp() {
     })
 
     window.utools?.onPluginOut(async () => {
-      await sendActions.interruptActiveSend(INTERRUPTED_RESPONSE_MESSAGE)
+      await replyLifecycle.interrupt(INTERRUPTED_RESPONSE_MESSAGE)
       await saveSession({
         _id: SESSION_DOC_ID,
         type: 'session',
@@ -384,7 +375,7 @@ export function useChatApp() {
     openSettings: settingsActions.openSettings,
     pendingAttachments,
     pluginEnterSignal,
-    retryLastAssistantMessage: sendActions.retryLastAssistantMessage,
+    retryLastAssistantMessage: replyLifecycle.retry,
     retryableAssistantMessageId,
     showThinkingToggle,
     thinkingEnabled,
@@ -399,7 +390,7 @@ export function useChatApp() {
     selectConversation,
     sendMessage,
     settings,
-    stopGenerating: sendActions.stopGenerating,
+    stopGenerating: replyLifecycle.stop,
     startFreshConversation,
     toggleSidebar: settingsActions.toggleSidebar,
     updateCustomModelField: settingsActions.updateCustomModelField,

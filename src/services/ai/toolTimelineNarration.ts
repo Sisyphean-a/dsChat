@@ -79,6 +79,10 @@ function buildToolTimelineText(options: {
     return `${toolDoneLabel(options.toolName)}失败：${reason}`
   }
 
+  if (options.status === 'stopped') {
+    return `${toolDoneLabel(options.toolName)}已停止`
+  }
+
   return `${toolDoneLabel(options.toolName)}完成`
 }
 
@@ -98,6 +102,10 @@ function buildSearchTimelineText(options: {
   if (options.status === 'error') {
     const reason = options.errorMessage?.trim() || '未知错误'
     return `查询条件：${condition}；查询失败：${reason}`
+  }
+
+  if (options.status === 'stopped') {
+    return `查询条件：${condition}；查询已停止`
   }
 
   if (count === null) {

@@ -72,9 +72,14 @@ const hasProcessTimeline = computed(() => processTimeline.value.length > 0)
 const processLabel = computed(() => {
   const total = processTimeline.value.length
   const failed = processTimeline.value.filter((item) => item.status === 'error').length
+  const stopped = processTimeline.value.filter((item) => item.status === 'stopped').length
   const running = processTimeline.value.filter((item) => item.status === 'running').length
   if (failed > 0) {
     return `过程（${total}，失败 ${failed}）`
+  }
+
+  if (stopped > 0) {
+    return `过程（${total}，已停止 ${stopped}）`
   }
 
   if (running > 0) {

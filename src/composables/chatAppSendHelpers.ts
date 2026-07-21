@@ -1,16 +1,12 @@
 import type { Ref } from 'vue'
-import type { ChatRequestOptions, StreamDelta } from '../services/chatCompletion'
 import type {
   ActiveProviderSettings,
-  ChatMessage,
   MessageAttachment,
   SettingsForm,
   ToolSettings,
 } from '../types/chat'
-import { buildConversationTitle, cloneMessageAttachments } from '../utils/chat'
-import { getErrorMessage } from './chatAppErrors'
+import { cloneMessageAttachments } from '../utils/chat'
 import { prepareRequestContext } from './chatAppRequestPreparation'
-import { buildRequestMessages } from './chatAppRetry'
 
 export interface SendPreparation {
   activeSettings: ActiveProviderSettings
@@ -21,297 +17,38 @@ export interface SendPreparation {
 }
 
 interface PrepareSendRequestOptions {
-  pendingAttachments: Ref<MessageAttachment[]>
   draftMessage: Ref<string>
-  isSending: Ref<boolean>
-  settings: Ref<SettingsForm>
   getThinkingEnabled: (provider: ActiveProviderSettings['provider']) => boolean
+  isSending: Ref<boolean>
+  lastError: Ref<string | null>
   openSettings: () => void
-  lastError: Ref<string | null>
+  pendingAttachments: Ref<MessageAttachment[]>
+  settings: Ref<SettingsForm>
 }
 
-interface StreamAssistantReplyOptions {
-  messages: Ref<ChatMessage[]>
-  assistantIndex: number
-  assistantId: string
-  activeSettings: ActiveProviderSettings
-  streamChatCompletion: (
-    messages: ChatMessage[],
-    settings: ActiveProviderSettings,
-    onDelta: (delta: StreamDelta) => void,
-    signal?: AbortSignal,
-    requestOptions?: ChatRequestOptions,
-  ) => Promise<string>
-  getAbortController: () => AbortController | null
-  thinkingEnabled: boolean
-  toolSettings: ToolSettings
-}
-
-interface HandleInterruptedReplyOptions {
-  messages: Ref<ChatMessage[]>
-  assistantIndex: number
-  assistantId: string
-  interruptedResponseMessage: string
-  persistConversation: () => Promise<void>
-}
-
-interface HandleSendFailureOptions {
-  error: unknown
-  messages: Ref<ChatMessage[]>
-  assistantIndex: number
-  assistantId: string
-  shouldPersistFailureState: boolean
-  lastError: Ref<string | null>
-  persistConversation: () => Promise<void>
-}
-
-interface GenerateConversationTitleOptions {
-  applyGeneratedConversationTitle: (conversationId: string, title: string) => Promise<void>
-  conversationId: string
-  firstMessageContent: string
-  settingsSnapshot: ActiveProviderSettings
-  requestConversationTitle: (
-    settings: ActiveProviderSettings,
-    firstMessageContent: string,
-  ) => Promise<string>
-}
-
-export function prepareSendRequest(
-  options: PrepareSendRequestOptions,
-): SendPreparation | null {
-  const {
-    pendingAttachments,
-    draftMessage,
-    isSending,
-    settings,
-    getThinkingEnabled,
-    openSettings,
-    lastError,
-  } = options
-
-  const content = draftMessage.value.trim()
-  const attachments = cloneMessageAttachments(pendingAttachments.value)
-  if ((!content && !attachments.length) || isSending.value) {
+export function prepareSendRequest(options: PrepareSendRequestOptions): SendPreparation | null {
+  const content = options.draftMessage.value.trim()
+  const attachments = cloneMessageAttachments(options.pendingAttachments.value)
+  if ((!content && !attachments.length) || options.isSending.value) {
     return null
   }
 
-  const requestContext = prepareRequestContext({
+  const context = prepareRequestContext({
     attachments,
-    getThinkingEnabled,
-    lastError,
-    openSettings,
-    settings,
+    getThinkingEnabled: options.getThinkingEnabled,
+    lastError: options.lastError,
+    openSettings: options.openSettings,
+    settings: options.settings,
   })
-  if (!requestContext) {
+  if (!context) {
     return null
   }
 
   return {
-    activeSettings: requestContext.activeSettings,
+    activeSettings: context.activeSettings,
     attachments,
     content,
-    thinkingEnabled: requestContext.thinkingEnabled,
-    toolSettings: requestContext.toolSettings,
+    thinkingEnabled: context.thinkingEnabled,
+    toolSettings: context.toolSettings,
   }
-}
-
-export async function streamAssistantReply(
-  options: StreamAssistantReplyOptions,
-): Promise<number> {
-  const {
-    messages,
-    assistantId,
-    activeSettings,
-    streamChatCompletion,
-    getAbortController,
-    thinkingEnabled,
-    toolSettings,
-  } = options
-  let { assistantIndex } = options
-
-  const requestOptions: ChatRequestOptions = {
-    thinkingEnabled,
-  }
-  if (toolSettings.enabled) {
-    requestOptions.toolSettings = toolSettings
-  }
-
-  await streamChatCompletion(
-    buildRequestMessages(messages.value.slice(0, -1)),
-    activeSettings,
-    (delta) => {
-      assistantIndex = patchAssistantMessage(messages, assistantIndex, assistantId, (draft) => {
-        appendStreamDelta(draft, delta)
-      })
-    },
-    getAbortController()?.signal,
-    requestOptions,
-  )
-
-  return assistantIndex
-}
-
-export function patchAssistantMessage(
-  messages: Ref<ChatMessage[]>,
-  preferredIndex: number,
-  assistantId: string,
-  mutate: (message: ChatMessage) => void,
-): number {
-  const resolvedIndex = resolveAssistantIndex(messages.value, preferredIndex, assistantId)
-  if (resolvedIndex === -1) {
-    return preferredIndex
-  }
-
-  const target = messages.value[resolvedIndex]
-  if (!target) {
-    return preferredIndex
-  }
-
-  const nextMessage = { ...target }
-  mutate(nextMessage)
-
-  const nextMessages = [...messages.value]
-  nextMessages[resolvedIndex] = nextMessage
-  messages.value = nextMessages
-  return resolvedIndex
-}
-
-export async function handleInterruptedReply(
-  options: HandleInterruptedReplyOptions,
-): Promise<void> {
-  const {
-    messages,
-    assistantId,
-    interruptedResponseMessage,
-    persistConversation,
-  } = options
-  let { assistantIndex } = options
-
-  assistantIndex = patchAssistantMessage(messages, assistantIndex, assistantId, (draft) => {
-    if (draft.status === 'interrupted') {
-      return
-    }
-
-    draft.content = draft.content.trim() ? draft.content : interruptedResponseMessage
-    draft.streamingStatus = undefined
-    draft.status = 'interrupted'
-  })
-
-  if (assistantIndex === -1) {
-    return
-  }
-
-  await persistConversation()
-}
-
-export async function handleSendFailure(
-  options: HandleSendFailureOptions,
-): Promise<void> {
-  const {
-    error,
-    messages,
-    assistantIndex,
-    assistantId,
-    shouldPersistFailureState,
-    lastError,
-    persistConversation,
-  } = options
-
-  const message = getErrorMessage(error, '请求失败')
-  patchAssistantMessage(messages, assistantIndex, assistantId, (draft) => {
-    draft.content = draft.content || `请求失败：${message}`
-    draft.streamingStatus = undefined
-    draft.status = 'error'
-  })
-  lastError.value = message
-
-  if (!shouldPersistFailureState) {
-    return
-  }
-
-  try {
-    await persistConversation()
-  } catch (persistError) {
-    const persistMessage = getErrorMessage(persistError, '会话记录写入失败。')
-    lastError.value = `请求失败后写入会话记录失败：${persistMessage}`
-  }
-}
-
-export async function generateConversationTitle(
-  options: GenerateConversationTitleOptions,
-): Promise<void> {
-  const {
-    applyGeneratedConversationTitle,
-    conversationId,
-    firstMessageContent,
-    settingsSnapshot,
-    requestConversationTitle,
-  } = options
-
-  const title = await resolveTitleWithFallback(
-    requestConversationTitle,
-    settingsSnapshot,
-    firstMessageContent,
-  )
-  await applyGeneratedConversationTitle(conversationId, title)
-}
-
-function appendStreamDelta(message: ChatMessage, delta: StreamDelta): void {
-  if (delta.streamingStatus) {
-    message.streamingStatus = delta.streamingStatus
-  }
-
-  if (delta.processTimeline) {
-    message.processTimeline = delta.processTimeline.map((item) => ({ ...item }))
-  }
-
-  if (delta.toolTraces) {
-    message.toolTraces = delta.toolTraces.map((item) => ({ ...item }))
-  }
-
-  if (delta.reasoningContent) {
-    message.reasoningContent = `${message.reasoningContent ?? ''}${delta.reasoningContent}`
-  }
-
-  if (delta.content) {
-    message.content += delta.content
-  }
-}
-
-function resolveAssistantIndex(
-  messages: ChatMessage[],
-  preferredIndex: number,
-  assistantId: string,
-): number {
-  if (messages[preferredIndex]?.id === assistantId) {
-    return preferredIndex
-  }
-
-  return messages.findIndex((item) => item.id === assistantId)
-}
-
-async function resolveTitleWithFallback(
-  requestConversationTitle: GenerateConversationTitleOptions['requestConversationTitle'],
-  settingsSnapshot: ActiveProviderSettings,
-  firstMessageContent: string,
-): Promise<string> {
-  try {
-    const generated = await requestConversationTitle(settingsSnapshot, firstMessageContent)
-    const normalized = generated.trim()
-    if (normalized) {
-      return normalized
-    }
-  } catch (error) {
-    console.warn('Failed to generate conversation title, fallback to local title.', error)
-  }
-
-  return buildConversationTitle([
-    {
-      id: 'local-title',
-      role: 'user',
-      content: firstMessageContent,
-      createdAt: Date.now(),
-      status: 'done',
-    },
-  ])
 }
