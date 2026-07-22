@@ -212,7 +212,7 @@ function normalizeProviderSettings(
     baseUrl: incomingSettings?.baseUrl === undefined
       ? defaults.baseUrl
       : incomingSettings.baseUrl.trim(),
-    capabilities: normalizeProviderCapabilities(provider, incomingSettings?.capabilities),
+    capabilities: normalizeProviderCapabilities(provider, incomingSettings?.capabilities, model),
     model,
     modelOptions,
     temperature: normalizeTemperature(provider, model, incomingSettings?.temperature),

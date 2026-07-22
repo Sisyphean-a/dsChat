@@ -71,6 +71,11 @@ describe('providerCapabilities', () => {
     expect(createImageInputUnsupportedMessage('custom', '自定义模型')).toContain('自定义模型 当前模型不支持图片输入')
   })
 
+  it('blocks image input for Kimi text-only presets', () => {
+    expect(providerSupportsImageInput(createProviderSettings('kimi', {}, 'kimi-k3'))).toBe(false)
+    expect(providerSupportsImageInput(createProviderSettings('kimi', {}, 'kimi-k2.6'))).toBe(true)
+  })
+
   it('resolves thinking toggle rules per provider and model', () => {
     expect(providerShowsThinkingToggle('deepseek', createProviderSettings('deepseek', {}, 'deepseek-v4-flash'))).toBe(true)
     expect(providerShowsThinkingToggle('deepseek', createProviderSettings('deepseek', {}, 'deepseek-reasoner'))).toBe(false)
@@ -103,6 +108,9 @@ describe('providerCapabilities', () => {
 
   it('checks OpenAI native web search model compatibility from one list', () => {
     expect(supportsOpenAiNativeWebSearchModel('gpt-5.5')).toBe(true)
+    expect(supportsOpenAiNativeWebSearchModel('gpt-5.6-sol')).toBe(true)
+    expect(supportsOpenAiNativeWebSearchModel('gpt-5.6-terra')).toBe(true)
+    expect(supportsOpenAiNativeWebSearchModel('gpt-5.6-luna')).toBe(true)
     expect(supportsOpenAiNativeWebSearchModel('gpt-4.1')).toBe(false)
   })
 })
@@ -116,8 +124,11 @@ function createProviderSettings(
     apiKey: 'sk-test',
     baseUrl: 'https://example.com',
     capabilities: normalizeProviderCapabilities(provider, capabilities),
+    configId: 'test',
     model,
     modelOptions: model ? [model] : [],
+    label: 'Test',
+    provider,
     temperature: 1,
   }
 }

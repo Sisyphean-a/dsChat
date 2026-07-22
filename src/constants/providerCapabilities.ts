@@ -1,5 +1,9 @@
-import { providerModelSupportsTemperature, supportsDeepseekThinking } from './providers'
-import type { ProviderCapabilities, ProviderId, ProviderSettings } from '../types/chat'
+import {
+  providerModelSupportsImageInput,
+  providerModelSupportsTemperature,
+  supportsDeepseekThinking,
+} from './providers'
+import type { ActiveProviderSettings, ProviderCapabilities, ProviderId, ProviderSettings } from '../types/chat'
 
 export type ThinkingProviderKey = 'deepseek' | 'kimi' | 'minimax'
 
@@ -18,6 +22,10 @@ interface ProviderCapabilityProfile {
 const ALWAYS_TRUE = () => true
 const ALWAYS_FALSE = () => false
 const OPENAI_NATIVE_WEB_SEARCH_MODELS = [
+  'gpt-5.6',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-5.6-luna',
   'gpt-5.5',
   'gpt-5.4',
   'gpt-5.4-mini',
@@ -103,19 +111,29 @@ export function getDefaultProviderCapabilities(provider: ProviderId): ProviderCa
 export function normalizeProviderCapabilities(
   provider: ProviderId,
   capabilities: Partial<ProviderCapabilities> | undefined,
+  model = '',
 ): ProviderCapabilities {
-  return {
+  const normalized = {
     ...getDefaultProviderCapabilities(provider),
     ...(capabilities ?? {}),
   }
+  if (provider === 'kimi' && !providerModelSupportsImageInput(provider, model)) {
+    normalized.imageInput = false
+  }
+  return normalized
 }
 
 export function resolveProviderProtocol(settings: ProviderSettings): ProviderCapabilities['protocol'] {
   return settings.capabilities.protocol
 }
 
-export function providerSupportsImageInput(settings: ProviderSettings): boolean {
-  return settings.capabilities.imageInput
+export function providerSupportsImageInput(settings: ActiveProviderSettings): boolean {
+  if (!settings.capabilities.imageInput) {
+    return false
+  }
+
+  return settings.provider !== 'kimi'
+    || providerModelSupportsImageInput(settings.provider, settings.model)
 }
 
 export function createImageInputUnsupportedMessage(provider: ProviderId, label: string): string {
