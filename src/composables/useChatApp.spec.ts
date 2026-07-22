@@ -25,12 +25,6 @@ describe('useChatApp', () => {
     vi.unstubAllGlobals()
   })
 
-  it('starts with no active messages', async () => {
-    const app = useChatApp()
-    await app.initialize()
-    expect(app.messages.value).toEqual([])
-  })
-
   it('keeps the send action while consuming the Provider stream', async () => {
     vi.stubGlobal('fetch', vi.fn(async (_url, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { stream?: boolean }

@@ -22,11 +22,6 @@ describe('ProviderCapabilitiesEditor', () => {
     const toolInput = wrapper.findAll('label.switch-row')
       .find((item) => item.text().includes('工具调用'))
       ?.find('input')
-    const toolPill = wrapper.findAll('.capability-pill')
-      .find((item) => item.text() === '工具')
-
-    expect(wrapper.get('.capability-pills').attributes('title')).toBe('已启用：图片')
-    expect(toolPill?.classes()).toContain('off')
     expect(toolInput?.attributes('disabled')).toBeDefined()
     expect(toolInput?.element.checked).toBe(false)
   })

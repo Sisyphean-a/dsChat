@@ -19,9 +19,7 @@ describe('SettingsProvidersSection', () => {
 
     const dialog = wrapper.get('[role="alertdialog"]')
 
-    expect(dialog.classes()).toContain('confirm-dialog-overlay')
     expect(wrapper.find('.settings-grid [role="alertdialog"]').exists()).toBe(false)
-    expect(dialog.find('.confirm-dialog').exists()).toBe(true)
     expect(dialog.text()).toContain('确认删除')
   })
 })

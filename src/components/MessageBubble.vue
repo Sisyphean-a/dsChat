@@ -278,7 +278,6 @@ watch(
       <button
         v-if="canCopyMessage"
         data-testid="message-copy-button"
-        data-button-style="plain"
         class="message-action-button"
         :data-copy-state="copyState"
         type="button"
@@ -351,7 +350,6 @@ watch(
         v-if="shouldCollapseUserMessage"
         data-testid="message-collapse-toggle"
         class="message-collapse-toggle"
-        data-button-style="plain"
         :class="{ 'is-expanded': isUserMessageExpanded }"
         type="button"
         :aria-label="collapseActionLabel"
@@ -371,7 +369,6 @@ watch(
       <button
         v-if="canCopyMessage"
         data-testid="message-copy-button"
-        data-button-style="plain"
         class="message-action-button"
         :data-copy-state="copyState"
         type="button"
@@ -389,8 +386,6 @@ watch(
       <button
         v-if="canRegenerateMessage"
         data-testid="message-regenerate-button"
-        data-button-style="plain"
-        data-icon-id="ec66f0"
         class="message-action-button"
         type="button"
         :aria-label="retryActionLabel"

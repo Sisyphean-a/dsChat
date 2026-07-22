@@ -66,30 +66,6 @@ describe('MessageBubble', () => {
     expect(wrapper.find('[data-testid="message-regenerate-button"]').exists()).toBe(true)
   })
 
-  it('renders message action buttons without circular chrome', () => {
-    const wrapper = mount(MessageBubble, {
-      props: {
-        canRetry: true,
-        message: {
-          id: 'assistant-plain-actions',
-          content: '这是完整回答',
-          createdAt: 2,
-          role: 'assistant',
-          status: 'done',
-        },
-      },
-    })
-
-    const copyButton = wrapper.get('[data-testid="message-copy-button"]')
-    const regenerateButton = wrapper.get('[data-testid="message-regenerate-button"]')
-
-    expect(copyButton.classes()).toContain('message-action-button')
-    expect(regenerateButton.classes()).toContain('message-action-button')
-    expect(copyButton.attributes('data-button-style')).toBe('plain')
-    expect(regenerateButton.attributes('data-button-style')).toBe('plain')
-    expect(regenerateButton.attributes('data-icon-id')).toBe('ec66f0')
-  })
-
   it('switches the copy action to success feedback after copying', async () => {
     vi.useFakeTimers()
     const writeText = vi.fn(async () => undefined)
@@ -141,7 +117,6 @@ describe('MessageBubble', () => {
 
     const collapseButton = wrapper.get('[data-testid="message-collapse-toggle"]')
 
-    expect(collapseButton.attributes('data-button-style')).toBe('plain')
     expect(wrapper.find('.plain-body-shell').classes()).toContain('is-collapsed')
 
     await collapseButton.trigger('click')
