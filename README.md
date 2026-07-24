@@ -1,6 +1,6 @@
 # dsChat
 
-基于 Vue 3 + Vite 的 uTools 本地 AI 对话插件，默认内置 DeepSeek，同时支持按模型配置接入多个兼容 `/chat/completions` 的提供商。当前支持：
+基于 Vue 3 + Vite 的 uTools 本地 AI 对话插件，默认内置 DeepSeek，也支持按模型配置接入 OpenAI、Kimi、MiniMax 及自定义服务商。Provider 请求同时覆盖 OpenAI 兼容的 `/chat/completions` 和 OpenAI `/responses` 协议。当前支持：
 
 - 侧边栏历史会话、新对话切换与删除
 - DeepSeek 内置配置 + OpenAI / MiniMax / Kimi / 自定义模型扩展
@@ -9,6 +9,7 @@
 - 首条用户消息驱动的会话标题自动生成
 - uTools 生命周期驱动的 1 分钟会话恢复
 - 多提供商 SSE / 兼容流式输出
+- OpenAI 原生联网搜索，以及当前时间、Tavily 的本地工具调用
 - 用户上滚释放、回到底部恢复的确定性自动滚动
 - Markdown 渲染与 `highlight.js` 代码高亮
 
@@ -39,7 +40,7 @@ node scripts/prepare-offline-package.mjs
 
 - `package/index.html` 与 `package/assets/*` 来自 `dist/`
 - `package/plugin.json` 会移除开发态 `development` 配置，并把入口改为 `index.html`
-- `package/logo.svg` 会复制根目录图标
+- `package/logo.png` 会复制根目录图标
 
 在 uTools 开发者工具中导入 `package/plugin.json` 后，即可继续执行离线打包生成离线安装包。
 

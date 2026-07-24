@@ -1,13 +1,5 @@
-## Agent skills
+## 项目文档
 
-### Issue tracker
+当前项目记忆的唯一默认入口是 `.codestable/`：开始任务时按其中的 `attention.md`、架构索引和相关领域上下文按范围加载。
 
-Issues are tracked as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Triage uses the default five canonical labels. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Domain docs use the single-context layout. See `docs/agents/domain.md`.
+`.scratch/` 若存在，只存放临时本地问题或草稿，不是当前设计或长期规则的权威来源。
