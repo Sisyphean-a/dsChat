@@ -6,21 +6,21 @@
   max-width: 100%;
   margin: 0 auto;
   padding: 7px 10px 10px;
-  background: rgba(255, 255, 255, 0.85);
-  border-top: 1px solid rgba(139, 92, 246, 0.08);
+  background: var(--bg);
+  border-top: 1px solid var(--border);
 }
 .input-wrapper {
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 2px 16px rgba(124, 58, 237, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 16px var(--accent-soft), 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 .input-wrapper:focus-within {
-  border-color: rgba(124, 58, 237, 0.34);
-  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.14), 0 2px 4px rgba(0, 0, 0, 0.04);
+  border-color: var(--accent);
+  box-shadow: 0 4px 20px var(--accent-soft), 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 textarea {
   width: 100%;
@@ -29,12 +29,12 @@ textarea {
   padding: 10px 12px 4px;
   resize: none;
   overflow-y: hidden;
-  color: #4b4b6e;
+  color: var(--text);
   line-height: 20.313px;
   font-size: 12.5px;
 }
 textarea::placeholder {
-  color: #adadbe;
+  color: var(--text-muted);
 }
 .composer-controls {
   display: flex;
@@ -60,13 +60,13 @@ textarea::placeholder {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 10px;
-  color: #adadbe;
+  color: var(--text-muted);
   transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
 }
 .image-button:hover:not(:disabled) {
-  background: rgba(124, 58, 237, 0.06);
-  border-color: rgba(124, 58, 237, 0.12);
-  color: #7c3aed;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
 }
 .image-button:disabled {
   opacity: 0.5;
@@ -84,7 +84,7 @@ textarea::placeholder {
   padding: 5px 9px;
   border: 1px solid transparent;
   border-radius: 10px;
-  color: #adadbe;
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 11px;
   font-weight: 400;
@@ -117,7 +117,7 @@ textarea::placeholder {
   transform: translateY(-50%);
   font-size: 10px;
   line-height: 1;
-  color: #adadbe;
+  color: var(--text-muted);
   transition: color 150ms ease;
 }
 .thinking-toggle-thumb {
@@ -127,25 +127,25 @@ textarea::placeholder {
   position: relative;
   z-index: 1;
   margin-left: 13px;
-  color: #adadbe;
+  color: var(--text-muted);
   transition: color 150ms ease, font-weight 150ms ease;
 }
 .thinking-toggle:not(.disabled):hover .thinking-toggle-track {
-  background: rgba(124, 58, 237, 0.06);
-  border-color: rgba(124, 58, 237, 0.12);
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 .thinking-toggle-input:focus-visible + .thinking-toggle-track {
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.18);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 .thinking-toggle-input:checked + .thinking-toggle-track {
-  background: rgba(124, 58, 237, 0.1);
-  border-color: rgba(124, 58, 237, 0.2);
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 .thinking-toggle-input:checked + .thinking-toggle-track::before {
-  color: #7c3aed;
+  color: var(--accent-strong);
 }
 .thinking-toggle-input:checked ~ .thinking-toggle-text {
-  color: #7c3aed;
+  color: var(--accent-strong);
   font-weight: 500;
 }
 .hidden-file-input {
@@ -167,7 +167,7 @@ textarea::placeholder {
   width: 50px;
   height: 50px;
   overflow: hidden;
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid var(--border);
   border-radius: 10px;
 }
 .attachment-thumb {
@@ -182,9 +182,9 @@ textarea::placeholder {
   right: -4px;
   width: 18px;
   height: 18px;
-  background: rgba(75, 75, 110, 0.85);
+  background: var(--text-muted);
   border-radius: 50%;
-  color: #fff;
+  color: var(--bg);
   font-size: 0.7rem;
   line-height: 1;
 }
@@ -198,8 +198,8 @@ textarea::placeholder {
   border-radius: 13.3px;
 }
 .send-button {
-  background: #7c3aed;
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-contrast);
   transition: background 150ms ease, color 150ms ease, opacity 150ms ease, transform 150ms ease;
 }
 .stop-button {
@@ -213,13 +213,13 @@ textarea::placeholder {
 }
 .send-button:not(:disabled):hover {
   transform: translateY(-1px);
-  background: #6d28d9;
+  background: var(--accent-strong);
 }
 .send-button:disabled {
-  background: #e4e4ef;
-  color: #adadbe;
+  background: var(--bg-active);
+  color: var(--text-muted);
   cursor: not-allowed;
-  opacity: 0.3;
+  opacity: 0.55;
 }
 .composer-actions :deep(.model-picker) {
   width: auto;
@@ -236,12 +236,12 @@ textarea::placeholder {
   background: transparent;
   box-shadow: none;
   transform: none;
-  color: #4b4b6e;
+  color: var(--text);
 }
 .composer-actions :deep(.picker-trigger:hover:not(:disabled)),
 .composer-actions :deep(.model-picker.open .picker-trigger) {
-  border-color: rgba(124, 58, 237, 0.16);
-  background: rgba(124, 58, 237, 0.06);
+  border-color: var(--accent);
+  background: var(--accent-soft);
   box-shadow: none;
   transform: none;
 }
@@ -253,33 +253,6 @@ textarea::placeholder {
 .composer-actions :deep(.picker-arrow) {
   width: 10px;
   height: 10px;
-  color: #4b4b6e;
-}
-[data-theme='dark'] .composer-form {
-  background: rgba(17, 20, 24, 0.9);
-  border-top-color: rgba(148, 163, 184, 0.12);
-}
-[data-theme='dark'] .input-wrapper {
-  background: rgba(22, 27, 33, 0.95);
-  border-color: rgba(124, 58, 237, 0.32);
-  box-shadow: 0 2px 18px rgba(6, 9, 13, 0.45);
-}
-[data-theme='dark'] textarea {
-  color: var(--text);
-}
-[data-theme='dark'] textarea::placeholder {
-  color: #8b95a7;
-}
-[data-theme='dark'] .image-button {
-  color: #9aa6b6;
-}
-[data-theme='dark'] .thinking-toggle,
-[data-theme='dark'] .thinking-toggle-text,
-[data-theme='dark'] .thinking-toggle-track::before {
-  color: #9aa6b6;
-}
-[data-theme='dark'] .composer-actions :deep(.picker-trigger),
-[data-theme='dark'] .composer-actions :deep(.picker-arrow) {
   color: var(--text);
 }
 @media (max-width: 640px) {

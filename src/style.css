@@ -11,6 +11,7 @@
   --text-muted: #8e8ea0;
   --accent: #10a37f;
   --accent-strong: #0e906f;
+  --accent-contrast: #ffffff;
   --accent-soft: rgba(16, 163, 127, 0.1);
   --danger: #ef4444;
   --code-bg: #f5f7fb;
@@ -59,6 +60,7 @@ html[data-font-size='x-large'] {
   --text-muted: #9aa6b6;
   --accent: #37c8a2;
   --accent-strong: #7be0c3;
+  --accent-contrast: #111418;
   --accent-soft: rgba(55, 200, 162, 0.12);
   --danger: #ff6b6b;
   --code-bg: #141b25;
