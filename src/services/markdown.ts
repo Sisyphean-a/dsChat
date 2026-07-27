@@ -65,7 +65,7 @@ export async function highlightCodeBlocks(container: HTMLElement): Promise<void>
   const blocks = container.querySelectorAll<HTMLElement>('pre code')
   blocks.forEach((block) => {
     const source = block.textContent ?? ''
-    if (!source.trim()) {
+    if (!source.trim() || block.dataset.highlightSource === source) {
       return
     }
 
@@ -77,6 +77,7 @@ export async function highlightCodeBlocks(container: HTMLElement): Promise<void>
       block.dataset.language = result.language
     }
     block.innerHTML = result.value
+    block.dataset.highlightSource = source
     upsertCopyButton(block, normalizeCopySource(source))
   })
 }

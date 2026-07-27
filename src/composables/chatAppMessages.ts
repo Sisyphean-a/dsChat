@@ -49,13 +49,14 @@ export function updateMessageById(
   id: string,
   mutate: (message: ChatMessage) => void,
 ): ChatMessage[] {
-  return messages.map((message) => {
-    if (message.id !== id) {
-      return message
-    }
+  const index = messages.findIndex((message) => message.id === id)
+  if (index < 0) {
+    return messages
+  }
 
-    const next = { ...message }
-    mutate(next)
-    return next
-  })
+  const next = { ...messages[index] }
+  mutate(next)
+  const result = [...messages]
+  result[index] = next
+  return result
 }

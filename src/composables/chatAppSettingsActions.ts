@@ -25,6 +25,7 @@ interface ChatAppSettingsActionsOptions {
   isSavingSettings: Ref<boolean>
   isSettingsOpen: Ref<boolean>
   lastError: Ref<string | null>
+  settingsSaveError: Ref<string | null>
   applyAppearance: (appearance: { fontSize: FontSizeMode; theme: ThemeMode }) => void
   saveSettings: (settings: SettingsForm) => Promise<void>
 }
@@ -85,11 +86,13 @@ export function createChatAppSettingsActions(
     isSettingsOpen,
     isSidebarCollapsed,
     lastError,
+    settingsSaveError,
     applyAppearance,
     saveSettings,
   } = options
 
   function openSettings(): void {
+    settingsSaveError.value = null
     isSettingsOpen.value = true
   }
 
@@ -449,8 +452,11 @@ export function createChatAppSettingsActions(
       await saveSettings(normalizedSettings)
       isSettingsOpen.value = false
       lastError.value = null
+      settingsSaveError.value = null
     } catch (error) {
-      lastError.value = getErrorMessage(error, '设置保存失败。')
+      const message = getErrorMessage(error, '设置保存失败。')
+      lastError.value = message
+      settingsSaveError.value = message
     } finally {
       isSavingSettings.value = false
     }

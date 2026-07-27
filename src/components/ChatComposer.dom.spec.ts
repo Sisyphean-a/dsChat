@@ -67,6 +67,72 @@ describe('ChatComposer', () => {
     expect(wrapper.emitted('send')).toBeUndefined()
   })
 
+  it('keeps Enter available for input method candidate selection', async () => {
+    const wrapper = mount(ChatComposer, {
+      props: {
+        attachments: [],
+        canSend: true,
+        isSending: false,
+        modelValue: 'ni',
+        sendDisabled: false,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
+      },
+    })
+    const event = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Enter',
+    })
+    Object.defineProperty(event, 'isComposing', { value: true })
+
+    wrapper.get('textarea').element.dispatchEvent(event)
+    await nextTick()
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(wrapper.emitted('send')).toBeUndefined()
+  })
+
+  it('keeps focus inside an image preview and restores it after Escape', async () => {
+    const wrapper = mount(ChatComposer, {
+      attachTo: document.body,
+      props: {
+        attachments: [{
+          id: 'img-1',
+          type: 'image',
+          name: 'preview.png',
+          mimeType: 'image/png',
+          size: 128,
+          width: 100,
+          height: 80,
+          dataUrl: 'data:image/png;base64,xxx',
+        }],
+        canSend: true,
+        isSending: false,
+        modelValue: '',
+        sendDisabled: false,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
+      },
+    })
+    const trigger = wrapper.get('.attachment-preview-button')
+    ;(trigger.element as HTMLButtonElement).focus()
+
+    await trigger.trigger('click')
+    await nextTick()
+    await nextTick()
+
+    expect(document.activeElement).toBe(wrapper.get('.preview-close').element)
+
+    await wrapper.get('[role="dialog"]').trigger('keydown', { key: 'Escape' })
+    await nextTick()
+    await nextTick()
+
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(document.activeElement).toBe(trigger.element)
+    wrapper.unmount()
+  })
+
   it('allows sending with image attachments even when text is empty', async () => {
     const attachments: MessageAttachment[] = [{
       id: 'img-1',

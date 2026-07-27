@@ -66,6 +66,47 @@ describe('MessageBubble', () => {
     expect(wrapper.find('[data-testid="message-regenerate-button"]').exists()).toBe(true)
   })
 
+  it('keeps image preview focus contained and restores it after Escape', async () => {
+    const wrapper = mount(MessageBubble, {
+      attachTo: document.body,
+      props: {
+        message: {
+          id: 'user-image',
+          content: '',
+          createdAt: 1,
+          role: 'user',
+          status: 'done',
+          attachments: [{
+            id: 'img-1',
+            type: 'image',
+            name: 'preview.png',
+            mimeType: 'image/png',
+            size: 128,
+            width: 100,
+            height: 80,
+            dataUrl: 'data:image/png;base64,xxx',
+          }],
+        },
+      },
+    })
+    const trigger = wrapper.get('.message-image-button')
+    ;(trigger.element as HTMLButtonElement).focus()
+
+    await trigger.trigger('click')
+    await wrapper.vm.$nextTick()
+    await wrapper.vm.$nextTick()
+
+    expect(document.activeElement).toBe(wrapper.get('.preview-close').element)
+
+    await wrapper.get('[role="dialog"]').trigger('keydown', { key: 'Escape' })
+    await wrapper.vm.$nextTick()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(document.activeElement).toBe(trigger.element)
+    wrapper.unmount()
+  })
+
   it('switches the copy action to success feedback after copying', async () => {
     vi.useFakeTimers()
     const writeText = vi.fn(async () => undefined)

@@ -9,7 +9,7 @@ export const INTERRUPTED_RESPONSE_MESSAGE = '本次响应已中断，请重新�
 export const STOPPED_RESPONSE_MESSAGE = '已停止生成。'
 export const MAX_IMAGE_ATTACHMENTS = 4
 export const MAX_IMAGE_SOURCE_BYTES = 12 * 1024 * 1024
-export const MAX_IMAGE_OUTPUT_BYTES = 2.5 * 1024 * 1024
+export const MAX_IMAGE_OUTPUT_BYTES = 750 * 1024
 export const MAX_IMAGE_EDGE = 1_600
 
 export const THEME_OPTIONS: ThemeMode[] = ['light', 'dark']

@@ -51,7 +51,7 @@ function listLocalDocs(prefix: string): BaseDoc[] {
       continue
     }
 
-    const doc = JSON.parse(raw) as BaseDoc
+    const doc = parseStoredDoc(raw, key)
     if (doc._id.startsWith(prefix)) {
       docs.push(doc)
     }
@@ -70,16 +70,37 @@ function readLocalDoc(id: string): BaseDoc | null {
     return null
   }
 
-  return JSON.parse(raw) as BaseDoc
+  return parseStoredDoc(raw, createLocalDocKey(id))
 }
 
 function writeLocalDoc(doc: BaseDoc): void {
   if (hasWindowLocalStorage()) {
-    window.localStorage.setItem(createLocalDocKey(doc._id), JSON.stringify(doc))
+    try {
+      window.localStorage.setItem(createLocalDocKey(doc._id), JSON.stringify(doc))
+    } catch (error) {
+      throw createLocalStorageWriteError(doc._id, error)
+    }
     return
   }
 
   memoryStore.set(doc._id, cloneSerializable(doc))
+}
+
+function parseStoredDoc(raw: string, key: string): BaseDoc {
+  try {
+    return JSON.parse(raw) as BaseDoc
+  } catch (error) {
+    const detail = error instanceof Error && error.message.trim() ? `：${error.message}` : ''
+    throw new Error(`浏览器本地存储数据损坏（${key}）${detail}`, { cause: error })
+  }
+}
+
+function createLocalStorageWriteError(id: string, error: unknown): Error {
+  const name = error instanceof DOMException ? error.name : ''
+  const message = name === 'QuotaExceededError'
+    ? `浏览器本地存储空间不足，无法保存 ${id}。请删除部分历史会话或图片后重试。`
+    : `浏览器本地存储写入失败，无法保存 ${id}。`
+  return new Error(message, { cause: error })
 }
 
 function createLocalDocKey(id: string): string {

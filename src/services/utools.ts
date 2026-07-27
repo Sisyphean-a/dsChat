@@ -66,11 +66,12 @@ export async function saveSettings(settings: SettingsForm): Promise<void> {
   }
 
   if (normalizedSettings.utoolsUploadMode === 'all-data') {
-    await syncLocalChatDataToRemote()
+    await synchronizeChatData()
     return
   }
 
   if (previousMode === 'all-data') {
+    await hydrateRemoteChatDataToLocal()
     await clearRemoteChatData()
   }
 }
@@ -82,20 +83,21 @@ export async function loadSession(): Promise<SessionDoc | null> {
   }
 
   const remoteSession = (await loadRemoteDoc(SESSION_DOC_ID)) as SessionDoc | null
-  return remoteSession ?? localSession
+  return selectLatestSession(localSession, remoteSession)
 }
 
 export async function saveSession(session: SessionDoc): Promise<SessionDoc> {
   const localSaved = (await saveLocalDoc({
     ...session,
     _id: SESSION_DOC_ID,
+    updatedAt: Date.now(),
   })) as SessionDoc
 
   if (!(await shouldUseRemoteConversationStorage())) {
     return localSaved
   }
 
-  return persistRemoteSessionDoc(session)
+  return persistRemoteSessionDoc(localSaved)
 }
 
 export async function loadConversations(): Promise<ConversationDoc[]> {
@@ -104,8 +106,7 @@ export async function loadConversations(): Promise<ConversationDoc[]> {
     return sortConversations(localDocs)
   }
 
-  const remoteDocs = (await loadAllRemoteDocs(CONVERSATION_PREFIX)) as ConversationDoc[]
-  return sortConversations(mergeConversationDocs(localDocs, remoteDocs))
+  return sortConversations(await synchronizeChatData(localDocs))
 }
 
 export async function saveConversation(conversation: ConversationDoc): Promise<ConversationDoc> {
@@ -192,20 +193,56 @@ function shouldUploadSettingsToUtools(mode: UtoolsUploadMode): boolean {
   return mode !== 'local-only'
 }
 
-async function syncLocalChatDataToRemote(): Promise<void> {
-  const localConversations = (await loadAllLocalDocs(CONVERSATION_PREFIX)) as ConversationDoc[]
+async function synchronizeChatData(localConversations?: ConversationDoc[]): Promise<ConversationDoc[]> {
+  const localDocs = localConversations ?? (await loadAllLocalDocs(CONVERSATION_PREFIX)) as ConversationDoc[]
+  const remoteDocs = (await loadAllRemoteDocs(CONVERSATION_PREFIX)) as ConversationDoc[]
+  const localById = new Map(localDocs.map((conversation) => [conversation.id, conversation]))
+  const remoteById = new Map(remoteDocs.map((conversation) => [conversation.id, conversation]))
+  const merged = mergeConversationDocs(localDocs, remoteDocs)
+
+  for (const conversation of merged) {
+    if (localById.get(conversation.id) !== conversation) {
+      await saveLocalDoc(conversation)
+    }
+    if (remoteById.get(conversation.id) !== conversation) {
+      await persistRemoteConversationDoc(conversation)
+    }
+  }
+
   const localSession = (await loadLocalDoc(SESSION_DOC_ID)) as SessionDoc | null
-
-  for (const conversation of localConversations) {
-    await persistRemoteConversationDoc(conversation)
+  const remoteSession = (await loadRemoteDoc(SESSION_DOC_ID)) as SessionDoc | null
+  const latestSession = selectLatestSession(localSession, remoteSession)
+  if (latestSession) {
+    if (latestSession !== localSession) {
+      await saveLocalDoc(latestSession)
+    }
+    if (latestSession !== remoteSession) {
+      await persistRemoteSessionDoc(latestSession)
+    }
+  } else {
+    await removeRemoteDoc(SESSION_DOC_ID)
   }
 
-  if (localSession) {
-    await persistRemoteSessionDoc(localSession)
-    return
+  return merged
+}
+
+async function hydrateRemoteChatDataToLocal(): Promise<void> {
+  const localDocs = (await loadAllLocalDocs(CONVERSATION_PREFIX)) as ConversationDoc[]
+  const remoteDocs = (await loadAllRemoteDocs(CONVERSATION_PREFIX)) as ConversationDoc[]
+  const localById = new Map(localDocs.map((conversation) => [conversation.id, conversation]))
+
+  for (const conversation of mergeConversationDocs(localDocs, remoteDocs)) {
+    if (localById.get(conversation.id) !== conversation) {
+      await saveLocalDoc(conversation)
+    }
   }
 
-  await removeRemoteDoc(SESSION_DOC_ID)
+  const localSession = (await loadLocalDoc(SESSION_DOC_ID)) as SessionDoc | null
+  const remoteSession = (await loadRemoteDoc(SESSION_DOC_ID)) as SessionDoc | null
+  const latestSession = selectLatestSession(localSession, remoteSession)
+  if (latestSession && latestSession !== localSession) {
+    await saveLocalDoc(latestSession)
+  }
 }
 
 async function clearRemoteChatData(): Promise<void> {
@@ -215,6 +252,26 @@ async function clearRemoteChatData(): Promise<void> {
   }
 
   await removeRemoteDoc(SESSION_DOC_ID)
+}
+
+function selectLatestSession(
+  localSession: SessionDoc | null,
+  remoteSession: SessionDoc | null,
+): SessionDoc | null {
+  if (!localSession) {
+    return remoteSession
+  }
+  if (!remoteSession) {
+    return localSession
+  }
+
+  return resolveSessionUpdatedAt(remoteSession) >= resolveSessionUpdatedAt(localSession)
+    ? remoteSession
+    : localSession
+}
+
+function resolveSessionUpdatedAt(session: SessionDoc): number {
+  return session.updatedAt ?? session.lastOutAt ?? 0
 }
 
 function mergeConversationDocs(

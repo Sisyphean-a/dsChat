@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useModalFocus } from '../composables/useModalFocus'
 import SettingsGeneralSection from './SettingsGeneralSection.vue'
 import SettingsProvidersSection from './SettingsProvidersSection.vue'
 import SettingsToolsSection from './SettingsToolsSection.vue'
@@ -20,6 +21,7 @@ import type {
 } from '../types/settingsPanel'
 
 const props = defineProps<{
+  error?: string | null
   isBrowserMode: boolean
   open: boolean
   saving: boolean
@@ -62,6 +64,8 @@ const emit = defineEmits<{
 }>()
 
 const activeSection = ref<SettingsSectionId>('general')
+const closeButtonRef = ref<HTMLButtonElement | null>(null)
+const dialogRef = ref<HTMLElement | null>(null)
 const enabledBuiltinToolCount = computed(() => {
   const { currentTime, tavilySearch } = props.settings.toolSettings.builtinTools
   return Number(currentTime.enabled) + Number(tavilySearch.enabled)
@@ -96,16 +100,26 @@ watch(() => props.open, (open) => {
 function selectSection(id: SettingsSectionId): void {
   activeSection.value = id
 }
+
+const { handleModalKeydown } = useModalFocus({
+  close: () => emit('close'),
+  container: dialogRef,
+  initialFocus: closeButtonRef,
+  isOpen: () => props.open,
+})
 </script>
 
 <template>
   <transition name="settings-fade">
     <div
       v-if="props.open"
+      ref="dialogRef"
       class="settings-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="settings-title"
+      tabindex="-1"
+      @keydown="handleModalKeydown"
     >
       <section class="settings-panel">
         <header class="settings-header">
@@ -113,12 +127,14 @@ function selectSection(id: SettingsSectionId): void {
             <h2 id="settings-title">设置</h2>
           </div>
           <div class="settings-header-actions">
-            <button class="ghost-action" type="button" @click="emit('close')">取消</button>
+            <button ref="closeButtonRef" class="ghost-action" type="button" @click="emit('close')">取消</button>
             <button class="primary-action" type="button" :disabled="props.saving" @click="emit('save')">
               {{ props.saving ? '保存中' : '保存' }}
             </button>
           </div>
         </header>
+
+        <p v-if="props.error" class="settings-save-error" role="alert">{{ props.error }}</p>
 
         <div class="settings-workspace">
           <aside class="settings-sidebar" aria-label="设置分类">

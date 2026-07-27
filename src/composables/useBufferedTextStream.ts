@@ -95,8 +95,8 @@ export function useBufferedTextStream(options: UseBufferedTextStreamOptions) {
       return
     }
 
-    pendingSegments.push(createPendingSegment(appended))
-    if (pendingSegments.length === 1) {
+    const startedBuffer = appendPendingText(appended)
+    if (startedBuffer) {
       displayedText.value = committedText
     }
     scheduleFrame()
@@ -125,6 +125,18 @@ export function useBufferedTextStream(options: UseBufferedTextStreamOptions) {
   return {
     displayedText,
     isSettled,
+  }
+
+  function appendPendingText(text: string): boolean {
+    const tail = pendingSegments.at(-1)
+    if (!tail) {
+      pendingSegments.push(createPendingSegment(text))
+      return true
+    }
+
+    tail.text += text
+    tail.durationMs = estimateSegmentDuration(tail.text.length, smoothedIntervalMs)
+    return false
   }
 
   function createPendingSegment(text: string): PendingSegment {

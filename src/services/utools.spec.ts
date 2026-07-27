@@ -11,7 +11,7 @@ import {
   saveSettings,
 } from './utools'
 
-type StoredDoc = BaseDoc & Record<string, unknown>
+type StoredDoc = BaseDoc & Partial<Pick<SessionDoc, 'lastOutAt' | 'updatedAt'>>
 
 describe('utools storage routing', () => {
   beforeEach(() => {
@@ -40,6 +40,26 @@ describe('utools storage routing', () => {
     expect(loaded.theme).toBe('dark')
     expect(loaded.deepseek.apiKey).toBe('sk-local')
     expect(loaded.utoolsUploadMode).toBe('local-only')
+  })
+
+  it('reports local storage quota exhaustion instead of hiding the failed save', async () => {
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        clear: vi.fn(),
+        getItem: vi.fn(() => null),
+        key: vi.fn(() => null),
+        get length() {
+          return 0
+        },
+        removeItem: vi.fn(),
+        setItem: vi.fn(() => {
+          throw new DOMException('quota exceeded', 'QuotaExceededError')
+        }),
+      } as Storage,
+    })
+
+    await expect(saveSettings(buildDefaultSettings())).rejects.toThrow('浏览器本地存储空间不足')
   })
 
   it('uploads only settings when the upload mode is settings-only', async () => {
@@ -80,6 +100,87 @@ describe('utools storage routing', () => {
     expect(remote.docs.has('session/runtime')).toBe(true)
   })
 
+  it('keeps the newer remote session when enabling all-data sync', async () => {
+    const remote = installMockUtools([{
+      ...createSession('remote-current'),
+      updatedAt: 20,
+    }])
+    const settings = buildDefaultSettings()
+    settings.utoolsUploadMode = 'local-only'
+
+    await saveSettings(settings)
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(10))
+    try {
+      await saveSession(createSession('local-stale'))
+
+      settings.utoolsUploadMode = 'all-data'
+      await saveSettings(settings)
+
+      expect((remote.docs.get('session/runtime') as unknown as SessionDoc).currentConversationId).toBe('remote-current')
+      await expect(loadSession()).resolves.toMatchObject({ currentConversationId: 'remote-current' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('uses lastOutAt to merge legacy sessions without updatedAt', async () => {
+    const remote = installMockUtools([{
+      ...createSession('remote-newer'),
+      lastOutAt: 20,
+    }])
+    const settings = buildDefaultSettings()
+    settings.utoolsUploadMode = 'local-only'
+
+    await saveSettings(settings)
+    window.localStorage.setItem('dsChat/doc/session/runtime', JSON.stringify({
+      ...createSession('local-older'),
+      lastOutAt: 10,
+    }))
+
+    settings.utoolsUploadMode = 'all-data'
+    await saveSettings(settings)
+
+    expect((remote.docs.get('session/runtime') as unknown as SessionDoc).currentConversationId).toBe('remote-newer')
+  })
+
+  it('uses remote session as the deterministic winner when legacy timestamps are tied', async () => {
+    const remote = installMockUtools([createSession('remote-session')])
+    const settings = buildDefaultSettings()
+    settings.utoolsUploadMode = 'local-only'
+
+    await saveSettings(settings)
+    window.localStorage.setItem('dsChat/doc/session/runtime', JSON.stringify(createSession('local-session')))
+
+    settings.utoolsUploadMode = 'all-data'
+    await saveSettings(settings)
+
+    expect((remote.docs.get('session/runtime') as unknown as SessionDoc).currentConversationId).toBe('remote-session')
+  })
+
+  it('keeps the newer local session when enabling all-data sync', async () => {
+    const remote = installMockUtools([{
+      ...createSession('remote-stale'),
+      updatedAt: 10,
+    }])
+    const settings = buildDefaultSettings()
+    settings.utoolsUploadMode = 'local-only'
+
+    await saveSettings(settings)
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(20))
+    try {
+      await saveSession(createSession('local-current'))
+
+      settings.utoolsUploadMode = 'all-data'
+      await saveSettings(settings)
+
+      expect((remote.docs.get('session/runtime') as unknown as SessionDoc).currentConversationId).toBe('local-current')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('deletes local conversations without touching remote storage in settings-only mode', async () => {
     const remote = installMockUtools()
     const settings = buildDefaultSettings()
@@ -109,6 +210,44 @@ describe('utools storage routing', () => {
     expect(remote.promises.remove).toHaveBeenCalledWith('conversation/c-1')
     expect(remote.docs.has('conversation/c-1')).toBe(false)
     await expect(loadConversations()).resolves.toEqual([])
+  })
+
+  it('keeps the newer remote conversation when enabling all-data sync', async () => {
+    const remote = installMockUtools([createConversation('shared', '远端较新会话', 20)])
+    const settings = buildDefaultSettings()
+    settings.utoolsUploadMode = 'local-only'
+
+    await saveSettings(settings)
+    await saveConversation(createConversation('shared', '本地较旧会话', 10))
+
+    settings.utoolsUploadMode = 'all-data'
+    await saveSettings(settings)
+
+    expect((remote.docs.get('conversation/shared') as unknown as ConversationDoc).title).toBe('远端较新会话')
+    await expect(loadConversations()).resolves.toMatchObject([
+      { id: 'shared', title: '远端较新会话' },
+    ])
+  })
+
+  it('hydrates remote-only conversations before clearing all-data storage', async () => {
+    const remote = installMockUtools()
+    const settings = buildDefaultSettings()
+    settings.utoolsUploadMode = 'all-data'
+
+    await saveSettings(settings)
+    remote.docs.set('conversation/remote-only', createConversation('remote-only', '仅远端会话', 10))
+
+    await expect(loadConversations()).resolves.toMatchObject([
+      { id: 'remote-only', title: '仅远端会话' },
+    ])
+
+    settings.utoolsUploadMode = 'local-only'
+    await saveSettings(settings)
+
+    await expect(loadConversations()).resolves.toMatchObject([
+      { id: 'remote-only', title: '仅远端会话' },
+    ])
+    expect(remote.docs.has('conversation/remote-only')).toBe(false)
   })
 
   it('clears remote settings and chat data when switching to local-only', async () => {
@@ -167,14 +306,14 @@ describe('utools storage routing', () => {
   })
 })
 
-function createConversation(id: string, title: string): ConversationDoc {
+function createConversation(id: string, title: string, updatedAt = 1): ConversationDoc {
   return {
     _id: `conversation/${id}`,
     type: 'conversation',
     id,
     title,
     createdAt: 1,
-    updatedAt: 1,
+    updatedAt,
     messages: [
       {
         id: `user-${id}`,

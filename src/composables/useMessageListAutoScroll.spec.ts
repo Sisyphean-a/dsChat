@@ -4,16 +4,20 @@ import type { ChatMessage } from '../types/chat'
 import { useMessageListAutoScroll } from './useMessageListAutoScroll'
 
 describe('useMessageListAutoScroll', () => {
+  let observedItems: Element[] = []
   let resizeObserverCallback: ResizeObserverCallback | null = null
 
   beforeEach(() => {
+    observedItems = []
     resizeObserverCallback = null
     vi.stubGlobal('ResizeObserver', class {
       constructor(callback: ResizeObserverCallback) {
         resizeObserverCallback = callback
       }
 
-      observe(): void {}
+      observe(item: Element): void {
+        observedItems.push(item)
+      }
       disconnect(): void {}
       unobserve(): void {}
     })
@@ -44,6 +48,71 @@ describe('useMessageListAutoScroll', () => {
 
     setScrollHeight(list, 2100)
     messages.value = createStreamingMessages('ab')
+    await flushWatchers()
+
+    expect(list.scrollTop).toBe(1499)
+  })
+
+  it('observes only newly added message elements while streaming', async () => {
+    const activeConversationId = ref<string | null>('c1')
+    const messages = ref<ChatMessage[]>(createStreamingMessages('a'))
+    const autoScroll = useMessageListAutoScroll({
+      activeConversationId,
+      messages,
+    })
+    const first = createMessageItem('user', { top: 0, bottom: 80 })
+    const second = createMessageItem('assistant', { top: 80, bottom: 180 })
+    const list = createMessageListElement({
+      clientHeight: 500,
+      scrollHeight: 2000,
+      scrollTop: 1500,
+      children: [first, second],
+    })
+    autoScroll.messageListRef.value = list
+    await flushWatchers()
+
+    expect(observedItems).toHaveLength(2)
+
+    messages.value = createStreamingMessages('ab')
+    await flushWatchers()
+    expect(observedItems).toHaveLength(2)
+
+    const third = createMessageItem('extra', { top: 180, bottom: 260 })
+    ;(list as unknown as { children: HTMLElement[] }).children = [first, second, third]
+    messages.value = [...createStreamingMessages('ab'), {
+      id: 'extra',
+      role: 'assistant',
+      content: '完成',
+      createdAt: 3,
+      status: 'done',
+    }]
+    await flushWatchers()
+
+    expect(observedItems).toEqual([first, second, third])
+  })
+
+  it('keeps the viewport position when a locked stream completes', async () => {
+    const activeConversationId = ref<string | null>('c1')
+    const messages = ref<ChatMessage[]>(createStreamingMessages('a'))
+    const autoScroll = useMessageListAutoScroll({
+      activeConversationId,
+      messages,
+    })
+    const list = createMessageListElement({
+      clientHeight: 500,
+      scrollHeight: 2000,
+      scrollTop: 1500,
+    })
+    autoScroll.messageListRef.value = list
+    await flushWatchers()
+
+    list.scrollTop = 1499
+    autoScroll.handleMessageListScroll()
+
+    setScrollHeight(list, 2100)
+    messages.value = createStreamingMessages('a').map((message) => {
+      return message.id === 'assistant' ? { ...message, status: 'done' as const } : message
+    })
     await flushWatchers()
 
     expect(list.scrollTop).toBe(1499)

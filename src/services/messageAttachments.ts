@@ -39,8 +39,11 @@ function validateImageFile(file: File): void {
     throw new Error(`文件 ${file.name} 不是图片，无法发送。`)
   }
 
-  if (file.size > MAX_IMAGE_SOURCE_BYTES) {
-    throw new Error(`图片 ${file.name} 超过 ${(MAX_IMAGE_SOURCE_BYTES / 1024 / 1024).toFixed(0)}MB，请先压缩后再发送。`)
+  const maxBytes = file.type === 'image/gif' ? MAX_IMAGE_OUTPUT_BYTES : MAX_IMAGE_SOURCE_BYTES
+  if (file.size > maxBytes) {
+    const maxSize = (maxBytes / 1024 / 1024).toFixed(maxBytes < 1024 * 1024 ? 1 : 0)
+    const hint = file.type === 'image/gif' ? 'GIF 无法在本地压缩' : '请先压缩后再发送'
+    throw new Error(`图片 ${file.name} 超过 ${maxSize}MB，${hint}。`)
   }
 }
 

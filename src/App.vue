@@ -138,6 +138,7 @@ watch(app.pluginEnterSignal, () => {
         <MessageBubble
           v-for="message in app.messages.value"
           :key="message.id"
+          v-memo="[message, !app.isSending.value && app.retryableAssistantMessageId.value === message.id]"
           :can-retry="!app.isSending.value && app.retryableAssistantMessageId.value === message.id"
           :message="message"
           @retry="app.retryLastAssistantMessage"
@@ -215,6 +216,7 @@ watch(app.pluginEnterSignal, () => {
     </main>
 
     <SettingsPanel
+      :error="app.settingsSaveError.value"
       :is-browser-mode="app.isBrowserMode.value"
       :open="app.isSettingsOpen.value"
       :saving="app.isSavingSettings.value"

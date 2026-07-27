@@ -65,6 +65,25 @@ describe('useBufferedTextStream', () => {
     expect(stream.displayedText.value).toBe(source.value)
   })
 
+  it('coalesces rapid small deltas so display catches up without a long queue', async () => {
+    const source = ref('')
+    const isStreaming = ref(true)
+    const stream = useBufferedTextStream({
+      isStreaming,
+      source,
+    })
+
+    for (let index = 0; index < 100; index += 1) {
+      source.value += 'x'
+    }
+    await nextTick()
+
+    vi.advanceTimersByTime(250)
+    await nextTick()
+
+    expect(stream.displayedText.value).toBe(source.value)
+  })
+
   it('resets immediately when the source shrinks', async () => {
     const source = ref('完整内容')
     const isStreaming = ref(false)

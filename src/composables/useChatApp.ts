@@ -60,6 +60,7 @@ export function useChatApp() {
   const isSending = ref(false)
   const isSavingSettings = ref(false)
   const lastError = ref<string | null>(null)
+  const settingsSaveError = ref<string | null>(null)
   const environmentNotice = ref<string | null>(null)
   const pluginEnterSignal = ref(0)
   const isBrowserMode = computed(() => !hasUtools())
@@ -89,6 +90,7 @@ export function useChatApp() {
     isSettingsOpen,
     isSidebarCollapsed,
     lastError,
+    settingsSaveError,
     saveSettings: saveSettingsDoc,
     settings,
   })
@@ -385,6 +387,7 @@ export function useChatApp() {
     removeCustomTool: settingsActions.removeCustomTool,
     removePendingAttachment,
     saveSettings: saveSettingsAction,
+    settingsSaveError,
     selectActiveConfig,
     selectActiveModel: settingsActions.selectActiveModel,
     selectConversation,

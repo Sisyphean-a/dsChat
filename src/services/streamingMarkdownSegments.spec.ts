@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('./markdown', () => ({
-  renderMarkdown: (content: string) => `<p>${content}</p>`,
+  renderMarkdown: vi.fn((content: string) => `<p>${content}</p>`),
 }))
 
+import { renderMarkdown } from './markdown'
 import { buildMarkdownRenderSegments } from './streamingMarkdownSegments'
 
 describe('buildMarkdownRenderSegments', () => {
@@ -22,6 +23,33 @@ describe('buildMarkdownRenderSegments', () => {
     expect(segments[0]?.source).toContain('第一段说明')
     expect(segments[1]?.source).toContain('```ts')
     expect(segments[2]?.source).toContain('第二段说明')
+  })
+
+  it('reuses completed segments when only the streaming tail changes', () => {
+    const first = buildMarkdownRenderSegments([
+      '第一段说明',
+      '',
+      '```ts',
+      'const value = 1',
+      '```',
+      '',
+      '正在生成',
+    ].join('\n'))
+    vi.mocked(renderMarkdown).mockClear()
+
+    const next = buildMarkdownRenderSegments([
+      '第一段说明',
+      '',
+      '```ts',
+      'const value = 1',
+      '```',
+      '',
+      '正在生成更多内容',
+    ].join('\n'), first)
+
+    expect(renderMarkdown).toHaveBeenCalledTimes(1)
+    expect(next[0]).toBe(first[0])
+    expect(next[1]).toBe(first[1])
   })
 
   it('keeps incomplete fenced blocks inside prose while streaming', () => {

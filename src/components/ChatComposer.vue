@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useModalFocus } from '../composables/useModalFocus'
 import type { MessageAttachment } from '../types/chat'
 
 const props = defineProps<{
@@ -26,6 +27,8 @@ const emit = defineEmits<{
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const previewAttachment = ref<MessageAttachment | null>(null)
+const previewCloseRef = ref<HTMLButtonElement | null>(null)
+const previewOverlayRef = ref<HTMLElement | null>(null)
 const hasAttachments = computed(() => props.attachments.length > 0)
 const MIN_TEXTAREA_HEIGHT = 44
 const MAX_TEXTAREA_HEIGHT = 200
@@ -37,6 +40,10 @@ function handleSubmit(): void {
 }
 
 function onKeydown(event: KeyboardEvent): void {
+  if (event.isComposing || event.keyCode === 229) {
+    return
+  }
+
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     if (!props.sendDisabled && props.canSend) {
@@ -162,6 +169,13 @@ function openPreview(attachment: MessageAttachment): void {
 function closePreview(): void {
   previewAttachment.value = null
 }
+
+const { handleModalKeydown: handlePreviewKeydown } = useModalFocus({
+  close: closePreview,
+  container: previewOverlayRef,
+  initialFocus: previewCloseRef,
+  isOpen: () => previewAttachment.value !== null,
+})
 
 function handleThinkingChange(event: Event): void {
   emit('updateThinkingEnabled', (event.target as HTMLInputElement).checked)
@@ -301,8 +315,14 @@ function mimeTypeToExtension(mimeType: string): string {
 
   <div
     v-if="previewAttachment"
+    ref="previewOverlayRef"
+    aria-label="图片预览"
+    aria-modal="true"
     class="preview-overlay"
+    role="dialog"
+    tabindex="-1"
     @click.self="closePreview"
+    @keydown="handlePreviewKeydown"
   >
     <div class="preview-panel">
       <img
@@ -310,7 +330,7 @@ function mimeTypeToExtension(mimeType: string): string {
         :alt="previewAttachment.name"
         class="preview-image"
       />
-      <button class="preview-close" type="button" @click="closePreview">关闭</button>
+      <button ref="previewCloseRef" class="preview-close" type="button" @click="closePreview">关闭</button>
     </div>
   </div>
 </template>

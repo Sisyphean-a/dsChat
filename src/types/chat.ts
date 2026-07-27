@@ -157,6 +157,7 @@ export interface SessionDoc extends BaseDoc {
   type: 'session'
   currentConversationId: string | null
   lastOutAt: number | null
+  updatedAt?: number
 }
 
 export interface ConversationDoc extends BaseDoc {

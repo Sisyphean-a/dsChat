@@ -18,9 +18,10 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
   const lockedAnchorMessageId = ref<string | null>(null)
   const lockedAnchorOffsetTop = ref<number | null>(null)
   const isProgrammaticAdjustment = ref(false)
+  const observedMessageItems = new Set<Element>()
   const showScrollToBottomButton = ref(false)
   const resizeObserver = createResizeObserver(() => {
-    if (releasedForStreamingMessageId.value === currentStreamingMessageId.value) {
+    if (isAutoFollowLocked()) {
       syncLockedScrollPosition()
       return
     }
@@ -51,6 +52,13 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
       last?.streamingStatus?.length ?? 0,
     ].join(':')
   })
+
+  function isAutoFollowLocked(): boolean {
+    const lockedMessageId = releasedForStreamingMessageId.value
+    return lockedMessageId !== null && (
+      currentStreamingMessageId.value === null || lockedMessageId === currentStreamingMessageId.value
+    )
+  }
 
   function isAtBottom(element: HTMLElement): boolean {
     return element.scrollHeight - element.scrollTop - element.clientHeight <= AUTO_SCROLL_UNLOCK_BOTTOM_GAP_PX
@@ -133,7 +141,7 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
       return
     }
 
-    if (!force && releasedForStreamingMessageId.value === currentStreamingMessageId.value) {
+    if (!force && isAutoFollowLocked()) {
       syncLockedScrollPosition()
       updateScrollToBottomVisibility()
       return
@@ -156,7 +164,9 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
     releasedForStreamingMessageId.value = null
     previousScrollTop.value = messageListRef.value?.scrollTop ?? null
     resetAnchorSnapshot()
+    resetObservedMessageItems()
     void scrollToBottom(true)
+    void observeMessageItems()
   })
 
   watch(() => messageListRef.value, (element) => {
@@ -164,7 +174,8 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
     releasedForStreamingMessageId.value = null
     resetAnchorSnapshot()
     updateScrollToBottomVisibility()
-    observeMessageItems()
+    resetObservedMessageItems()
+    void observeMessageItems()
   })
 
   watch(messageScrollSnapshot, () => {
@@ -188,7 +199,7 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
 
   function syncLockedScrollPosition(): void {
     const element = messageListRef.value
-    if (!element || releasedForStreamingMessageId.value !== currentStreamingMessageId.value) {
+    if (!element || !isAutoFollowLocked()) {
       return
     }
 
@@ -222,15 +233,24 @@ export function useMessageListAutoScroll(options: UseMessageListAutoScrollOption
 
   async function observeMessageItems(): Promise<void> {
     await nextTick()
-    resizeObserver?.disconnect()
     if (!messageListRef.value || !resizeObserver) {
       return
     }
 
     const items = Array.from((messageListRef.value as HTMLElement & { children?: HTMLCollection }).children ?? [])
     for (const item of items) {
+      if (observedMessageItems.has(item)) {
+        continue
+      }
+
       resizeObserver.observe(item)
+      observedMessageItems.add(item)
     }
+  }
+
+  function resetObservedMessageItems(): void {
+    resizeObserver?.disconnect()
+    observedMessageItems.clear()
   }
 
   function captureAnchorSnapshot(): void {

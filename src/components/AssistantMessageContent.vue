@@ -2,10 +2,14 @@
 import { computed, getCurrentScope, nextTick, onScopeDispose, ref, watch } from 'vue'
 import { highlightCodeBlocks } from '../services/markdown'
 import { openExternalLink } from '../services/linkNavigation'
-import { buildMarkdownRenderSegments } from '../services/streamingMarkdownSegments'
+import {
+  buildMarkdownRenderSegments,
+  type MarkdownRenderSegment,
+} from '../services/streamingMarkdownSegments'
 
 const props = defineProps<{
   content: string
+  revealActive?: boolean
   variant?: 'answer' | 'reasoning'
 }>()
 
@@ -13,6 +17,7 @@ const FLOW_SPACE_COMPACT_PX = 12
 const FLOW_SPACE_BLOCK_PX = 14
 const FLOW_SPACE_DIVIDER_PX = 16
 const FLOW_SPACE_SECTION_PX = 18
+const MARKDOWN_RENDER_INTERVAL_MS = 48
 
 const containerRef = ref<HTMLElement | null>(null)
 const contentRhythmStyle: Record<string, string> = Object.freeze({
@@ -23,7 +28,29 @@ const contentRhythmStyle: Record<string, string> = Object.freeze({
   '--message-flow-space-section': `${FLOW_SPACE_SECTION_PX}px`,
 })
 const variantClass = computed(() => props.variant === 'reasoning' ? 'is-reasoning' : 'is-answer')
-const segments = computed(() => buildMarkdownRenderSegments(props.content))
+const renderedContent = ref(props.content)
+const segments = ref<MarkdownRenderSegment[]>([])
+let renderTimer: number | null = null
+let pendingContent: string | null = null
+watch(renderedContent, (content) => {
+  segments.value = buildMarkdownRenderSegments(content, segments.value)
+}, { immediate: true })
+watch(() => props.content, (content) => {
+  if (!props.revealActive || renderedContent.value === content) {
+    renderImmediately(content)
+    return
+  }
+
+  pendingContent = content
+  if (renderTimer === null) {
+    renderTimer = window.setTimeout(flushPendingContent, MARKDOWN_RENDER_INTERVAL_MS)
+  }
+})
+watch(() => props.revealActive, (revealActive) => {
+  if (!revealActive) {
+    renderImmediately(props.content)
+  }
+})
 watch(() => segments.value.map((segment) => `${segment.id}:${segment.kind}:${segment.source.length}`).join('|'), () => {
   void applyHighlight()
 }, { immediate: true })
@@ -55,8 +82,30 @@ function handleContentClick(event: MouseEvent): void {
 
 if (getCurrentScope()) {
   onScopeDispose(() => {
+    if (renderTimer !== null) {
+      window.clearTimeout(renderTimer)
+    }
     containerRef.value = null
   })
+}
+function flushPendingContent(): void {
+  renderTimer = null
+  if (pendingContent === null) {
+    return
+  }
+
+  const content = pendingContent
+  pendingContent = null
+  renderedContent.value = content
+}
+
+function renderImmediately(content: string): void {
+  if (renderTimer !== null) {
+    window.clearTimeout(renderTimer)
+    renderTimer = null
+  }
+  pendingContent = null
+  renderedContent.value = content
 }
 </script>
 

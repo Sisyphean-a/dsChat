@@ -5,6 +5,7 @@ import CheckIcon from './icons/CheckIcon.vue'
 import CopyIcon from './icons/CopyIcon.vue'
 import RegenerateIcon from './icons/RegenerateIcon.vue'
 import { useBufferedTextStream } from '../composables/useBufferedTextStream'
+import { useModalFocus } from '../composables/useModalFocus'
 import { buildFallbackTimeline, shouldCollapsePlainMessage } from '../utils/messageBubble'
 import type {
   ChatMessage,
@@ -29,6 +30,8 @@ const isAssistantMessage = computed(() => props.message.role === 'assistant')
 const isUserMessage = computed(() => props.message.role === 'user')
 const isStreamingStatus = computed(() => props.message.status === 'streaming')
 const previewAttachment = ref<MessageAttachment | null>(null)
+const previewCloseRef = ref<HTMLButtonElement | null>(null)
+const previewOverlayRef = ref<HTMLElement | null>(null)
 const copyState = ref<MessageCopyState>('idle')
 const isUserMessageExpanded = ref(false)
 let copyResetTimer: number | null = null
@@ -54,10 +57,6 @@ const {
 } = useBufferedTextStream({
   isStreaming: isStreamingStatus,
   source: reasoningSource,
-})
-
-const isAnswerRevealActive = computed(() => {
-  return false
 })
 
 const toolTraces = computed(() => props.message.toolTraces ?? [])
@@ -177,6 +176,13 @@ function openImagePreview(attachment: MessageAttachment): void {
 function closeImagePreview(): void {
   previewAttachment.value = null
 }
+
+const { handleModalKeydown: handlePreviewKeydown } = useModalFocus({
+  close: closeImagePreview,
+  container: previewOverlayRef,
+  initialFocus: previewCloseRef,
+  isOpen: () => previewAttachment.value !== null,
+})
 
 function retryAssistantMessage(): void {
   emit('retry')
@@ -319,7 +325,7 @@ watch(
       v-if="isAssistantMessage && displayedContent.trim()"
       class="markdown-body"
       :content="displayedContent"
-      :reveal-active="isAnswerRevealActive"
+      :reveal-active="isStreamingStatus"
     />
     <div v-if="imageAttachments.length" class="message-images">
       <button
@@ -406,8 +412,14 @@ watch(
 
     <div
       v-if="previewAttachment"
+      ref="previewOverlayRef"
+      aria-label="图片预览"
+      aria-modal="true"
       class="preview-overlay"
+      role="dialog"
+      tabindex="-1"
       @click.self="closeImagePreview"
+      @keydown="handlePreviewKeydown"
     >
       <div class="preview-panel">
         <img
@@ -415,7 +427,7 @@ watch(
           :src="previewAttachment.dataUrl"
           :alt="previewAttachment.name"
         />
-        <button class="preview-close" type="button" @click="closeImagePreview">关闭</button>
+        <button ref="previewCloseRef" class="preview-close" type="button" @click="closeImagePreview">关闭</button>
       </div>
     </div>
     </article>
