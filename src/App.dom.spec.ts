@@ -31,6 +31,7 @@ vi.mock('./composables/useChatApp', () => ({
     addPendingImages: vi.fn(),
     canSendMessage: computed(() => false),
     closeSettings: vi.fn(),
+    composerFocusPosition: ref<'start' | 'end'>('end'),
     conversations: ref([]),
     deleteConversation: vi.fn(),
     draftMessage: ref(''),

@@ -34,6 +34,7 @@ src/
 
 `App.vue` 组装 `SidebarPanel`、`MessageBubble`、`ChatComposer`、两个 `ModelPicker` 和 `SettingsPanel`。`useChatApp.ts` 持有响应式状态，负责初始化、uTools 进入/退出、当前会话切换及设置动作的接线。
 
+- uTools 的划词入口 `ask-ds` 使用 `over` 命令；进入参数中的选中文本只会填入草稿第二行起的三反引号代码块，首行留给用户补充问题，光标定位在首行，绝不自动发送。
 - 发送期间或已有消息时禁止切换 Provider 配置，避免同一会话的请求上下文和配置混用。
 - 首个用户消息创建会话；标题先使用默认值，随后由独立的非流式请求异步更新。
 - `useMessageListAutoScroll.ts` 用显式状态机处理用户上滚后的自动滚动锁定；不要在组件中临时滚动到底部。

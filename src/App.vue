@@ -23,6 +23,7 @@ const {
 })
 void messageListRef
 const composerFocusSignal = ref(0)
+const composerFocusPosition = computed(() => app.composerFocusPosition.value)
 
 const currentTitle = computed(() => {
   if (!app.activeConversationId.value) return '新对话'
@@ -179,6 +180,7 @@ watch(app.pluginEnterSignal, () => {
           v-model="app.draftMessage.value"
           :attachments="app.pendingAttachments.value"
           :can-send="app.canSendMessage.value"
+          :focus-position="composerFocusPosition"
           :focus-signal="composerFocusSignal"
           :is-sending="app.isSending.value"
           :placeholder="composerPlaceholder"

@@ -17,6 +17,7 @@ import {
   saveSession,
   saveSettings as saveSettingsDoc,
 } from '../services/utools'
+import type { PluginEnterPayload } from '../types/utools'
 import type {
   ChatMessage,
   ConversationDoc,
@@ -63,6 +64,8 @@ export function useChatApp() {
   const settingsSaveError = ref<string | null>(null)
   const environmentNotice = ref<string | null>(null)
   const pluginEnterSignal = ref(0)
+  const composerFocusPosition = ref<'start' | 'end'>('end')
+  const initialized = ref(false)
   const isBrowserMode = computed(() => !hasUtools())
   const activeChatConfig = computed(() => getActiveProviderSettings(settings.value))
   const modelOptions = computed(() => getActiveModelSelectionOptions(settings.value))
@@ -83,6 +86,7 @@ export function useChatApp() {
   })
 
   let lifecycleRegistered = false
+  let initialPluginEnterPayload: PluginEnterPayload | null = null
 
   const settingsActions = createChatAppSettingsActions({
     applyAppearance,
@@ -134,11 +138,16 @@ export function useChatApp() {
 
     if (isBrowserMode.value) {
       // environmentNotice.value = '当前为浏览器预览模式：使用浏览器本地存储保存设置与对话，不接入 uTools 数据库。'
+      initialized.value = true
       return
     }
 
     registerLifecycleHooks()
     await restoreSession()
+    const initialPayload = initialPluginEnterPayload
+    initialPluginEnterPayload = null
+    initialized.value = true
+    composerFocusPosition.value = applyAskDsPayload(initialPayload) ? 'start' : 'end'
   }
 
   async function sendMessage(): Promise<void> {
@@ -253,9 +262,15 @@ export function useChatApp() {
     }
 
     lifecycleRegistered = true
-    window.utools?.onPluginEnter(async () => {
+    window.utools?.onPluginEnter(async (payload) => {
+      if (!initialized.value) {
+        initialPluginEnterPayload = payload
+        return
+      }
+
       try {
         await restoreSession()
+        composerFocusPosition.value = applyAskDsPayload(payload) ? 'start' : 'end'
       } finally {
         pluginEnterSignal.value += 1
       }
@@ -270,6 +285,15 @@ export function useChatApp() {
         lastOutAt: Date.now(),
       })
     })
+  }
+
+  function applyAskDsPayload(payload: PluginEnterPayload | null): boolean {
+    if (payload?.code !== 'ask-ds' || typeof payload.payload !== 'string' || !payload.payload.trim()) {
+      return false
+    }
+
+    draftMessage.value = `\n\`\`\`\n${payload.payload}\n\`\`\``
+    return true
   }
 
   async function activateConversation(conversation: ConversationDoc): Promise<void> {
@@ -360,6 +384,7 @@ export function useChatApp() {
     addPendingImages,
     canSendMessage,
     closeSettings: settingsActions.closeSettings,
+    composerFocusPosition,
     conversations,
     deleteConversation,
     draftMessage,

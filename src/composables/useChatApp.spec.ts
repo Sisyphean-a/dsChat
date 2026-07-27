@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { PluginEnterPayload } from '../types/utools'
 import { buildDefaultSettings } from '../constants/providers'
 
 vi.mock('../services/utools', () => ({
@@ -23,6 +24,33 @@ describe('useChatApp', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('wraps selected uTools text in a code block without sending it', async () => {
+    vi.mocked(hasUtools).mockReturnValue(true)
+    let handlePluginEnter: ((payload: PluginEnterPayload) => void | Promise<void>) | undefined
+    vi.stubGlobal('window', {
+      utools: {
+        onPluginEnter: vi.fn((callback: (payload: PluginEnterPayload) => void | Promise<void>) => {
+          handlePluginEnter = callback
+        }),
+        onPluginOut: vi.fn(),
+      },
+    })
+
+    const app = useChatApp()
+    await app.initialize()
+    await handlePluginEnter?.({
+      code: 'ask-ds',
+      payload: 'const answer = 42',
+      type: 'over',
+    })
+
+    expect(app.draftMessage.value).toBe('\n```\nconst answer = 42\n```')
+    expect(app.composerFocusPosition.value).toBe('start')
+    expect(app.messages.value).toEqual([])
+    expect(app.isSending.value).toBe(false)
+    expect(app.pluginEnterSignal.value).toBe(1)
   })
 
   it('keeps the send action while consuming the Provider stream', async () => {

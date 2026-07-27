@@ -25,6 +25,53 @@ describe('ChatComposer', () => {
     expect(document.activeElement).toBe(wrapper.get('textarea').element)
   })
 
+  it('moves the caret to the start when requested', async () => {
+    const wrapper = mount(ChatComposer, {
+      attachTo: document.body,
+      props: {
+        attachments: [],
+        canSend: true,
+        focusPosition: 'start',
+        focusSignal: 1,
+        isSending: false,
+        modelValue: '\n```\nselected text\n```',
+        sendDisabled: false,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
+      },
+    })
+
+    await nextTick()
+
+    const textarea = wrapper.get('textarea').element as HTMLTextAreaElement
+    expect(textarea.selectionStart).toBe(0)
+    expect(textarea.selectionEnd).toBe(0)
+    wrapper.unmount()
+  })
+
+  it('moves the caret to the end when focus is requested', async () => {
+    const wrapper = mount(ChatComposer, {
+      attachTo: document.body,
+      props: {
+        attachments: [],
+        canSend: true,
+        focusSignal: 1,
+        isSending: false,
+        modelValue: '```\nselected text\n```\n',
+        sendDisabled: false,
+        showThinkingToggle: false,
+        thinkingEnabled: true,
+      },
+    })
+
+    await nextTick()
+
+    const textarea = wrapper.get('textarea').element as HTMLTextAreaElement
+    expect(textarea.selectionStart).toBe(textarea.value.length)
+    expect(textarea.selectionEnd).toBe(textarea.value.length)
+    wrapper.unmount()
+  })
+
   it('keeps the textarea editable while sending', async () => {
     const wrapper = mount(ChatComposer, {
       props: {

@@ -17,6 +17,16 @@
         "deepseek",
         "ai"
       ]
+    },
+    {
+      "code": "ask-ds",
+      "explain": "问问 ds",
+      "cmds": [
+        {
+          "type": "over",
+          "label": "问问 ds"
+        }
+      ]
     }
   ]
 }
