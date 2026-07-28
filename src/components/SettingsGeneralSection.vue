@@ -38,7 +38,7 @@ const fontSizeCards: Array<{ label: string; value: FontSizeMode }> = [
 
 const sessionIdleTimeoutPickerOptions: ModelConfigOption[] = UTOOLS_SESSION_IDLE_TIMEOUT_OPTIONS.map((option) => ({
   badge: '会话',
-  detail: `离开超过 ${option.label} 后，新打开时开始新对话。`,
+  detail: '',
   label: option.label,
   shortLabel: option.label,
   value: String(option.value),
@@ -71,7 +71,7 @@ function selectSessionIdleTimeout(value: string): void {
 <template>
   <section class="settings-page" aria-labelledby="settings-general-title">
     <header class="page-heading">
-      <p class="eyebrow">General</p>
+      <p class="eyebrow">显示与本地数据</p>
       <h3 id="settings-general-title">通用</h3>
     </header>
 

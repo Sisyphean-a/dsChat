@@ -168,7 +168,7 @@
 }
 
 .composer-picker-model {
-  width: clamp(176px, 24vw, 212px);
+  width: clamp(144px, 18vw, 176px);
 }
 
 .composer-picker :deep(.model-picker) {

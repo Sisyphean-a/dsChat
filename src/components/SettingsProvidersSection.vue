@@ -89,7 +89,7 @@ function updateCustomCapability(
 <template>
   <section class="settings-page" aria-labelledby="settings-providers-title">
     <header class="page-heading">
-      <p class="eyebrow">Model Providers</p>
+      <p class="eyebrow">模型连接</p>
       <h3 id="settings-providers-title">模型服务商</h3>
     </header>
 

@@ -21,7 +21,7 @@ function openTavilyOfficialSite(): void {
 <template>
   <section class="settings-page" aria-labelledby="settings-tools-title">
     <header class="page-heading">
-      <p class="eyebrow">Tools</p>
+      <p class="eyebrow">调用能力</p>
       <h3 id="settings-tools-title">工具</h3>
     </header>
 

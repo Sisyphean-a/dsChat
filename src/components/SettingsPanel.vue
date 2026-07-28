@@ -75,19 +75,16 @@ const navItems = computed(() => [
   {
     id: 'general' as const,
     label: '通用',
-    description: '外观、会话与存储',
     badge: props.settings.theme === 'dark' ? '夜色' : '浅色',
   },
   {
     id: 'providers' as const,
     label: '模型服务商',
-    description: '密钥、地址、模型',
     badge: `${props.settings.customModels.length + 1} 个`,
   },
   {
     id: 'tools' as const,
     label: '工具',
-    description: '调用、内置、自定义',
     badge: props.settings.toolSettings.enabled ? `${enabledBuiltinToolCount.value} 启用` : '关闭',
   },
 ])
@@ -125,10 +122,12 @@ const { handleModalKeydown } = useModalFocus({
       <section class="settings-panel">
         <header class="settings-header">
           <div class="settings-title-block">
+            <p class="settings-kicker">偏好设置</p>
             <h2 id="settings-title">设置</h2>
+            <p class="settings-intro">外观、模型连接与工具配置</p>
           </div>
           <div class="settings-header-actions">
-            <button ref="closeButtonRef" class="ghost-action" type="button" @click="emit('close')">取消</button>
+            <button ref="closeButtonRef" class="ghost-action" type="button" @click="emit('close')">关闭</button>
             <button class="primary-action" type="button" :disabled="props.saving" @click="emit('save')">
               {{ props.saving ? '保存中' : '保存' }}
             </button>
@@ -153,12 +152,11 @@ const { handleModalKeydown } = useModalFocus({
                   <span class="nav-label">{{ item.label }}</span>
                   <span class="nav-badge">{{ item.badge }}</span>
                 </span>
-                <span class="nav-description">{{ item.description }}</span>
               </button>
             </nav>
             <div class="settings-sidebar-note">
-              <strong>不打断对话</strong>
-              <span>设置页覆盖当前视口，关闭后回到原来的聊天上下文。</span>
+              <strong>先预览，再保存</strong>
+              <span>主题和字号会立即预览，其他更改会在保存后写入本地。</span>
             </div>
           </aside>
 
