@@ -32,6 +32,33 @@ describe('ToolOrchestrator', () => {
     ])
   })
 
+  it('updates one reasoning timeline item instead of adding one item per streamed delta', async () => {
+    const providerStream = scriptedProviderStream([[
+      { type: 'reasoning', content: 'CSS ' },
+      { type: 'reasoning', content: '布局' },
+      { type: 'content', content: '最终回答' },
+    ]])
+    const orchestrator = createToolOrchestrator({
+      getEnabledTools: () => [tool('first', async () => ({ content: 'one' }))],
+      messageMapping,
+      providerStream,
+    })
+
+    const events = await collect(orchestrator.stream(request()))
+    const reasoningTimeline = events.filter((event) => {
+      return event.type === 'timeline' && event.item.type === 'reasoning'
+    })
+
+    expect(reasoningTimeline).toEqual([
+      expect.objectContaining({
+        item: expect.objectContaining({ id: 'reasoning-1', text: 'CSS' }),
+      }),
+      expect.objectContaining({
+        item: expect.objectContaining({ id: 'reasoning-1', text: 'CSS 布局' }),
+      }),
+    ])
+  })
+
   it('emits a failed trace before propagating a tool error', async () => {
     const providerStream = scriptedProviderStream([[{
       type: 'tool-calls', calls: [{ id: 'call-1', name: 'broken', argumentsJson: '{}' }],

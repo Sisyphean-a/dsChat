@@ -87,7 +87,6 @@ async function* streamProviderRound(
   let content = ''
   let reasoningContent = ''
   let toolCalls: NormalizedToolCall[] = []
-  let reasoningIndex = 0
   try {
     for await (const event of providerStream.stream({
       messages,
@@ -101,10 +100,9 @@ async function* streamProviderRound(
       if (event.type === 'tool-calls') toolCalls = event.calls
       yield event
       if (event.type === 'reasoning') {
-        reasoningIndex += 1
         const timeline = createReasoningTimelineItem({
-          content: event.content,
-          id: `reasoning-${round}-${reasoningIndex}`,
+          content: reasoningContent,
+          id: `reasoning-${round}`,
           round,
         })
         if (timeline) yield { type: 'timeline', item: timeline }
