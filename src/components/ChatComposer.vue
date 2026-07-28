@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { useModalFocus } from '../composables/useModalFocus'
+import {
+  PhBrain,
+  PhImageSquare,
+  PhPaperPlaneTilt,
+  PhStop,
+  PhX,
+} from '@phosphor-icons/vue'
+import ImagePreviewDialog from './ImagePreviewDialog.vue'
 import type { MessageAttachment } from '../types/chat'
 
 const props = defineProps<{
@@ -28,8 +35,6 @@ const emit = defineEmits<{
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const previewAttachment = ref<MessageAttachment | null>(null)
-const previewCloseRef = ref<HTMLButtonElement | null>(null)
-const previewOverlayRef = ref<HTMLElement | null>(null)
 const hasAttachments = computed(() => props.attachments.length > 0)
 const MIN_TEXTAREA_HEIGHT = 44
 const MAX_TEXTAREA_HEIGHT = 200
@@ -178,13 +183,6 @@ function closePreview(): void {
   previewAttachment.value = null
 }
 
-const { handleModalKeydown: handlePreviewKeydown } = useModalFocus({
-  close: closePreview,
-  container: previewOverlayRef,
-  initialFocus: previewCloseRef,
-  isOpen: () => previewAttachment.value !== null,
-})
-
 function handleThinkingChange(event: Event): void {
   emit('updateThinkingEnabled', (event.target as HTMLInputElement).checked)
 }
@@ -231,6 +229,7 @@ function mimeTypeToExtension(mimeType: string): string {
           class="attachment-item"
         >
           <button
+            :aria-label="`预览 ${attachment.name}`"
             class="attachment-preview-button"
             type="button"
             @click="openPreview(attachment)"
@@ -242,12 +241,13 @@ function mimeTypeToExtension(mimeType: string): string {
             />
           </button>
           <button
+            :aria-label="`移除 ${attachment.name}`"
             class="attachment-remove"
             type="button"
             title="移除图片"
             @click="removeAttachment(attachment.id)"
           >
-            ×
+            <PhX :size="14" aria-hidden="true" weight="bold" />
           </button>
         </div>
       </div>
@@ -260,12 +260,9 @@ function mimeTypeToExtension(mimeType: string): string {
             :disabled="props.sendDisabled"
             title="添加图片"
             @click="openImagePicker"
+            aria-label="添加图片"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-              <circle cx="9" cy="9" r="2"></circle>
-              <path d="M21 15l-5-5L5 21"></path>
-            </svg>
+            <PhImageSquare :size="18" aria-hidden="true" class="composer-toolbar-icon" weight="regular" />
           </button>
           <input
             ref="fileInputRef"
@@ -288,9 +285,8 @@ function mimeTypeToExtension(mimeType: string): string {
               :disabled="props.sendDisabled"
               @change="handleThinkingChange"
             />
-            <span class="thinking-toggle-track" aria-hidden="true">
-              <span class="thinking-toggle-thumb"></span>
-            </span>
+            <span class="thinking-toggle-track" aria-hidden="true"></span>
+            <PhBrain :size="16" aria-hidden="true" class="thinking-toggle-icon" weight="regular" />
             <span class="thinking-toggle-text">思考</span>
           </label>
         </div>
@@ -300,10 +296,9 @@ function mimeTypeToExtension(mimeType: string): string {
           type="button"
           title="停止生成"
           @click="emit('stop')"
+          aria-label="停止生成"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <rect x="6" y="6" width="12" height="12" rx="2"></rect>
-          </svg>
+          <PhStop :size="16" aria-hidden="true" weight="fill" />
         </button>
         <button
           v-else
@@ -311,35 +306,14 @@ function mimeTypeToExtension(mimeType: string): string {
           type="submit"
           :disabled="props.sendDisabled || !props.canSend"
           title="发送 (Enter)"
+          aria-label="发送"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
+          <PhPaperPlaneTilt :size="18" aria-hidden="true" weight="fill" />
         </button>
       </div>
     </div>
   </form>
 
-  <div
-    v-if="previewAttachment"
-    ref="previewOverlayRef"
-    aria-label="图片预览"
-    aria-modal="true"
-    class="preview-overlay"
-    role="dialog"
-    tabindex="-1"
-    @click.self="closePreview"
-    @keydown="handlePreviewKeydown"
-  >
-    <div class="preview-panel">
-      <img
-        :src="previewAttachment.dataUrl"
-        :alt="previewAttachment.name"
-        class="preview-image"
-      />
-      <button ref="previewCloseRef" class="preview-close" type="button" @click="closePreview">关闭</button>
-    </div>
-  </div>
+  <ImagePreviewDialog :attachment="previewAttachment" @close="closePreview" />
 </template>
 <style scoped src="../styles/chat-composer.css"></style>

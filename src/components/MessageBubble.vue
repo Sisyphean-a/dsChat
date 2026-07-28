@@ -4,8 +4,8 @@ import AssistantMessageContent from './AssistantMessageContent.vue'
 import CheckIcon from './icons/CheckIcon.vue'
 import CopyIcon from './icons/CopyIcon.vue'
 import RegenerateIcon from './icons/RegenerateIcon.vue'
+import ImagePreviewDialog from './ImagePreviewDialog.vue'
 import { useBufferedTextStream } from '../composables/useBufferedTextStream'
-import { useModalFocus } from '../composables/useModalFocus'
 import { buildFallbackTimeline, shouldCollapsePlainMessage } from '../utils/messageBubble'
 import type {
   ChatMessage,
@@ -30,8 +30,6 @@ const isAssistantMessage = computed(() => props.message.role === 'assistant')
 const isUserMessage = computed(() => props.message.role === 'user')
 const isStreamingStatus = computed(() => props.message.status === 'streaming')
 const previewAttachment = ref<MessageAttachment | null>(null)
-const previewCloseRef = ref<HTMLButtonElement | null>(null)
-const previewOverlayRef = ref<HTMLElement | null>(null)
 const copyState = ref<MessageCopyState>('idle')
 const isUserMessageExpanded = ref(false)
 let copyResetTimer: number | null = null
@@ -176,13 +174,6 @@ function openImagePreview(attachment: MessageAttachment): void {
 function closeImagePreview(): void {
   previewAttachment.value = null
 }
-
-const { handleModalKeydown: handlePreviewKeydown } = useModalFocus({
-  close: closeImagePreview,
-  container: previewOverlayRef,
-  initialFocus: previewCloseRef,
-  isOpen: () => previewAttachment.value !== null,
-})
 
 function retryAssistantMessage(): void {
   emit('retry')
@@ -410,27 +401,9 @@ watch(
       <span class="message-status">{{ props.message.status === 'interrupted' ? '已中止' : '请求失败' }}</span>
     </div>
 
-    <div
-      v-if="previewAttachment"
-      ref="previewOverlayRef"
-      aria-label="图片预览"
-      aria-modal="true"
-      class="preview-overlay"
-      role="dialog"
-      tabindex="-1"
-      @click.self="closeImagePreview"
-      @keydown="handlePreviewKeydown"
-    >
-      <div class="preview-panel">
-        <img
-          class="preview-image"
-          :src="previewAttachment.dataUrl"
-          :alt="previewAttachment.name"
-        />
-        <button ref="previewCloseRef" class="preview-close" type="button" @click="closeImagePreview">关闭</button>
-      </div>
-    </div>
     </article>
+
+    <ImagePreviewDialog :attachment="previewAttachment" @close="closeImagePreview" />
   </div>
 </template>
 

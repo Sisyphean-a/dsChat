@@ -96,7 +96,8 @@ describe('MessageBubble', () => {
     await wrapper.vm.$nextTick()
     await wrapper.vm.$nextTick()
 
-    expect(document.activeElement).toBe(wrapper.get('.preview-close').element)
+    expect(document.activeElement).toBe(wrapper.get('.image-preview-close').element)
+    expect(wrapper.get('.image-preview-details').text()).toBe('100 × 80')
 
     await wrapper.get('[role="dialog"]').trigger('keydown', { key: 'Escape' })
     await wrapper.vm.$nextTick()

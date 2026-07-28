@@ -16,6 +16,7 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
+    "@phosphor-icons/vue": "^2.2.1",
     "browser-image-compression": "^2.0.2",
     "dompurify": "^3.4.0",
     "highlight.js": "^11.11.1",

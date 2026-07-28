@@ -1,5 +1,3 @@
-@import './chat-composer-preview.css';
-
 .composer-form {
   position: relative;
   width: 100%;
@@ -51,22 +49,32 @@ textarea::placeholder {
   min-width: 0;
 }
 .image-button {
-  width: 25px;
-  height: 25px;
   display: inline-flex;
+  width: 32px;
+  height: 32px;
   align-items: center;
   justify-content: center;
-  padding: 6px;
-  background: transparent;
+  padding: 0;
   border: 1px solid transparent;
   border-radius: 10px;
+  background: transparent;
   color: var(--text-muted);
-  transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+.composer-toolbar-icon {
+  flex: none;
 }
 .image-button:hover:not(:disabled) {
-  background: var(--accent-soft);
   border-color: var(--accent);
+  background: var(--accent-soft);
   color: var(--accent-strong);
+}
+.image-button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.image-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .image-button:disabled {
   opacity: 0.5;
@@ -74,14 +82,13 @@ textarea::placeholder {
 }
 .thinking-toggle {
   position: relative;
-  overflow: hidden;
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: 4px;
-  height: 24.5px;
+  gap: 5px;
+  height: 30px;
   margin-left: auto;
-  padding: 5px 9px;
+  padding: 5px 10px;
   border: 1px solid transparent;
   border-radius: 10px;
   color: var(--text-muted);
@@ -109,24 +116,17 @@ textarea::placeholder {
   border-radius: inherit;
   transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
-.thinking-toggle-track::before {
-  content: '✦';
-  position: absolute;
-  left: 9px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 10px;
-  line-height: 1;
-  color: var(--text-muted);
-  transition: color 150ms ease;
-}
-.thinking-toggle-thumb {
-  display: none;
-}
+.thinking-toggle-icon,
 .thinking-toggle-text {
   position: relative;
   z-index: 1;
-  margin-left: 13px;
+}
+.thinking-toggle-icon {
+  flex: none;
+  color: var(--text-muted);
+  transition: color 150ms ease;
+}
+.thinking-toggle-text {
   color: var(--text-muted);
   transition: color 150ms ease, font-weight 150ms ease;
 }
@@ -141,11 +141,11 @@ textarea::placeholder {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
-.thinking-toggle-input:checked + .thinking-toggle-track::before {
+.thinking-toggle-input:checked ~ .thinking-toggle-icon,
+.thinking-toggle-input:checked ~ .thinking-toggle-text {
   color: var(--accent-strong);
 }
 .thinking-toggle-input:checked ~ .thinking-toggle-text {
-  color: var(--accent-strong);
   font-weight: 500;
 }
 .hidden-file-input {
@@ -154,9 +154,9 @@ textarea::placeholder {
 .attachment-strip {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   overflow-x: auto;
-  padding: 0 12px 8px;
+  padding: 4px 12px 10px;
 }
 .attachment-item {
   position: relative;
@@ -164,11 +164,25 @@ textarea::placeholder {
 }
 .attachment-preview-button {
   display: block;
-  width: 50px;
-  height: 50px;
+  width: 56px;
+  height: 56px;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
+  background: var(--bg);
+  cursor: zoom-in;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.attachment-preview-button:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.attachment-preview-button:active {
+  transform: scale(0.97);
+}
+.attachment-preview-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .attachment-thumb {
   display: block;
@@ -178,24 +192,42 @@ textarea::placeholder {
 }
 .attachment-remove {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 18px;
-  height: 18px;
-  background: var(--text-muted);
-  border-radius: 50%;
-  color: var(--bg);
-  font-size: 0.7rem;
-  line-height: 1;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(17, 24, 39, 0.72);
+  color: #fff;
+  backdrop-filter: blur(4px);
+  opacity: 0.86;
+  transition: background 160ms ease, border-color 160ms ease, opacity 160ms ease, transform 160ms ease;
+}
+.attachment-remove:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(17, 24, 39, 0.9);
+  opacity: 1;
+}
+.attachment-remove:active {
+  transform: scale(0.94);
+}
+.attachment-remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  opacity: 1;
 }
 .send-button,
 .stop-button {
-  display: flex;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 13.3px;
+  border-radius: 12px;
 }
 .send-button {
   background: var(--accent);
@@ -210,6 +242,11 @@ textarea::placeholder {
 .stop-button:hover {
   transform: translateY(-1px);
   background: rgba(239, 68, 68, 0.18);
+}
+.stop-button:focus-visible,
+.send-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .send-button:not(:disabled):hover {
   transform: translateY(-1px);
@@ -228,7 +265,7 @@ textarea::placeholder {
 }
 .composer-actions :deep(.picker-trigger) {
   display: inline-flex;
-  height: 24.5px;
+  height: 30px;
   gap: 4px;
   padding: 4px 8px;
   border: 1px solid transparent;

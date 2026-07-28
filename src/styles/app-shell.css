@@ -16,22 +16,22 @@
 }
 
 .chat-header {
-  height: 30px;
+  height: 34px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
+  border-bottom: 1px solid var(--border);
   background: var(--bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   z-index: 10;
 }
 
 .chat-title {
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--text-muted);
+  letter-spacing: -0.01em;
   user-select: none;
   white-space: nowrap;
   overflow: hidden;
@@ -55,7 +55,7 @@
 .message-list {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 16px;
+  padding: 20px 18px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -67,59 +67,71 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: 24px;
 }
 
 .empty-content {
+  width: min(100%, 420px);
   text-align: center;
-  max-width: 400px;
 }
 
 .empty-content h2 {
-  font-size: 1.25rem;
+  margin: 0 0 10px;
+  font-size: 1.125rem;
   font-weight: 600;
-  margin: 0 0 12px;
+  letter-spacing: -0.02em;
 }
 
 .empty-content p {
-  font-size: 0.9rem;
-  line-height: 1.6;
+  margin: 0 0 20px;
   color: var(--text-muted);
-  margin: 0 0 24px;
+  font-size: 0.85rem;
+  line-height: 1.55;
 }
 
 .quick-prompts {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   align-items: center;
+  gap: 8px;
 }
 
 .prompt-btn {
-  padding: 8px 16px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  background: transparent;
-  transition: all 180ms ease;
-  cursor: pointer;
+  min-height: 34px;
   max-width: 100%;
+  padding: 7px 12px;
   overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
   text-overflow: ellipsis;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
   white-space: nowrap;
 }
 
 .prompt-btn:hover {
   border-color: var(--accent);
-  color: var(--accent);
   background: var(--accent-soft);
+  color: var(--accent-strong);
+  transform: translateY(-1px);
+}
+
+.prompt-btn:active {
+  transform: translateY(0);
+}
+
+.prompt-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .composer-container {
   flex-shrink: 0;
-  padding: 0 14px 12px;
-  background: linear-gradient(0deg, var(--bg) 60%, transparent);
+  padding: 0 12px 10px;
+  background: linear-gradient(0deg, var(--bg) 65%, transparent);
 }
 
 .scroll-to-bottom-button {
