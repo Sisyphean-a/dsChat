@@ -1,6 +1,5 @@
 import { computed, ref } from 'vue'
 import {
-  CHAT_IDLE_RESET_MS,
   DEFAULT_SETTINGS,
   INTERRUPTED_RESPONSE_MESSAGE,
   SESSION_DOC_ID,
@@ -238,7 +237,11 @@ export function useChatApp() {
       return
     }
 
-    if (shouldResetConversation(session.lastOutAt, Date.now(), CHAT_IDLE_RESET_MS)) {
+    if (shouldResetConversation(
+      session.lastOutAt,
+      Date.now(),
+      settings.value.utoolsSessionIdleTimeoutMinutes * 60_000,
+    )) {
       startFreshConversation()
       await conversationPersistence.persistSession(null)
       return
@@ -433,6 +436,7 @@ export function useChatApp() {
     updateFontSize: settingsActions.updateFontSize,
     updateTheme: settingsActions.updateTheme,
     updateToolEnabled: settingsActions.updateToolEnabled,
+    updateUtoolsSessionIdleTimeoutMinutes: settingsActions.updateUtoolsSessionIdleTimeoutMinutes,
     updateUtoolsUploadMode: settingsActions.updateUtoolsUploadMode,
   }
 }

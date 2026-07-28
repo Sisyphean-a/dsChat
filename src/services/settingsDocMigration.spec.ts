@@ -21,6 +21,7 @@ describe('migrateSettingsDoc', () => {
       minimax: true,
     })
     expect(settings.theme).toBe('dark')
+    expect(settings.utoolsSessionIdleTimeoutMinutes).toBe(1)
     expect(settings.utoolsUploadMode).toBe('all-data')
     expect(settings.deepseek).toEqual({
       apiKey: 'sk-legacy',

@@ -13,12 +13,14 @@ vi.mock('../services/utools', () => ({
   saveSettings: vi.fn(),
 }))
 
-import { hasUtools, loadSettings } from '../services/utools'
+import { hasUtools, loadConversations, loadSession, loadSettings } from '../services/utools'
 import { useChatApp } from './useChatApp'
 
 describe('useChatApp', () => {
   beforeEach(() => {
     vi.mocked(hasUtools).mockReturnValue(false)
+    vi.mocked(loadConversations).mockResolvedValue([])
+    vi.mocked(loadSession).mockResolvedValue(null)
     vi.mocked(loadSettings).mockResolvedValue(settings())
   })
 
@@ -51,6 +53,41 @@ describe('useChatApp', () => {
     expect(app.messages.value).toEqual([])
     expect(app.isSending.value).toBe(false)
     expect(app.pluginEnterSignal.value).toBe(1)
+  })
+
+  it('uses the configured idle timeout when deciding whether to restore a session', async () => {
+    vi.mocked(hasUtools).mockReturnValue(true)
+    vi.stubGlobal('window', {
+      utools: {
+        onPluginEnter: vi.fn(),
+        onPluginOut: vi.fn(),
+      },
+    })
+    vi.mocked(loadSettings).mockResolvedValue({
+      ...settings(),
+      utoolsSessionIdleTimeoutMinutes: 5,
+    })
+    vi.mocked(loadConversations).mockResolvedValue([{
+      _id: 'conversation/previous',
+      configId: 'deepseek',
+      createdAt: 1,
+      id: 'previous',
+      messages: [],
+      title: '上一段对话',
+      type: 'conversation',
+      updatedAt: 1,
+    }])
+    vi.mocked(loadSession).mockResolvedValue({
+      _id: 'session/runtime',
+      currentConversationId: 'previous',
+      lastOutAt: Date.now() - 2 * 60_000,
+      type: 'session',
+    })
+
+    const app = useChatApp()
+    await app.initialize()
+
+    expect(app.activeConversationId.value).toBe('previous')
   })
 
   it('keeps the send action while consuming the Provider stream', async () => {

@@ -69,6 +69,7 @@ export interface ChatAppSettingsActions {
   ) => void
   updateTheme: (theme: ThemeMode) => void
   updateToolEnabled: (enabled: boolean) => void
+  updateUtoolsSessionIdleTimeoutMinutes: (minutes: number) => void
   updateUtoolsUploadMode: (mode: UtoolsUploadMode) => void
 }
 
@@ -330,6 +331,13 @@ export function createChatAppSettingsActions(
     }
   }
 
+  function updateUtoolsSessionIdleTimeoutMinutes(minutes: number): void {
+    settings.value = {
+      ...settings.value,
+      utoolsSessionIdleTimeoutMinutes: minutes,
+    }
+  }
+
   function updateUtoolsUploadMode(mode: UtoolsUploadMode): void {
     settings.value = {
       ...settings.value,
@@ -488,6 +496,7 @@ export function createChatAppSettingsActions(
     updateProviderThinking,
     updateTheme,
     updateToolEnabled,
+    updateUtoolsSessionIdleTimeoutMinutes,
     updateUtoolsUploadMode,
   }
 }

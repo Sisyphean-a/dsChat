@@ -49,7 +49,7 @@ src/
 - uTools 的 `local-only` 不上传任何内容；`settings-only` 只同步设置；`all-data` 同步设置、会话和恢复用 session。
 - 设置本地缺失时才从远端恢复并回写本地；切出 `all-data` 时清理远端会话和 session。
 
-`useChatApp.ts` 仅在 uTools 环境注册生命周期：离开时中断进行中的回复并记录离开时间；再次进入时仅在 1 分钟内恢复上次会话，超时后从新会话开始。
+`useChatApp.ts` 仅在 uTools 环境注册生命周期：离开时中断进行中的回复并记录离开时间；再次进入时仅在“通用”设置的会话恢复时长内恢复上次会话，超时后从新会话开始。
 
 ### 设置与 Provider
 

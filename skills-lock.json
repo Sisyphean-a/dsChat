@@ -85,6 +85,12 @@
       "skillPath": "skills/engineering/prototype/SKILL.md",
       "computedHash": "a3ddb21429509fc160e17edb2cc3f8ce49fb85434aaa1ef4cdb677e2da01ea95"
     },
+    "redesign-existing-projects": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/redesign-skill/SKILL.md",
+      "computedHash": "47eced3e960a2c961d3cbee11fa1216264f589344b586a5cbd03967cd6b9c54b"
+    },
     "research": {
       "source": "vinvcn/mattpocock-skills-zh-CN",
       "sourceType": "github",

@@ -4,7 +4,11 @@ import {
   buildDefaultProviderSettings,
   createAddedModelDraft,
 } from '../constants/providers'
-import { isLegacyMultiProviderDocShape, normalizeUtoolsUploadMode } from '../composables/chatAppSettings'
+import {
+  isLegacyMultiProviderDocShape,
+  normalizeUtoolsSessionIdleTimeoutMinutes,
+  normalizeUtoolsUploadMode,
+} from '../composables/chatAppSettings'
 import type {
   AddableProviderId,
   FontSizeMode,
@@ -55,6 +59,9 @@ export function migrateSettingsDoc(
       providerThinking: doc.providerThinking,
       theme: doc.theme,
       toolSettings: doc.toolSettings ?? { ...DEFAULT_SETTINGS.toolSettings },
+      utoolsSessionIdleTimeoutMinutes: normalizeUtoolsSessionIdleTimeoutMinutes(
+        doc.utoolsSessionIdleTimeoutMinutes,
+      ),
       utoolsUploadMode: normalizeUtoolsUploadMode(doc.utoolsUploadMode, legacyUploadModeFallback),
     }
   }
@@ -87,6 +94,7 @@ export function migrateSettingsDoc(
     },
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
     toolSettings: { ...DEFAULT_SETTINGS.toolSettings },
+    utoolsSessionIdleTimeoutMinutes: DEFAULT_SETTINGS.utoolsSessionIdleTimeoutMinutes,
     utoolsUploadMode: legacyUploadModeFallback,
   }
 }
@@ -120,6 +128,7 @@ function migrateLegacyMultiProviderDoc(
     },
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
     toolSettings: { ...DEFAULT_SETTINGS.toolSettings },
+    utoolsSessionIdleTimeoutMinutes: DEFAULT_SETTINGS.utoolsSessionIdleTimeoutMinutes,
     utoolsUploadMode: legacyUploadModeFallback,
   }
 }

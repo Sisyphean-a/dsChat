@@ -150,6 +150,7 @@ export interface SettingsDoc extends BaseDoc {
   providerThinking: ProviderThinkingSettings
   theme: ThemeMode
   toolSettings: ToolSettings
+  utoolsSessionIdleTimeoutMinutes: number
   utoolsUploadMode: UtoolsUploadMode
 }
 
@@ -178,6 +179,7 @@ export interface SettingsForm {
   providerThinking: ProviderThinkingSettings
   theme: ThemeMode
   toolSettings: ToolSettings
+  utoolsSessionIdleTimeoutMinutes: number
   utoolsUploadMode: UtoolsUploadMode
 }
 

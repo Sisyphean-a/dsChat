@@ -1,7 +1,6 @@
 import type { FontSizeMode, SettingsForm, ThemeMode } from '../types/chat'
 import { buildDefaultSettings } from './providers'
 
-export const CHAT_IDLE_RESET_MS = 60_000
 export const SETTINGS_DOC_ID = 'settings/config'
 export const SESSION_DOC_ID = 'session/runtime'
 export const CONVERSATION_PREFIX = 'conversation/'

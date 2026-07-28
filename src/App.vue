@@ -243,6 +243,7 @@ watch(app.pluginEnterSignal, () => {
       @update-font-size="app.updateFontSize"
       @update-theme="app.updateTheme"
       @update-tool-enabled="app.updateToolEnabled"
+      @update-utools-session-idle-timeout-minutes="app.updateUtoolsSessionIdleTimeoutMinutes"
       @update-utools-upload-mode="app.updateUtoolsUploadMode"
     />
   </div>

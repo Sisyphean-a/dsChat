@@ -10,7 +10,10 @@ import type {
   ToolSettings,
   ThemeMode,
 } from '../types/chat'
-import { DEFAULT_UTOOLS_UPLOAD_MODE } from './storage'
+import {
+  DEFAULT_UTOOLS_SESSION_IDLE_TIMEOUT_MINUTES,
+  DEFAULT_UTOOLS_UPLOAD_MODE,
+} from './storage'
 import { DEFAULT_TAVILY_SEARCH_BASE_URL } from './tools'
 
 export interface ProviderModelOption {
@@ -248,6 +251,7 @@ export function buildDefaultSettings(): SettingsForm {
       ...DEFAULT_TOOL_SETTINGS,
     },
     theme: THEME_DEFAULT,
+    utoolsSessionIdleTimeoutMinutes: DEFAULT_UTOOLS_SESSION_IDLE_TIMEOUT_MINUTES,
     utoolsUploadMode: DEFAULT_UTOOLS_UPLOAD_MODE,
   }
 }

@@ -11,7 +11,9 @@ import {
   normalizeProviderCapabilities,
 } from '../constants/providerCapabilities'
 import {
+  DEFAULT_UTOOLS_SESSION_IDLE_TIMEOUT_MINUTES,
   DEFAULT_UTOOLS_UPLOAD_MODE,
+  UTOOLS_SESSION_IDLE_TIMEOUT_OPTIONS,
   UTOOLS_UPLOAD_MODES,
 } from '../constants/storage'
 import type {
@@ -46,6 +48,9 @@ export function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
     providerThinking: normalizeProviderThinking(currentSettings.providerThinking),
     toolSettings: normalizeToolSettings(currentSettings.toolSettings),
     theme: normalizeTheme(currentSettings.theme),
+    utoolsSessionIdleTimeoutMinutes: normalizeUtoolsSessionIdleTimeoutMinutes(
+      currentSettings.utoolsSessionIdleTimeoutMinutes,
+    ),
     utoolsUploadMode: normalizeUtoolsUploadMode(currentSettings.utoolsUploadMode),
   }
 }
@@ -313,6 +318,14 @@ function normalizeProviderThinking(
     kimi: providerThinking?.kimi ?? true,
     minimax: providerThinking?.minimax ?? true,
   }
+}
+
+export function normalizeUtoolsSessionIdleTimeoutMinutes(
+  minutes: SettingsForm['utoolsSessionIdleTimeoutMinutes'] | undefined,
+  fallback = DEFAULT_UTOOLS_SESSION_IDLE_TIMEOUT_MINUTES,
+): SettingsForm['utoolsSessionIdleTimeoutMinutes'] {
+  return UTOOLS_SESSION_IDLE_TIMEOUT_OPTIONS.find((option) => option.value === minutes)?.value
+    ?? fallback
 }
 
 export function normalizeUtoolsUploadMode(

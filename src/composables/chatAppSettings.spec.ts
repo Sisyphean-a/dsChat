@@ -99,6 +99,15 @@ describe('getSendSettingsError', () => {
 })
 
 describe('normalizeSettings', () => {
+  it('restores the default idle timeout for settings saved before this option existed', () => {
+    const settings = {
+      ...buildDefaultSettings(),
+      utoolsSessionIdleTimeoutMinutes: undefined,
+    } as unknown as ReturnType<typeof buildDefaultSettings>
+
+    expect(normalizeSettings(settings).utoolsSessionIdleTimeoutMinutes).toBe(1)
+  })
+
   it('attaches default provider capabilities to every provider config', () => {
     const settings = buildDefaultSettings()
     const openai = createAddedModelDraft('openai', [])

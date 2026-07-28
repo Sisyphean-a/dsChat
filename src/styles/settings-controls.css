@@ -25,6 +25,20 @@
   margin-bottom: 0;
 }
 
+.session-storage-card,
+.general-setting-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.session-storage-card {
+  gap: 18px;
+}
+
+.general-setting-group {
+  gap: 10px;
+}
+
 .setting-card h4,
 .provider-card h4 {
   font-size: 0.98rem;

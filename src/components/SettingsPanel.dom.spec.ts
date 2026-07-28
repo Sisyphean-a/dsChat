@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { buildDefaultSettings } from '../constants/providers'
+import SettingsGeneralSection from './SettingsGeneralSection.vue'
 import SettingsPanel from './SettingsPanel.vue'
 
 describe('SettingsPanel', () => {
@@ -17,6 +18,23 @@ describe('SettingsPanel', () => {
     })
 
     expect(wrapper.get('[role="alert"]').text()).toBe('设置保存失败。')
+  })
+
+  it('shows and forwards the session idle timeout setting', async () => {
+    const wrapper = mount(SettingsPanel, {
+      props: {
+        isBrowserMode: false,
+        open: true,
+        saving: false,
+        settings: buildDefaultSettings(),
+      },
+    })
+
+    expect(wrapper.text()).toContain('控制离开 uTools 多久后以新对话打开。')
+    wrapper.findComponent(SettingsGeneralSection).vm.$emit('updateUtoolsSessionIdleTimeoutMinutes', 5)
+    await nextTick()
+
+    expect(wrapper.emitted('updateUtoolsSessionIdleTimeoutMinutes')).toEqual([[5]])
   })
 
   it('does not close the dialog when Escape cancels active input composition', async () => {

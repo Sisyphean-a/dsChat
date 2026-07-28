@@ -60,6 +60,7 @@ const emit = defineEmits<{
   updateFontSize: [fontSize: FontSizeMode]
   updateTheme: [theme: ThemeMode]
   updateToolEnabled: [enabled: boolean]
+  updateUtoolsSessionIdleTimeoutMinutes: [minutes: number]
   updateUtoolsUploadMode: [mode: UtoolsUploadMode]
 }>()
 
@@ -74,7 +75,7 @@ const navItems = computed(() => [
   {
     id: 'general' as const,
     label: '通用',
-    description: '外观与存储',
+    description: '外观、会话与存储',
     badge: props.settings.theme === 'dark' ? '夜色' : '浅色',
   },
   {
@@ -169,6 +170,7 @@ const { handleModalKeydown } = useModalFocus({
               :settings="props.settings"
               @update-font-size="emit('updateFontSize', $event)"
               @update-theme="emit('updateTheme', $event)"
+              @update-utools-session-idle-timeout-minutes="emit('updateUtoolsSessionIdleTimeoutMinutes', $event)"
               @update-utools-upload-mode="emit('updateUtoolsUploadMode', $event)"
             />
             <SettingsProvidersSection
