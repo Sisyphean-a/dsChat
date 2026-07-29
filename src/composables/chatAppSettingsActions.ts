@@ -67,6 +67,7 @@ export interface ChatAppSettingsActions {
     provider: keyof ProviderThinkingSettings,
     enabled: boolean,
   ) => void
+  updateSystemPrompt: (systemPrompt: string) => void
   updateTheme: (theme: ThemeMode) => void
   updateToolEnabled: (enabled: boolean) => void
   updateUtoolsSessionIdleTimeoutMinutes: (minutes: number) => void
@@ -331,6 +332,13 @@ export function createChatAppSettingsActions(
     }
   }
 
+  function updateSystemPrompt(systemPrompt: string): void {
+    settings.value = {
+      ...settings.value,
+      systemPrompt,
+    }
+  }
+
   function updateUtoolsSessionIdleTimeoutMinutes(minutes: number): void {
     settings.value = {
       ...settings.value,
@@ -494,6 +502,7 @@ export function createChatAppSettingsActions(
     updateDeepseekField,
     updateFontSize,
     updateProviderThinking,
+    updateSystemPrompt,
     updateTheme,
     updateToolEnabled,
     updateUtoolsSessionIdleTimeoutMinutes,

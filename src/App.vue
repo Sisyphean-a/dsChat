@@ -241,6 +241,7 @@ watch(app.pluginEnterSignal, () => {
       @update-deepseek-capability="app.updateDeepseekCapability"
       @update-deepseek-field="app.updateDeepseekField"
       @update-font-size="app.updateFontSize"
+      @update-system-prompt="app.updateSystemPrompt"
       @update-theme="app.updateTheme"
       @update-tool-enabled="app.updateToolEnabled"
       @update-utools-session-idle-timeout-minutes="app.updateUtoolsSessionIdleTimeoutMinutes"

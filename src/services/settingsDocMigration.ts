@@ -57,6 +57,7 @@ export function migrateSettingsDoc(
       deepseek: doc.deepseek,
       fontSize: doc.fontSize,
       providerThinking: doc.providerThinking,
+      systemPrompt: typeof doc.systemPrompt === 'string' ? doc.systemPrompt : '',
       theme: doc.theme,
       toolSettings: doc.toolSettings ?? { ...DEFAULT_SETTINGS.toolSettings },
       utoolsSessionIdleTimeoutMinutes: normalizeUtoolsSessionIdleTimeoutMinutes(
@@ -92,6 +93,7 @@ export function migrateSettingsDoc(
       ...DEFAULT_SETTINGS.providerThinking,
       ...(doc.providerThinking ?? {}),
     },
+    systemPrompt: '',
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
     toolSettings: { ...DEFAULT_SETTINGS.toolSettings },
     utoolsSessionIdleTimeoutMinutes: DEFAULT_SETTINGS.utoolsSessionIdleTimeoutMinutes,
@@ -126,6 +128,7 @@ function migrateLegacyMultiProviderDoc(
       ...DEFAULT_SETTINGS.providerThinking,
       ...(doc.providerThinking ?? {}),
     },
+    systemPrompt: '',
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
     toolSettings: { ...DEFAULT_SETTINGS.toolSettings },
     utoolsSessionIdleTimeoutMinutes: DEFAULT_SETTINGS.utoolsSessionIdleTimeoutMinutes,

@@ -148,6 +148,7 @@ export interface SettingsDoc extends BaseDoc {
   customModels: AddedModelConfig[]
   fontSize: FontSizeMode
   providerThinking: ProviderThinkingSettings
+  systemPrompt: string
   theme: ThemeMode
   toolSettings: ToolSettings
   utoolsSessionIdleTimeoutMinutes: number
@@ -177,6 +178,7 @@ export interface SettingsForm {
   customModels: AddedModelConfig[]
   fontSize: FontSizeMode
   providerThinking: ProviderThinkingSettings
+  systemPrompt: string
   theme: ThemeMode
   toolSettings: ToolSettings
   utoolsSessionIdleTimeoutMinutes: number

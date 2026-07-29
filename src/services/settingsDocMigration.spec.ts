@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { buildDefaultSettings } from '../constants/providers'
 import { migrateSettingsDoc } from './settingsDocMigration'
 
 describe('migrateSettingsDoc', () => {
@@ -38,6 +39,17 @@ describe('migrateSettingsDoc', () => {
       temperature: 1.5,
     })
     expect(settings.customModels).toEqual([])
+  })
+
+  it('adds an empty system prompt to settings saved before the feature existed', () => {
+    const { systemPrompt: _, ...previousSettings } = buildDefaultSettings()
+    const settings = migrateSettingsDoc({
+      _id: 'settings/config',
+      type: 'settings',
+      ...previousSettings,
+    } as Parameters<typeof migrateSettingsDoc>[0], 'all-data')
+
+    expect(settings.systemPrompt).toBe('')
   })
 
   it('migrates previous multi-provider documents into deepseek plus custom models', () => {

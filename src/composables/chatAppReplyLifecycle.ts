@@ -57,6 +57,7 @@ interface LifecycleState extends ReplyMessageState {
 interface ReplyRequest {
   assistantId: string
   settings: ActiveProviderSettings
+  systemPrompt: string
   thinkingEnabled: boolean
   toolSettings: ToolSettings
 }
@@ -144,7 +145,7 @@ function startNewReply(state: LifecycleState, prepared: SendPreparation): ReplyS
 
 function createReplyStart(
   assistantId: string,
-  prepared: Pick<SendPreparation, 'activeSettings' | 'thinkingEnabled' | 'toolSettings'>,
+  prepared: Pick<SendPreparation, 'activeSettings' | 'systemPrompt' | 'thinkingEnabled' | 'toolSettings'>,
 ): ReplyStart {
   return {
     controller: new AbortController(),
@@ -152,6 +153,7 @@ function createReplyStart(
     snapshot: {
       assistantId,
       settings: structuredClone(prepared.activeSettings),
+      systemPrompt: prepared.systemPrompt,
       thinkingEnabled: prepared.thinkingEnabled,
       toolSettings: structuredClone(prepared.toolSettings),
     },
@@ -215,8 +217,11 @@ function chooseReplyStream(
   request: ReplyRequest,
   signal: AbortSignal,
 ): AsyncIterable<ReplyStreamEvent> {
-  const messages = state.options.messageMapping.toProviderConversationMessages(
-    buildRequestMessages(state.options.messages.value.slice(0, -1)),
+  const messages = prependSystemPrompt(
+    state.options.messageMapping.toProviderConversationMessages(
+      buildRequestMessages(state.options.messages.value.slice(0, -1)),
+    ),
+    request.systemPrompt,
   )
   if (request.toolSettings.enabled && providerSupportsToolCalling(request.settings)) {
     return state.options.toolOrchestrator.stream({ ...request, messages, signal })
@@ -225,6 +230,17 @@ function chooseReplyStream(
     throw new Error(`${request.settings.label} 当前配置暂不支持工具调用。`)
   }
   return streamDirectReply(state.options.providerStream, { ...request, messages, signal })
+}
+
+function prependSystemPrompt(
+  messages: ProviderConversationMessage[],
+  systemPrompt: string,
+): ProviderConversationMessage[] {
+  if (!systemPrompt.trim()) {
+    return messages
+  }
+
+  return [{ content: systemPrompt, role: 'system' }, ...messages]
 }
 
 async function* streamDirectReply(

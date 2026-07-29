@@ -35,29 +35,12 @@
   color: var(--text-muted);
 }
 
-.session-storage-card,
-.general-setting-group,
 .stacked-controls,
 .provider-card,
 .custom-tool-card {
   display: flex;
   flex-direction: column;
-}
-
-.session-storage-card {
-  gap: 16px;
-}
-
-.general-setting-group,
-.stacked-controls,
-.provider-card,
-.custom-tool-card {
   gap: 10px;
-}
-
-.general-setting-group + .general-setting-group {
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
 }
 
 .control-row {
@@ -312,6 +295,38 @@
   font-size: 0.82rem;
   outline: none;
   transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.system-prompt-input {
+  width: 100%;
+  min-height: 7.5rem;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.system-prompt-input:hover:not(:disabled) {
+  border-color: var(--text-muted);
+  background: var(--bg-soft);
+}
+
+.system-prompt-input:focus {
+  border-color: var(--accent);
+  background: var(--bg);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.system-prompt-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .settings-panel input:not([type='checkbox']):not(.provider-name-input):hover,

@@ -46,6 +46,7 @@ export function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
     deepseek: normalizeProviderSettings('deepseek', currentSettings.deepseek),
     fontSize: normalizeFontSize(currentSettings.fontSize),
     providerThinking: normalizeProviderThinking(currentSettings.providerThinking),
+    systemPrompt: normalizeSystemPrompt(currentSettings.systemPrompt),
     toolSettings: normalizeToolSettings(currentSettings.toolSettings),
     theme: normalizeTheme(currentSettings.theme),
     utoolsSessionIdleTimeoutMinutes: normalizeUtoolsSessionIdleTimeoutMinutes(
@@ -318,6 +319,10 @@ function normalizeProviderThinking(
     kimi: providerThinking?.kimi ?? true,
     minimax: providerThinking?.minimax ?? true,
   }
+}
+
+function normalizeSystemPrompt(systemPrompt: SettingsForm['systemPrompt'] | undefined): string {
+  return typeof systemPrompt === 'string' && systemPrompt.trim() ? systemPrompt : ''
 }
 
 export function normalizeUtoolsSessionIdleTimeoutMinutes(

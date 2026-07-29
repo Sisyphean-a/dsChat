@@ -108,6 +108,16 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings(settings).utoolsSessionIdleTimeoutMinutes).toBe(1)
   })
 
+  it('preserves system prompts and clears whitespace-only values', () => {
+    const settings = buildDefaultSettings()
+    settings.systemPrompt = '言简意赅\n避免大段回复'
+
+    expect(normalizeSettings(settings).systemPrompt).toBe('言简意赅\n避免大段回复')
+
+    settings.systemPrompt = '   '
+    expect(normalizeSettings(settings).systemPrompt).toBe('')
+  })
+
   it('attaches default provider capabilities to every provider config', () => {
     const settings = buildDefaultSettings()
     const openai = createAddedModelDraft('openai', [])

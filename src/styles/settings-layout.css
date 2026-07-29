@@ -332,7 +332,7 @@
   }
 
   .settings-nav {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 2px;
   }
 
@@ -351,6 +351,10 @@
 
   .settings-nav-item .nav-main {
     justify-content: center;
+  }
+
+  .nav-badge {
+    display: none;
   }
 
   .settings-content {
@@ -374,7 +378,4 @@
     padding: 7px 9px;
   }
 
-  .nav-badge {
-    display: none;
-  }
 }

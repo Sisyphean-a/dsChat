@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { buildDefaultSettings } from '../constants/providers'
-import SettingsGeneralSection from './SettingsGeneralSection.vue'
+import SettingsConversationSection from './SettingsConversationSection.vue'
 import SettingsPanel from './SettingsPanel.vue'
 
 describe('SettingsPanel', () => {
@@ -20,7 +20,7 @@ describe('SettingsPanel', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe('设置保存失败。')
   })
 
-  it('shows and forwards the session idle timeout setting', async () => {
+  it('shows and forwards the conversation settings', async () => {
     const wrapper = mount(SettingsPanel, {
       props: {
         isBrowserMode: false,
@@ -30,10 +30,15 @@ describe('SettingsPanel', () => {
       },
     })
 
+    await wrapper.findAll('.settings-nav-item')[1]?.trigger('click')
+
+    expect(wrapper.get('textarea').attributes('placeholder')).toBe('例如：言简意赅，避免大段回复')
     expect(wrapper.text()).toContain('控制离开 uTools 多久后以新对话打开。')
-    wrapper.findComponent(SettingsGeneralSection).vm.$emit('updateUtoolsSessionIdleTimeoutMinutes', 5)
+    await wrapper.get('textarea').setValue('言简意赅，避免大段回复')
+    wrapper.findComponent(SettingsConversationSection).vm.$emit('updateUtoolsSessionIdleTimeoutMinutes', 5)
     await nextTick()
 
+    expect(wrapper.emitted('updateSystemPrompt')).toEqual([['言简意赅，避免大段回复']])
     expect(wrapper.emitted('updateUtoolsSessionIdleTimeoutMinutes')).toEqual([[5]])
   })
 

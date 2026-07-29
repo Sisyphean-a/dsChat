@@ -4,4 +4,4 @@ export type ProviderEditableField = Exclude<keyof ProviderSettings, 'modelOption
 export type ProviderCapabilityField = keyof ProviderSettings['capabilities']
 export type CustomModelField = ProviderEditableField | 'name'
 export type CustomToolEditableField = Exclude<keyof CustomToolSettings, 'id'>
-export type SettingsSectionId = 'general' | 'providers' | 'tools'
+export type SettingsSectionId = 'general' | 'conversation' | 'providers' | 'tools'

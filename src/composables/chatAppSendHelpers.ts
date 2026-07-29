@@ -12,6 +12,7 @@ export interface SendPreparation {
   activeSettings: ActiveProviderSettings
   attachments: MessageAttachment[]
   content: string
+  systemPrompt: string
   thinkingEnabled: boolean
   toolSettings: ToolSettings
 }
@@ -48,6 +49,7 @@ export function prepareSendRequest(options: PrepareSendRequestOptions): SendPrep
     activeSettings: context.activeSettings,
     attachments,
     content,
+    systemPrompt: context.systemPrompt,
     thinkingEnabled: context.thinkingEnabled,
     toolSettings: context.toolSettings,
   }

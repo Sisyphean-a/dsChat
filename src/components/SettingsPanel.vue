@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useModalFocus } from '../composables/useModalFocus'
+import SettingsConversationSection from './SettingsConversationSection.vue'
 import SettingsGeneralSection from './SettingsGeneralSection.vue'
 import SettingsProvidersSection from './SettingsProvidersSection.vue'
 import SettingsToolsSection from './SettingsToolsSection.vue'
@@ -58,6 +59,7 @@ const emit = defineEmits<{
     value: ProviderCapabilities[keyof ProviderCapabilities],
   ]
   updateFontSize: [fontSize: FontSizeMode]
+  updateSystemPrompt: [systemPrompt: string]
   updateTheme: [theme: ThemeMode]
   updateToolEnabled: [enabled: boolean]
   updateUtoolsSessionIdleTimeoutMinutes: [minutes: number]
@@ -76,6 +78,11 @@ const navItems = computed(() => [
     id: 'general' as const,
     label: '通用',
     badge: props.settings.theme === 'dark' ? '夜色' : '浅色',
+  },
+  {
+    id: 'conversation' as const,
+    label: '对话',
+    badge: '',
   },
   {
     id: 'providers' as const,
@@ -150,7 +157,7 @@ const { handleModalKeydown } = useModalFocus({
               >
                 <span class="nav-main">
                   <span class="nav-label">{{ item.label }}</span>
-                  <span class="nav-badge">{{ item.badge }}</span>
+                  <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
                 </span>
               </button>
             </nav>
@@ -168,8 +175,14 @@ const { handleModalKeydown } = useModalFocus({
               :settings="props.settings"
               @update-font-size="emit('updateFontSize', $event)"
               @update-theme="emit('updateTheme', $event)"
-              @update-utools-session-idle-timeout-minutes="emit('updateUtoolsSessionIdleTimeoutMinutes', $event)"
               @update-utools-upload-mode="emit('updateUtoolsUploadMode', $event)"
+            />
+            <SettingsConversationSection
+              v-else-if="activeSection === 'conversation'"
+              :saving="props.saving"
+              :settings="props.settings"
+              @update-system-prompt="emit('updateSystemPrompt', $event)"
+              @update-utools-session-idle-timeout-minutes="emit('updateUtoolsSessionIdleTimeoutMinutes', $event)"
             />
             <SettingsProvidersSection
               v-else-if="activeSection === 'providers'"

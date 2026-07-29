@@ -247,6 +247,7 @@ export function buildDefaultSettings(): SettingsForm {
     providerThinking: {
       ...DEFAULT_PROVIDER_THINKING,
     },
+    systemPrompt: '',
     toolSettings: {
       ...DEFAULT_TOOL_SETTINGS,
     },

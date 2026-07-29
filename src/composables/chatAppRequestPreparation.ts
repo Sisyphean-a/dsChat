@@ -16,6 +16,7 @@ interface PrepareRequestContextOptions {
 
 export interface PreparedRequestContext {
   activeSettings: ActiveProviderSettings
+  systemPrompt: string
   thinkingEnabled: boolean
   toolSettings: ToolSettings
 }
@@ -45,6 +46,7 @@ export function prepareRequestContext(
 
   return {
     activeSettings,
+    systemPrompt: normalizedSettings.systemPrompt,
     thinkingEnabled,
     toolSettings: normalizedSettings.toolSettings,
   }

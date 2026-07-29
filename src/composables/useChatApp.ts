@@ -434,6 +434,7 @@ export function useChatApp() {
     updateBuiltinToolTavilyApiKey: settingsActions.updateBuiltinToolTavilyApiKey,
     updateBuiltinToolTavilyBaseUrl: settingsActions.updateBuiltinToolTavilyBaseUrl,
     updateFontSize: settingsActions.updateFontSize,
+    updateSystemPrompt: settingsActions.updateSystemPrompt,
     updateTheme: settingsActions.updateTheme,
     updateToolEnabled: settingsActions.updateToolEnabled,
     updateUtoolsSessionIdleTimeoutMinutes: settingsActions.updateUtoolsSessionIdleTimeoutMinutes,

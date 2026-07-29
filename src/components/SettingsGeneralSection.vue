@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import ModelPicker from './ModelPicker.vue'
-import {
-  UTOOLS_SESSION_IDLE_TIMEOUT_OPTIONS,
-  UTOOLS_UPLOAD_MODE_OPTIONS,
-} from '../constants/storage'
+import { UTOOLS_UPLOAD_MODE_OPTIONS } from '../constants/storage'
 import type {
   FontSizeMode,
   ModelConfigOption,
@@ -22,7 +19,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   updateFontSize: [fontSize: FontSizeMode]
   updateTheme: [theme: ThemeMode]
-  updateUtoolsSessionIdleTimeoutMinutes: [minutes: number]
   updateUtoolsUploadMode: [mode: UtoolsUploadMode]
 }>()
 
@@ -35,14 +31,6 @@ const fontSizeCards: Array<{ label: string; value: FontSizeMode }> = [
   { label: '大号', value: 'large' },
   { label: '特大', value: 'x-large' },
 ]
-
-const sessionIdleTimeoutPickerOptions: ModelConfigOption[] = UTOOLS_SESSION_IDLE_TIMEOUT_OPTIONS.map((option) => ({
-  badge: '会话',
-  detail: '',
-  label: option.label,
-  shortLabel: option.label,
-  value: String(option.value),
-}))
 
 const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
   const shortLabels: Record<UtoolsUploadMode, string> = {
@@ -60,12 +48,6 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
   }))
 })
 
-function selectSessionIdleTimeout(value: string): void {
-  const option = UTOOLS_SESSION_IDLE_TIMEOUT_OPTIONS.find((item) => item.value === Number(value))
-  if (option) {
-    emit('updateUtoolsSessionIdleTimeoutMinutes', option.value)
-  }
-}
 </script>
 
 <template>
@@ -114,41 +96,22 @@ function selectSessionIdleTimeout(value: string): void {
         </div>
       </article>
 
-      <article class="setting-card session-storage-card">
-        <div class="general-setting-group">
-          <div class="setting-card-head">
-            <div>
-              <h4>会话</h4>
-              <p>控制离开 uTools 多久后以新对话打开。</p>
-            </div>
+      <article class="setting-card">
+        <div class="setting-card-head">
+          <div>
+            <h4>存储</h4>
+            <p>控制哪些数据会进入 uTools 数据库。</p>
           </div>
-          <ModelPicker
-            class="session-idle-timeout-picker"
-            :disabled="props.saving"
-            :model-value="String(props.settings.utoolsSessionIdleTimeoutMinutes)"
-            :options="sessionIdleTimeoutPickerOptions"
-            panel-direction="down"
-            @select="selectSessionIdleTimeout"
-          />
         </div>
-
-        <div class="general-setting-group">
-          <div class="setting-card-head">
-            <div>
-              <h4>存储</h4>
-              <p>控制哪些数据会进入 uTools 数据库。</p>
-            </div>
-          </div>
-          <ModelPicker
-            class="storage-picker"
-            :disabled="props.saving"
-            :model-value="props.settings.utoolsUploadMode"
-            :options="uploadModePickerOptions"
-            panel-direction="down"
-            @select="emit('updateUtoolsUploadMode', $event as UtoolsUploadMode)"
-          />
-          <p v-if="props.isBrowserMode" class="hint-row">浏览器预览模式仅使用本地存储。</p>
-        </div>
+        <ModelPicker
+          class="storage-picker"
+          :disabled="props.saving"
+          :model-value="props.settings.utoolsUploadMode"
+          :options="uploadModePickerOptions"
+          panel-direction="down"
+          @select="emit('updateUtoolsUploadMode', $event as UtoolsUploadMode)"
+        />
+        <p v-if="props.isBrowserMode" class="hint-row">浏览器预览模式仅使用本地存储。</p>
       </article>
     </div>
   </section>
