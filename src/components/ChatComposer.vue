@@ -8,7 +8,8 @@ import {
   PhX,
 } from '@phosphor-icons/vue'
 import ImagePreviewDialog from './ImagePreviewDialog.vue'
-import type { MessageAttachment, ThinkingLevel } from '../types/chat'
+import ModelPicker from './ModelPicker.vue'
+import type { MessageAttachment, ModelConfigOption, ThinkingLevel } from '../types/chat'
 import type { ThinkingOption } from '../constants/thinking'
 
 const props = withDefaults(defineProps<{
@@ -44,6 +45,13 @@ const thinkingLevelLabel = computed(() => {
   return props.thinkingOptions.find((option) => option.value === props.thinkingLevel)?.label
     ?? props.thinkingLevel
 })
+const thinkingPickerOptions = computed<ModelConfigOption[]>(() => props.thinkingOptions.map((option) => ({
+  badge: '',
+  detail: '',
+  label: option.label,
+  shortLabel: option.label,
+  value: option.value,
+})))
 const MIN_TEXTAREA_HEIGHT = 44
 const MAX_TEXTAREA_HEIGHT = 200
 
@@ -284,29 +292,25 @@ function mimeTypeToExtension(mimeType: string): string {
             @change="handleImageInput"
           />
           <slot name="actions"></slot>
-          <label
+          <ModelPicker
             v-if="props.thinkingOptions.length"
-            class="thinking-level-control"
-            :class="{ disabled: props.sendDisabled }"
+            class="thinking-level-picker"
+            :disabled="props.sendDisabled"
+            :model-value="props.thinkingLevel"
+            :options="thinkingPickerOptions"
+            panel-direction="up"
+            trigger-aria-label="选择思考等级"
+            @select="handleThinkingLevelChange"
           >
-            <PhBrain :size="16" aria-hidden="true" class="thinking-level-icon" weight="regular" />
-            <span class="thinking-level-label">思考</span>
-            <span class="thinking-level-value" aria-hidden="true">{{ thinkingLevelLabel }}</span>
-            <svg aria-hidden="true" class="thinking-level-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-            <select
-              class="thinking-level-select"
-              aria-label="选择思考等级"
-              :value="props.thinkingLevel"
-              :disabled="props.sendDisabled"
-              @change="handleThinkingLevelChange(($event.target as HTMLSelectElement).value)"
-            >
-              <option v-for="option in props.thinkingOptions" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
-          </label>
+            <template #trigger>
+              <PhBrain :size="16" aria-hidden="true" class="thinking-level-icon" weight="regular" />
+              <span class="thinking-level-label">思考</span>
+              <span class="thinking-level-value" aria-hidden="true">{{ thinkingLevelLabel }}</span>
+              <svg aria-hidden="true" class="picker-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </template>
+          </ModelPicker>
         </div>
         <button
           v-if="props.isSending"

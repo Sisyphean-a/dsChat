@@ -80,34 +80,6 @@ textarea::placeholder {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.thinking-level-control {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  position: relative;
-  gap: 5px;
-  height: 30px;
-  margin-left: auto;
-  padding: 0 9px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  color: var(--accent-strong);
-  background: var(--accent-soft);
-  font-size: 11px;
-  line-height: 16.5px;
-  white-space: nowrap;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
-}
-.thinking-level-control:focus-within,
-.thinking-level-control:not(.disabled):hover {
-  border-color: var(--accent);
-}
-.thinking-level-control:focus-within {
-  box-shadow: 0 0 0 2px var(--accent-soft);
-}
-.thinking-level-control.disabled {
-  opacity: 0.5;
-}
 .thinking-level-icon {
   flex: none;
 }
@@ -116,21 +88,6 @@ textarea::placeholder {
 }
 .thinking-level-value {
   font-weight: 500;
-}
-.thinking-level-arrow {
-  flex: none;
-}
-.thinking-level-select {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-.thinking-level-select:disabled {
-  cursor: not-allowed;
 }
 .hidden-file-input {
   display: none;
@@ -242,12 +199,12 @@ textarea::placeholder {
   cursor: not-allowed;
   opacity: 0.55;
 }
-.composer-actions :deep(.model-picker) {
+.composer-actions :deep(.model-picker:not(.thinking-level-picker)) {
   width: auto;
   min-width: 0;
   max-width: none;
 }
-.composer-actions :deep(.picker-trigger) {
+.composer-actions :deep(.model-picker:not(.thinking-level-picker) .picker-trigger) {
   display: inline-flex;
   height: 30px;
   gap: 4px;
@@ -259,22 +216,61 @@ textarea::placeholder {
   transform: none;
   color: var(--text);
 }
-.composer-actions :deep(.picker-trigger:hover:not(:disabled)),
-.composer-actions :deep(.model-picker.open .picker-trigger) {
+.composer-actions :deep(.model-picker:not(.thinking-level-picker) .picker-trigger:hover:not(:disabled)),
+.composer-actions :deep(.model-picker:not(.thinking-level-picker).open .picker-trigger) {
   border-color: var(--accent);
   background: var(--accent-soft);
   box-shadow: none;
   transform: none;
 }
-.composer-actions :deep(.picker-copy) {
+.composer-actions :deep(.model-picker:not(.thinking-level-picker) .picker-copy) {
   font-size: 11px;
   line-height: 16.5px;
   font-weight: 500;
 }
-.composer-actions :deep(.picker-arrow) {
+.composer-actions :deep(.model-picker:not(.thinking-level-picker) .picker-arrow) {
   width: 10px;
   height: 10px;
   color: var(--text);
+}
+.composer-actions :deep(.thinking-level-picker) {
+  flex: none;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  margin-left: auto;
+}
+.composer-actions :deep(.thinking-level-picker .picker-trigger) {
+  display: inline-flex;
+  width: auto;
+  height: 30px;
+  gap: 5px;
+  padding: 0 9px;
+  border-color: var(--accent);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  box-shadow: none;
+  color: var(--accent-strong);
+  font-size: 11px;
+  line-height: 16.5px;
+  white-space: nowrap;
+}
+.composer-actions :deep(.thinking-level-picker .picker-trigger:hover:not(:disabled)),
+.composer-actions :deep(.thinking-level-picker.open .picker-trigger) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  transform: none;
+}
+.composer-actions :deep(.thinking-level-picker .picker-arrow) {
+  width: 14px;
+  height: 14px;
+  color: var(--accent-strong);
+}
+.composer-actions :deep(.thinking-level-picker .picker-panel) {
+  left: auto;
+  right: 0;
+  min-width: 160px;
 }
 @media (max-width: 640px) {
   .composer-form {
@@ -284,7 +280,7 @@ textarea::placeholder {
     flex-wrap: wrap;
     row-gap: 4px;
   }
-  .thinking-level-control {
+  .composer-actions :deep(.thinking-level-picker) {
     margin-left: 0;
     order: 2;
   }

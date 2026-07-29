@@ -279,7 +279,9 @@ describe('ChatComposer', () => {
       },
     })
 
-    await wrapper.get('.thinking-level-select').setValue('off')
+    await wrapper.get('.thinking-level-label').trigger('click')
+    expect(wrapper.find('.thinking-level-picker .picker-panel').exists()).toBe(true)
+    await wrapper.get('.thinking-level-picker .picker-option').trigger('click')
 
     expect(wrapper.emitted('updateThinkingLevel')).toEqual([['off']])
   })

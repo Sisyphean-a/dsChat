@@ -7,6 +7,7 @@ const props = defineProps<{
   modelValue: string
   options: Array<ModelConfigOption | string>
   panelDirection?: 'up' | 'down'
+  triggerAriaLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -117,11 +118,19 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="rootRef" class="model-picker" :class="{ disabled: props.disabled, open: isOpen }">
-    <button class="picker-trigger" type="button" :disabled="props.disabled" @click="togglePanel">
-      <span class="picker-copy">{{ triggerLabel }}</span>
-      <svg class="picker-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="6 9 12 15 18 9"></polyline>
-      </svg>
+    <button
+      class="picker-trigger"
+      type="button"
+      :aria-label="props.triggerAriaLabel"
+      :disabled="props.disabled"
+      @click="togglePanel"
+    >
+      <slot name="trigger" :label="triggerLabel">
+        <span class="picker-copy">{{ triggerLabel }}</span>
+        <svg class="picker-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </slot>
     </button>
 
     <transition name="picker-fade">
