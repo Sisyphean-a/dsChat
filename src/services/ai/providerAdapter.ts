@@ -1,4 +1,4 @@
-import type { ActiveProviderSettings, MessageAttachment } from '../../types/chat'
+import type { ActiveProviderSettings, MessageAttachment, ThinkingLevel } from '../../types/chat'
 import { resolveProviderProtocol } from '../../constants/providerCapabilities'
 import type { AiToolDefinition, NormalizedToolCall } from './toolTypes'
 import { chatCompletionsAdapter } from './providerAdapters/chatCompletionsAdapter'
@@ -17,7 +17,7 @@ export interface ProviderRequestInput {
   messages: ProviderConversationMessage[]
   settings: ActiveProviderSettings
   stream: boolean
-  thinkingEnabled: boolean
+  thinkingLevel: ThinkingLevel
   tools: AiToolDefinition[]
 }
 

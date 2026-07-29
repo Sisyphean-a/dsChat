@@ -5,6 +5,7 @@ export type ThemeMode = 'light' | 'dark'
 export type ProviderId = 'deepseek' | 'openai' | 'minimax' | 'kimi' | 'custom'
 export type AddableProviderId = Exclude<ProviderId, 'deepseek'>
 export type ProviderProtocol = 'chat_completions' | 'responses'
+export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'max'
 export type UtoolsUploadMode = 'local-only' | 'settings-only' | 'all-data'
 export type ToolTraceStatus = 'planned' | 'running' | 'succeeded' | 'failed' | 'stopped'
 export type ToolTraceErrorCode =
@@ -82,6 +83,7 @@ export interface ProviderSettings {
   capabilities: ProviderCapabilities
   model: string
   modelOptions: string[]
+  reasoningLevel: ThinkingLevel
   temperature: number
 }
 
@@ -97,12 +99,6 @@ export interface AddedModelConfig extends ProviderSettings {
   id: string
   name: string
   provider: AddableProviderId
-}
-
-export interface ProviderThinkingSettings {
-  deepseek: boolean
-  kimi: boolean
-  minimax: boolean
 }
 
 export interface ToolHeader {
@@ -147,7 +143,6 @@ export interface SettingsDoc extends BaseDoc {
   deepseek: ProviderSettings
   customModels: AddedModelConfig[]
   fontSize: FontSizeMode
-  providerThinking: ProviderThinkingSettings
   systemPrompt: string
   theme: ThemeMode
   toolSettings: ToolSettings
@@ -177,7 +172,6 @@ export interface SettingsForm {
   deepseek: ProviderSettings
   customModels: AddedModelConfig[]
   fontSize: FontSizeMode
-  providerThinking: ProviderThinkingSettings
   systemPrompt: string
   theme: ThemeMode
   toolSettings: ToolSettings

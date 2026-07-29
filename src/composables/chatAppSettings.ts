@@ -10,6 +10,7 @@ import {
 import {
   normalizeProviderCapabilities,
 } from '../constants/providerCapabilities'
+import { normalizeThinkingLevel } from '../constants/thinking'
 import {
   DEFAULT_UTOOLS_SESSION_IDLE_TIMEOUT_MINUTES,
   DEFAULT_UTOOLS_UPLOAD_MODE,
@@ -24,7 +25,6 @@ import type {
   ModelConfigOption,
   ProviderId,
   ProviderSettings,
-  ProviderThinkingSettings,
   SettingsForm,
 } from '../types/chat'
 import {
@@ -45,7 +45,6 @@ export function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
     customModels,
     deepseek: normalizeProviderSettings('deepseek', currentSettings.deepseek),
     fontSize: normalizeFontSize(currentSettings.fontSize),
-    providerThinking: normalizeProviderThinking(currentSettings.providerThinking),
     systemPrompt: normalizeSystemPrompt(currentSettings.systemPrompt),
     toolSettings: normalizeToolSettings(currentSettings.toolSettings),
     theme: normalizeTheme(currentSettings.theme),
@@ -213,14 +212,16 @@ function normalizeProviderSettings(
     ? defaults.modelOptions
     : ensureModelOption(normalizedModelOptions, model)
 
+  const capabilities = normalizeProviderCapabilities(provider, incomingSettings?.capabilities, model)
   return {
     apiKey: incomingSettings?.apiKey?.trim() ?? defaults.apiKey,
     baseUrl: incomingSettings?.baseUrl === undefined
       ? defaults.baseUrl
       : incomingSettings.baseUrl.trim(),
-    capabilities: normalizeProviderCapabilities(provider, incomingSettings?.capabilities, model),
+    capabilities,
     model,
     modelOptions,
+    reasoningLevel: normalizeThinkingLevel(provider, model, incomingSettings?.reasoningLevel),
     temperature: normalizeTemperature(provider, model, incomingSettings?.temperature),
   }
 }
@@ -311,16 +312,6 @@ function normalizeFontSize(fontSize: SettingsForm['fontSize']): SettingsForm['fo
   return FONT_SIZE_OPTIONS.includes(fontSize) ? fontSize : FONT_SIZE_OPTIONS[0]
 }
 
-function normalizeProviderThinking(
-  providerThinking: SettingsForm['providerThinking'] | undefined,
-): ProviderThinkingSettings {
-  return {
-    deepseek: providerThinking?.deepseek ?? true,
-    kimi: providerThinking?.kimi ?? true,
-    minimax: providerThinking?.minimax ?? true,
-  }
-}
-
 function normalizeSystemPrompt(systemPrompt: SettingsForm['systemPrompt'] | undefined): string {
   return typeof systemPrompt === 'string' && systemPrompt.trim() ? systemPrompt : ''
 }
@@ -344,7 +335,7 @@ export function isLegacyMultiProviderDocShape(value: unknown): value is {
   activeProvider?: string
   fontSize?: FontSizeMode
   providers?: Record<string, Partial<ProviderSettings>>
-  providerThinking?: Partial<ProviderThinkingSettings>
+  providerThinking?: Partial<Record<ProviderId, boolean>>
   theme?: SettingsForm['theme']
 } {
   if (typeof value !== 'object' || value === null) {

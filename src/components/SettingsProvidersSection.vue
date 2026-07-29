@@ -133,6 +133,7 @@ function updateCustomCapability(
         </div>
         <ProviderCapabilitiesEditor
           :expanded="isCapabilitiesExpanded('deepseek')"
+          provider="deepseek"
           :settings="props.settings.deepseek"
           @toggle="toggleCapabilities('deepseek')"
           @update-capability="updateDeepseekCapability"
@@ -193,6 +194,7 @@ function updateCustomCapability(
         </div>
         <ProviderCapabilitiesEditor
           :expanded="isCapabilitiesExpanded(item.id)"
+          :provider="item.provider"
           :settings="item"
           @toggle="toggleCapabilities(item.id)"
           @update-capability="(field, value) => updateCustomCapability(item.id, field, value)"

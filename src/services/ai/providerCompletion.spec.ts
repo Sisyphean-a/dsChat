@@ -9,7 +9,10 @@ describe('ProviderCompletion', () => {
       httpAdapter: {
         send: async (request) => {
           expect(request.url).toBe('https://api.openai.com/v1/responses')
-          expect(JSON.parse(request.body)).toMatchObject({ stream: false })
+          expect(JSON.parse(request.body)).toMatchObject({
+            reasoning: { effort: 'none' },
+            stream: false,
+          })
           return response('{"output_text":"简短标题"}')
         },
       },
@@ -19,7 +22,7 @@ describe('ProviderCompletion', () => {
     await expect(completion.complete({
       messages: [{ content: '给对话起标题', role: 'user' }],
       settings: openAiSettings(),
-      thinkingEnabled: false,
+      thinkingLevel: 'off',
     })).resolves.toBe('简短标题')
   })
 
@@ -32,7 +35,7 @@ describe('ProviderCompletion', () => {
     await expect(completion.complete({
       messages: [{ content: '给对话起标题', role: 'user' }],
       settings: openAiSettings(),
-      thinkingEnabled: false,
+      thinkingLevel: 'off',
     })).rejects.toMatchObject({ code: 'empty-result' })
   })
 })
@@ -44,9 +47,10 @@ function openAiSettings() {
     capabilities: getDefaultProviderCapabilities('openai'),
     configId: 'openai',
     label: 'OpenAI',
-    model: 'gpt-5.5',
-    modelOptions: ['gpt-5.5'],
+    model: 'gpt-5.6',
+    modelOptions: ['gpt-5.6'],
     provider: 'openai' as const,
+    reasoningLevel: 'medium' as const,
     temperature: 1,
   }
 }

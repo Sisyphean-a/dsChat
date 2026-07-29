@@ -8,9 +8,10 @@ import {
   PhX,
 } from '@phosphor-icons/vue'
 import ImagePreviewDialog from './ImagePreviewDialog.vue'
-import type { MessageAttachment } from '../types/chat'
+import type { MessageAttachment, ThinkingLevel } from '../types/chat'
+import type { ThinkingOption } from '../constants/thinking'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   attachments: MessageAttachment[]
   canSend: boolean
   focusPosition?: 'start' | 'end'
@@ -19,14 +20,17 @@ const props = defineProps<{
   modelValue: string
   placeholder?: string
   sendDisabled: boolean
-  showThinkingToggle: boolean
-  thinkingEnabled: boolean
-}>()
+  thinkingLevel?: ThinkingLevel
+  thinkingOptions?: ThinkingOption[]
+}>(), {
+  thinkingLevel: 'off',
+  thinkingOptions: () => [],
+})
 
 const emit = defineEmits<{
   addImages: [files: File[]]
   removeAttachment: [id: string]
-  updateThinkingEnabled: [value: boolean]
+  updateThinkingLevel: [value: ThinkingLevel]
   'update:modelValue': [value: string]
   send: []
   stop: []
@@ -36,6 +40,10 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const previewAttachment = ref<MessageAttachment | null>(null)
 const hasAttachments = computed(() => props.attachments.length > 0)
+const thinkingLevelLabel = computed(() => {
+  return props.thinkingOptions.find((option) => option.value === props.thinkingLevel)?.label
+    ?? props.thinkingLevel
+})
 const MIN_TEXTAREA_HEIGHT = 44
 const MAX_TEXTAREA_HEIGHT = 200
 
@@ -183,8 +191,11 @@ function closePreview(): void {
   previewAttachment.value = null
 }
 
-function handleThinkingChange(event: Event): void {
-  emit('updateThinkingEnabled', (event.target as HTMLInputElement).checked)
+function handleThinkingLevelChange(value: string): void {
+  const selected = props.thinkingOptions.find((option) => option.value === value)
+  if (selected) {
+    emit('updateThinkingLevel', selected.value)
+  }
 }
 
 function normalizeClipboardFile(file: File): File {
@@ -274,20 +285,27 @@ function mimeTypeToExtension(mimeType: string): string {
           />
           <slot name="actions"></slot>
           <label
-            v-if="props.showThinkingToggle"
-            class="thinking-toggle"
+            v-if="props.thinkingOptions.length"
+            class="thinking-level-control"
             :class="{ disabled: props.sendDisabled }"
           >
-            <input
-              class="thinking-toggle-input"
-              type="checkbox"
-              :checked="props.thinkingEnabled"
+            <PhBrain :size="16" aria-hidden="true" class="thinking-level-icon" weight="regular" />
+            <span class="thinking-level-label">思考</span>
+            <span class="thinking-level-value" aria-hidden="true">{{ thinkingLevelLabel }}</span>
+            <svg aria-hidden="true" class="thinking-level-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+            <select
+              class="thinking-level-select"
+              aria-label="选择思考等级"
+              :value="props.thinkingLevel"
               :disabled="props.sendDisabled"
-              @change="handleThinkingChange"
-            />
-            <span class="thinking-toggle-track" aria-hidden="true"></span>
-            <PhBrain :size="16" aria-hidden="true" class="thinking-toggle-icon" weight="regular" />
-            <span class="thinking-toggle-text">思考</span>
+              @change="handleThinkingLevelChange(($event.target as HTMLSelectElement).value)"
+            >
+              <option v-for="option in props.thinkingOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
           </label>
         </div>
         <button

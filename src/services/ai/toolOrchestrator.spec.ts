@@ -59,6 +59,33 @@ describe('ToolOrchestrator', () => {
     ])
   })
 
+  it('keeps the initial reasoning level through every tool round', async () => {
+    const levels: string[] = []
+    let round = 0
+    const providerStream: ProviderStream = {
+      async *stream(request) {
+        levels.push(request.thinkingLevel)
+        if (round++ === 0) {
+          yield {
+            type: 'tool-calls',
+            calls: [{ id: 'call-1', name: 'first', argumentsJson: '{}' }],
+          }
+          return
+        }
+        yield { type: 'content', content: '最终回答' }
+      },
+    }
+    const orchestrator = createToolOrchestrator({
+      getEnabledTools: () => [tool('first', async () => ({ content: 'one' }))],
+      messageMapping,
+      providerStream,
+    })
+
+    await collect(orchestrator.stream(request()))
+
+    expect(levels).toEqual(['high', 'high'])
+  })
+
   it('emits a failed trace before propagating a tool error', async () => {
     const providerStream = scriptedProviderStream([[{
       type: 'tool-calls', calls: [{ id: 'call-1', name: 'broken', argumentsJson: '{}' }],
@@ -132,9 +159,9 @@ function request() {
     settings: {
       apiKey: 'sk-test', baseUrl: 'https://api.deepseek.com',
       capabilities: getDefaultProviderCapabilities('deepseek'), configId: 'deepseek', label: 'DeepSeek',
-      model: 'deepseek-v4-flash', modelOptions: ['deepseek-v4-flash'], provider: 'deepseek' as const, temperature: 1,
+      model: 'deepseek-v4-flash', modelOptions: ['deepseek-v4-flash'], provider: 'deepseek' as const, reasoningLevel: 'high' as const, temperature: 1,
     },
-    thinkingEnabled: true,
+    thinkingLevel: 'high' as const,
     toolSettings: {
       enabled: true,
       builtinTools: { currentTime: { enabled: true }, tavilySearch: { apiKey: 'key', baseUrl: 'https://example.com', enabled: false } },

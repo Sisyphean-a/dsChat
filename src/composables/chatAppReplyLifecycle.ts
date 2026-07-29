@@ -24,7 +24,6 @@ interface ReplyLifecycleOptions {
   activeConversationId: Ref<string | null>
   draftMessage: Ref<string>
   getAbortController: () => AbortController | null
-  getThinkingEnabled: (provider: ActiveProviderSettings['provider']) => boolean
   interruptedResponseMessage: string
   isSending: Ref<boolean>
   lastError: Ref<string | null>
@@ -58,7 +57,7 @@ interface ReplyRequest {
   assistantId: string
   settings: ActiveProviderSettings
   systemPrompt: string
-  thinkingEnabled: boolean
+  thinkingLevel: ActiveProviderSettings['reasoningLevel']
   toolSettings: ToolSettings
 }
 
@@ -88,7 +87,6 @@ export function createReplyLifecycle(options: ReplyLifecycleOptions): ReplyLifec
 async function sendReply(state: LifecycleState): Promise<void> {
   const prepared = prepareSendRequest({
     draftMessage: state.options.draftMessage,
-    getThinkingEnabled: state.options.getThinkingEnabled,
     isSending: state.options.isSending,
     lastError: state.options.lastError,
     openSettings: state.options.openSettings,
@@ -106,7 +104,6 @@ async function sendReply(state: LifecycleState): Promise<void> {
 
 async function retryReply(state: LifecycleState): Promise<void> {
   const prepared = prepareRetryRequest({
-    getThinkingEnabled: state.options.getThinkingEnabled,
     isSending: state.options.isSending,
     lastError: state.options.lastError,
     messages: state.options.messages,
@@ -145,7 +142,7 @@ function startNewReply(state: LifecycleState, prepared: SendPreparation): ReplyS
 
 function createReplyStart(
   assistantId: string,
-  prepared: Pick<SendPreparation, 'activeSettings' | 'systemPrompt' | 'thinkingEnabled' | 'toolSettings'>,
+  prepared: Pick<SendPreparation, 'activeSettings' | 'systemPrompt' | 'thinkingLevel' | 'toolSettings'>,
 ): ReplyStart {
   return {
     controller: new AbortController(),
@@ -154,7 +151,7 @@ function createReplyStart(
       assistantId,
       settings: structuredClone(prepared.activeSettings),
       systemPrompt: prepared.systemPrompt,
-      thinkingEnabled: prepared.thinkingEnabled,
+      thinkingLevel: prepared.thinkingLevel,
       toolSettings: structuredClone(prepared.toolSettings),
     },
   }

@@ -11,7 +11,6 @@ describe('ReplyLifecycle', () => {
     const lifecycle = createReplyLifecycle({
       ...state,
       getAbortController: () => state.controller.value,
-      getThinkingEnabled: () => true,
       messageMapping,
       notifyNewConversation: vi.fn(),
       openSettings: vi.fn(),
@@ -46,7 +45,6 @@ describe('ReplyLifecycle', () => {
     const lifecycle = createReplyLifecycle({
       ...state,
       getAbortController: () => state.controller.value,
-      getThinkingEnabled: () => true,
       messageMapping,
       notifyNewConversation: vi.fn(),
       openSettings: vi.fn(),
@@ -63,6 +61,7 @@ describe('ReplyLifecycle', () => {
         { content: '言简意赅，避免大段回复', role: 'system' },
         { content: '你好', role: 'user' },
       ],
+      thinkingLevel: 'high',
     }))
   })
 
@@ -83,7 +82,6 @@ describe('ReplyLifecycle', () => {
     const lifecycle = createReplyLifecycle({
       ...state,
       getAbortController: () => state.controller.value,
-      getThinkingEnabled: () => true,
       messageMapping,
       notifyNewConversation: vi.fn(),
       openSettings: vi.fn(),
@@ -96,6 +94,7 @@ describe('ReplyLifecycle', () => {
     const sending = lifecycle.send()
     await vi.waitFor(() => expect(streamStarted).toBe(true))
     state.settings.value.systemPrompt = '第二次规则'
+    state.settings.value.deepseek.reasoningLevel = 'max'
     releaseStream()
     await sending
 
@@ -104,6 +103,7 @@ describe('ReplyLifecycle', () => {
         { content: '第一次规则', role: 'system' },
         { content: '你好', role: 'user' },
       ],
+      thinkingLevel: 'high',
     }))
   })
 
@@ -123,7 +123,6 @@ describe('ReplyLifecycle', () => {
     const lifecycle = createReplyLifecycle({
       ...state,
       getAbortController: () => state.controller.value,
-      getThinkingEnabled: () => true,
       messageMapping,
       notifyNewConversation: vi.fn(),
       openSettings: vi.fn(),
@@ -154,7 +153,6 @@ describe('ReplyLifecycle', () => {
     const lifecycle = createReplyLifecycle({
       ...state,
       getAbortController: () => state.controller.value,
-      getThinkingEnabled: () => true,
       messageMapping,
       notifyNewConversation: vi.fn(),
       openSettings: vi.fn(),
@@ -181,7 +179,6 @@ describe('ReplyLifecycle', () => {
     const lifecycle = createReplyLifecycle({
       ...state,
       getAbortController: () => state.controller.value,
-      getThinkingEnabled: () => true,
       messageMapping,
       notifyNewConversation: vi.fn(),
       openSettings: vi.fn(),
@@ -207,7 +204,6 @@ describe('ReplyLifecycle', () => {
     const lifecycle = createReplyLifecycle({
       ...state,
       getAbortController: () => state.controller.value,
-      getThinkingEnabled: () => true,
       messageMapping,
       notifyNewConversation: vi.fn(),
       openSettings: vi.fn(),

@@ -1,16 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   createImageInputUnsupportedMessage,
-  createThinkingPayloadForChatCompletions,
   getDefaultProviderCapabilities,
+  getSupportedProviderProtocols,
   normalizeProviderCapabilities,
-  providerShowsThinkingToggle,
   providerSupportsImageInput,
   providerSupportsNativeWebSearch,
   providerSupportsToolCalling,
   resolveProviderProtocol,
   resolveProviderRequestTemperature,
-  resolveThinkingProviderKey,
   shouldIncludeProviderRequestTemperature,
   supportsOpenAiNativeWebSearchModel,
 } from './providerCapabilities'
@@ -21,7 +19,7 @@ describe('providerCapabilities', () => {
       imageInput: true,
       nativeWebSearch: true,
       protocol: 'responses',
-      reasoning: false,
+      reasoning: true,
       toolCalling: false,
     })
     expect(getDefaultProviderCapabilities('deepseek')).toEqual({
@@ -46,6 +44,16 @@ describe('providerCapabilities', () => {
     expect(providerSupportsToolCalling(settings)).toBe(true)
   })
 
+  it('only enables native web search for supported OpenAI Responses models', () => {
+    const responses = createProviderSettings('openai', {}, 'gpt-5.6')
+    const chatCompletions = createProviderSettings('openai', { protocol: 'chat_completions' }, 'gpt-5.6')
+    const unsupportedModel = createProviderSettings('openai', {}, 'gpt-4.1')
+
+    expect(providerSupportsNativeWebSearch(responses)).toBe(true)
+    expect(providerSupportsNativeWebSearch(chatCompletions)).toBe(false)
+    expect(providerSupportsNativeWebSearch(unsupportedModel)).toBe(false)
+  })
+
   it('does not treat local tool calling as available on responses protocol', () => {
     const settings = createProviderSettings('openai', {
       nativeWebSearch: false,
@@ -56,6 +64,12 @@ describe('providerCapabilities', () => {
     expect(providerSupportsToolCalling(settings)).toBe(false)
   })
 
+  it('only offers protocols that each provider supports', () => {
+    expect(getSupportedProviderProtocols('deepseek')).toEqual(['chat_completions'])
+    expect(getSupportedProviderProtocols('openai')).toEqual(['chat_completions', 'responses'])
+    expect(getSupportedProviderProtocols('custom')).toEqual(['chat_completions', 'responses'])
+  })
+
   it('normalizes partial capability overrides with provider defaults', () => {
     expect(normalizeProviderCapabilities('deepseek', { imageInput: true })).toEqual({
       imageInput: true,
@@ -63,6 +77,9 @@ describe('providerCapabilities', () => {
       protocol: 'chat_completions',
       reasoning: true,
       toolCalling: true,
+    })
+    expect(normalizeProviderCapabilities('deepseek', { protocol: 'responses' })).toMatchObject({
+      protocol: 'chat_completions',
     })
   })
 
@@ -76,34 +93,13 @@ describe('providerCapabilities', () => {
     expect(providerSupportsImageInput(createProviderSettings('kimi', {}, 'kimi-k2.6'))).toBe(true)
   })
 
-  it('resolves thinking toggle rules per provider and model', () => {
-    expect(providerShowsThinkingToggle('deepseek', createProviderSettings('deepseek', {}, 'deepseek-v4-flash'))).toBe(true)
-    expect(providerShowsThinkingToggle('deepseek', createProviderSettings('deepseek', {}, 'deepseek-reasoner'))).toBe(false)
-    expect(providerShowsThinkingToggle('minimax', createProviderSettings('minimax', {}, 'MiniMax-M2.7'))).toBe(true)
-    expect(providerShowsThinkingToggle('openai', createProviderSettings('openai', {}, 'gpt-5.5'))).toBe(false)
-    expect(providerShowsThinkingToggle('deepseek', createProviderSettings('deepseek', { reasoning: false }, 'deepseek-v4-flash'))).toBe(false)
-  })
+  it('keeps temperature out of active DeepSeek thinking requests', () => {
+    const settings = createProviderSettings('deepseek', {}, 'deepseek-v4-flash')
 
-  it('resolves thinking provider key for persistent settings', () => {
-    expect(resolveThinkingProviderKey('deepseek')).toBe('deepseek')
-    expect(resolveThinkingProviderKey('openai')).toBeNull()
-  })
-
-  it('builds thinking payload in one place for chat-completions protocol', () => {
-    expect(createThinkingPayloadForChatCompletions('deepseek', createProviderSettings('deepseek', {}, 'deepseek-v4-flash'), false)).toEqual({
-      thinking: { type: 'disabled' },
-    })
-    expect(createThinkingPayloadForChatCompletions('deepseek', createProviderSettings('deepseek', {}, 'deepseek-reasoner'), true)).toEqual({})
-    expect(createThinkingPayloadForChatCompletions('minimax', createProviderSettings('minimax', {}, 'MiniMax-M2.7'), false)).toEqual({
-      reasoning_split: false,
-    })
-  })
-
-  it('normalizes request temperature behavior from centralized policy', () => {
-    expect(shouldIncludeProviderRequestTemperature('deepseek', createProviderSettings('deepseek', {}, 'deepseek-v4-flash'), true)).toBe(false)
-    expect(shouldIncludeProviderRequestTemperature('deepseek', createProviderSettings('deepseek', {}, 'deepseek-v4-flash'), false)).toBe(true)
-    expect(resolveProviderRequestTemperature('kimi', 0.2, true)).toBe(1.0)
-    expect(resolveProviderRequestTemperature('kimi', 1.8, false)).toBe(0.6)
+    expect(shouldIncludeProviderRequestTemperature('deepseek', settings, 'high')).toBe(false)
+    expect(shouldIncludeProviderRequestTemperature('deepseek', settings, 'off')).toBe(true)
+    expect(resolveProviderRequestTemperature('kimi', 0.2, 'high')).toBe(1.0)
+    expect(resolveProviderRequestTemperature('kimi', 1.8, 'off')).toBe(0.6)
   })
 
   it('checks OpenAI native web search model compatibility from one list', () => {
@@ -125,10 +121,11 @@ function createProviderSettings(
     baseUrl: 'https://example.com',
     capabilities: normalizeProviderCapabilities(provider, capabilities),
     configId: 'test',
+    label: 'Test',
     model,
     modelOptions: model ? [model] : [],
-    label: 'Test',
     provider,
+    reasoningLevel: 'high' as const,
     temperature: 1,
   }
 }

@@ -9,7 +9,6 @@ import { getActiveProviderSettings, getSendSettingsError, normalizeSettings } fr
 interface PrepareRequestContextOptions {
   attachments: MessageAttachment[]
   settings: Ref<SettingsForm>
-  getThinkingEnabled: (provider: ActiveProviderSettings['provider']) => boolean
   openSettings: () => void
   lastError: Ref<string | null>
 }
@@ -17,7 +16,7 @@ interface PrepareRequestContextOptions {
 export interface PreparedRequestContext {
   activeSettings: ActiveProviderSettings
   systemPrompt: string
-  thinkingEnabled: boolean
+  thinkingLevel: ActiveProviderSettings['reasoningLevel']
   toolSettings: ToolSettings
 }
 
@@ -27,14 +26,12 @@ export function prepareRequestContext(
   const {
     attachments,
     settings,
-    getThinkingEnabled,
     openSettings,
     lastError,
   } = options
 
   const normalizedSettings = normalizeSettings(settings.value)
   const activeSettings = getActiveProviderSettings(normalizedSettings)
-  const thinkingEnabled = getThinkingEnabled(activeSettings.provider)
   const settingsError = getSendSettingsError(normalizedSettings)
   const imageInputError = getImageInputSupportError(activeSettings, attachments)
 
@@ -47,7 +44,7 @@ export function prepareRequestContext(
   return {
     activeSettings,
     systemPrompt: normalizedSettings.systemPrompt,
-    thinkingEnabled,
+    thinkingLevel: activeSettings.reasoningLevel,
     toolSettings: normalizedSettings.toolSettings,
   }
 }

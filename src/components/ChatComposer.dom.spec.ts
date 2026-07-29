@@ -15,8 +15,6 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: '',
         sendDisabled: false,
-        showThinkingToggle: false,
-        thinkingEnabled: true,
       },
     })
 
@@ -36,8 +34,6 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: '\n```\nselected text\n```',
         sendDisabled: false,
-        showThinkingToggle: false,
-        thinkingEnabled: true,
       },
     })
 
@@ -59,8 +55,6 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: '```\nselected text\n```\n',
         sendDisabled: false,
-        showThinkingToggle: false,
-        thinkingEnabled: true,
       },
     })
 
@@ -80,8 +74,6 @@ describe('ChatComposer', () => {
         isSending: true,
         modelValue: '正在输入',
         sendDisabled: true,
-        showThinkingToggle: false,
-        thinkingEnabled: true,
       },
     })
 
@@ -101,8 +93,6 @@ describe('ChatComposer', () => {
         isSending: true,
         modelValue: '等待响应',
         sendDisabled: true,
-        showThinkingToggle: false,
-        thinkingEnabled: true,
       },
     })
 
@@ -122,8 +112,6 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: 'ni',
         sendDisabled: false,
-        showThinkingToggle: false,
-        thinkingEnabled: true,
       },
     })
     const event = new KeyboardEvent('keydown', {
@@ -158,8 +146,6 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: '',
         sendDisabled: false,
-        showThinkingToggle: false,
-        thinkingEnabled: true,
       },
     })
     const trigger = wrapper.get('.attachment-preview-button')
@@ -200,8 +186,6 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: '',
         sendDisabled: false,
-        showThinkingToggle: false,
-        thinkingEnabled: true,
       },
     })
 
@@ -218,8 +202,6 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: '',
         sendDisabled: false,
-        showThinkingToggle: false,
-        thinkingEnabled: true,
       },
     })
 
@@ -246,8 +228,6 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: '',
         sendDisabled: false,
-        showThinkingToggle: false,
-        thinkingEnabled: true,
       },
     })
     const originalUtools = window.utools
@@ -283,7 +263,7 @@ describe('ChatComposer', () => {
     }
   })
 
-  it('emits thinking toggle updates', async () => {
+  it('emits thinking level updates', async () => {
     const wrapper = mount(ChatComposer, {
       props: {
         attachments: [],
@@ -291,14 +271,17 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: 'hi',
         sendDisabled: false,
-        showThinkingToggle: true,
-        thinkingEnabled: true,
+        thinkingLevel: 'high',
+        thinkingOptions: [
+          { label: '关闭', value: 'off' },
+          { label: '高', value: 'high' },
+        ],
       },
     })
 
-    await wrapper.get('.thinking-toggle-input').setValue(false)
+    await wrapper.get('.thinking-level-select').setValue('off')
 
-    expect(wrapper.emitted('updateThinkingEnabled')).toEqual([[false]])
+    expect(wrapper.emitted('updateThinkingLevel')).toEqual([['off']])
   })
 
   it('resets textarea height after draft is cleared', async () => {
@@ -309,8 +292,6 @@ describe('ChatComposer', () => {
         isSending: false,
         modelValue: '长文本',
         sendDisabled: false,
-        showThinkingToggle: false,
-        thinkingEnabled: true,
       },
     })
 

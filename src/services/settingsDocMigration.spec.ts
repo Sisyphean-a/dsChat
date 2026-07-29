@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDefaultSettings } from '../constants/providers'
+import { buildDefaultProviderSettings, buildDefaultSettings } from '../constants/providers'
 import { migrateSettingsDoc } from './settingsDocMigration'
 
 describe('migrateSettingsDoc', () => {
@@ -16,11 +16,7 @@ describe('migrateSettingsDoc', () => {
 
     expect(settings.activeConfigId).toBe('deepseek')
     expect(settings.fontSize).toBe('medium')
-    expect(settings.providerThinking).toEqual({
-      deepseek: true,
-      kimi: true,
-      minimax: true,
-    })
+    expect(settings.deepseek.reasoningLevel).toBe('high')
     expect(settings.theme).toBe('dark')
     expect(settings.utoolsSessionIdleTimeoutMinutes).toBe(1)
     expect(settings.utoolsUploadMode).toBe('all-data')
@@ -36,9 +32,24 @@ describe('migrateSettingsDoc', () => {
       },
       model: 'deepseek-chat',
       modelOptions: ['deepseek-v4-pro', 'deepseek-v4-flash'],
+      reasoningLevel: 'high',
       temperature: 1.5,
     })
     expect(settings.customModels).toEqual([])
+  })
+
+  it('migrates legacy provider thinking switches into each provider configuration', () => {
+    const { deepseek, systemPrompt: _, ...previousSettings } = buildDefaultSettings()
+    const { reasoningLevel: __, ...legacyDeepseek } = deepseek
+    const settings = migrateSettingsDoc({
+      _id: 'settings/config',
+      deepseek: legacyDeepseek,
+      providerThinking: { deepseek: false },
+      type: 'settings',
+      ...previousSettings,
+    } as Parameters<typeof migrateSettingsDoc>[0], 'local-only')
+
+    expect(settings.deepseek.reasoningLevel).toBe('off')
   })
 
   it('adds an empty system prompt to settings saved before the feature existed', () => {
@@ -50,6 +61,66 @@ describe('migrateSettingsDoc', () => {
     } as Parameters<typeof migrateSettingsDoc>[0], 'all-data')
 
     expect(settings.systemPrompt).toBe('')
+  })
+
+  it('restores the OpenAI reasoning default from settings saved before reasoning levels', () => {
+    const defaults = buildDefaultSettings()
+    const { reasoningLevel: _, ...legacyOpenAi } = buildDefaultProviderSettings('openai')
+    const settings = migrateSettingsDoc({
+      _id: 'settings/config',
+      ...defaults,
+      activeConfigId: 'openai-legacy',
+      customModels: [{
+        ...legacyOpenAi,
+        capabilities: {
+          ...legacyOpenAi.capabilities,
+          reasoning: false,
+        },
+        id: 'openai-legacy',
+        name: 'OpenAI',
+        provider: 'openai',
+      }],
+      type: 'settings',
+    } as Parameters<typeof migrateSettingsDoc>[0], 'local-only')
+
+    expect(settings.customModels[0]).toMatchObject({
+      capabilities: expect.objectContaining({ reasoning: true }),
+      reasoningLevel: 'medium',
+    })
+
+    const remigrated = migrateSettingsDoc({
+      _id: 'settings/config',
+      ...settings,
+      type: 'settings',
+    }, 'local-only')
+    expect(remigrated.customModels[0]).toEqual(settings.customModels[0])
+  })
+
+  it('keeps an explicit OpenAI reasoning disable from current settings', () => {
+    const defaults = buildDefaultSettings()
+    const openAi = buildDefaultProviderSettings('openai')
+    const settings = migrateSettingsDoc({
+      _id: 'settings/config',
+      ...defaults,
+      activeConfigId: 'openai-current',
+      customModels: [{
+        ...openAi,
+        capabilities: {
+          ...openAi.capabilities,
+          reasoning: false,
+        },
+        id: 'openai-current',
+        name: 'OpenAI',
+        provider: 'openai',
+        reasoningLevel: 'off',
+      }],
+      type: 'settings',
+    } as Parameters<typeof migrateSettingsDoc>[0], 'local-only')
+
+    expect(settings.customModels[0]).toMatchObject({
+      capabilities: expect.objectContaining({ reasoning: false }),
+      reasoningLevel: 'off',
+    })
   })
 
   it('migrates previous multi-provider documents into deepseek plus custom models', () => {
@@ -88,6 +159,11 @@ describe('migrateSettingsDoc', () => {
           temperature: 1,
         },
       },
+      providerThinking: {
+        kimi: false,
+        minimax: true,
+        openai: false,
+      },
       theme: 'dark',
       type: 'settings',
     }, 'all-data')
@@ -96,6 +172,8 @@ describe('migrateSettingsDoc', () => {
     expect(settings.theme).toBe('dark')
     expect(settings.utoolsUploadMode).toBe('all-data')
     expect(settings.customModels.map((item) => item.provider)).toEqual(['openai', 'minimax', 'kimi'])
+    expect(settings.customModels.map((item) => item.reasoningLevel)).toEqual(['off', 'high', 'off'])
+    expect(settings.customModels[0]?.capabilities.reasoning).toBe(true)
     expect(settings.customModels[0]?.model).toBe('gpt-4.1')
     expect(settings.customModels[2]?.model).toBe('kimi-k2.6')
     expect(settings.activeConfigId).toBe(settings.customModels[0]?.id)

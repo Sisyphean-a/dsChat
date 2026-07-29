@@ -7,7 +7,6 @@ interface PrepareRetryRequestOptions {
   isSending: Ref<boolean>
   messages: Ref<ChatMessage[]>
   settings: Ref<SettingsForm>
-  getThinkingEnabled: (provider: PreparedRequestContext['activeSettings']['provider']) => boolean
   openSettings: () => void
   lastError: Ref<string | null>
 }
@@ -56,7 +55,6 @@ export function prepareRetryRequest(
     isSending,
     messages,
     settings,
-    getThinkingEnabled,
     openSettings,
     lastError,
   } = options
@@ -76,7 +74,6 @@ export function prepareRetryRequest(
 
   const requestContext = prepareRequestContext({
     attachments: previousUserMessage.attachments ?? [],
-    getThinkingEnabled,
     lastError,
     openSettings,
     settings,

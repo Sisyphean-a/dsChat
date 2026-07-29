@@ -27,7 +27,7 @@ describe('utools storage routing', () => {
   it('persists settings in localStorage when utools is unavailable', async () => {
     const settings = buildDefaultSettings()
     settings.fontSize = 'large'
-    settings.providerThinking.deepseek = false
+    settings.deepseek.reasoningLevel = 'off'
     settings.theme = 'dark'
     settings.deepseek.apiKey = 'sk-local'
     settings.utoolsUploadMode = 'local-only'
@@ -36,7 +36,7 @@ describe('utools storage routing', () => {
     const loaded = await loadSettings()
 
     expect(loaded.fontSize).toBe('large')
-    expect(loaded.providerThinking.deepseek).toBe(false)
+    expect(loaded.deepseek.reasoningLevel).toBe('off')
     expect(loaded.theme).toBe('dark')
     expect(loaded.deepseek.apiKey).toBe('sk-local')
     expect(loaded.utoolsUploadMode).toBe('local-only')
@@ -274,10 +274,10 @@ describe('utools storage routing', () => {
     openaiModel.name = 'OpenAI 工作模型'
     openaiModel.apiKey = 'sk-openai'
     openaiModel.model = 'gpt-5.5'
+    openaiModel.reasoningLevel = 'high'
 
     settings.activeConfigId = openaiModel.id
     settings.fontSize = 'large'
-    settings.providerThinking.kimi = false
     settings.theme = 'dark'
     settings.utoolsUploadMode = 'local-only'
     settings.customModels = [openaiModel]
@@ -287,7 +287,7 @@ describe('utools storage routing', () => {
 
     expect(loaded.activeConfigId).toBe(openaiModel.id)
     expect(loaded.fontSize).toBe('large')
-    expect(loaded.providerThinking.kimi).toBe(false)
+    expect(loaded.customModels[0]?.reasoningLevel).toBe('high')
     expect(loaded.theme).toBe('dark')
     expect(loaded.utoolsUploadMode).toBe('local-only')
     expect(loaded.customModels[0]).toEqual({
@@ -297,7 +297,7 @@ describe('utools storage routing', () => {
         imageInput: true,
         nativeWebSearch: true,
         protocol: 'responses',
-        reasoning: false,
+        reasoning: true,
         toolCalling: false,
       },
       modelOptions: [...openaiModel.modelOptions, 'gpt-5.5'],

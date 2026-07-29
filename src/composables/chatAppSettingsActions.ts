@@ -4,8 +4,8 @@ import type {
   CustomToolSettings,
   FontSizeMode,
   ProviderSettings,
-  ProviderThinkingSettings,
   SettingsForm,
+  ThinkingLevel,
   ThemeMode,
   UtoolsUploadMode,
 } from '../types/chat'
@@ -63,10 +63,7 @@ export interface ChatAppSettingsActions {
     value: ProviderSettings[ProviderEditableField],
   ) => void
   updateFontSize: (fontSize: FontSizeMode) => void
-  updateProviderThinking: (
-    provider: keyof ProviderThinkingSettings,
-    enabled: boolean,
-  ) => void
+  updateActiveThinkingLevel: (level: ThinkingLevel) => void
   updateSystemPrompt: (systemPrompt: string) => void
   updateTheme: (theme: ThemeMode) => void
   updateToolEnabled: (enabled: boolean) => void
@@ -319,16 +316,30 @@ export function createChatAppSettingsActions(
     })
   }
 
-  function updateProviderThinking(
-    provider: keyof ProviderThinkingSettings,
-    enabled: boolean,
-  ): void {
+  function updateActiveThinkingLevel(level: ThinkingLevel): void {
+    if (settings.value.activeConfigId === 'deepseek') {
+      settings.value = {
+        ...settings.value,
+        deepseek: {
+          ...settings.value.deepseek,
+          reasoningLevel: level,
+        },
+      }
+      return
+    }
+
     settings.value = {
       ...settings.value,
-      providerThinking: {
-        ...settings.value.providerThinking,
-        [provider]: enabled,
-      },
+      customModels: settings.value.customModels.map((item) => {
+        if (item.id !== settings.value.activeConfigId) {
+          return item
+        }
+
+        return {
+          ...item,
+          reasoningLevel: level,
+        }
+      }),
     }
   }
 
@@ -501,7 +512,7 @@ export function createChatAppSettingsActions(
     updateDeepseekCapability,
     updateDeepseekField,
     updateFontSize,
-    updateProviderThinking,
+    updateActiveThinkingLevel,
     updateSystemPrompt,
     updateTheme,
     updateToolEnabled,

@@ -118,9 +118,10 @@ function request(overrides: Partial<Parameters<ReturnType<typeof createProviderS
       model: 'deepseek-v4-flash',
       modelOptions: ['deepseek-v4-flash'],
       provider: 'deepseek' as const,
+      reasoningLevel: 'high' as const,
       temperature: 1,
     },
-    thinkingEnabled: true,
+    thinkingLevel: 'high' as const,
     tools: [],
     ...overrides,
   }

@@ -222,6 +222,7 @@ function createActiveSettings() {
     model: 'deepseek-v4-flash',
     modelOptions: ['deepseek-v4-flash'],
     provider: 'deepseek' as const,
+    reasoningLevel: 'high' as const,
     temperature: 1,
   }
 }

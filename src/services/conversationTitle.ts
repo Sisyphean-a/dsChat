@@ -17,7 +17,7 @@ export function createConversationTitleRequester(completion: ProviderCompletion)
       const title = await completion.complete({
         messages,
         settings,
-        thinkingEnabled: false,
+        thinkingLevel: 'off',
       })
       const normalized = title.replace(TITLE_SANITIZE_PATTERN, '').trim()
       if (!normalized) {

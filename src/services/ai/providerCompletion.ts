@@ -1,4 +1,4 @@
-import type { ActiveProviderSettings } from '../../types/chat'
+import type { ActiveProviderSettings, ThinkingLevel } from '../../types/chat'
 import type { HttpAdapter } from './httpAdapter'
 import type { ProviderAdapterRegistry, ProviderConversationMessage } from './providerAdapter'
 import { selectProviderAdapter } from './providerAdapter'
@@ -13,7 +13,7 @@ export interface ProviderCompletion {
   complete: (request: {
     messages: ProviderConversationMessage[]
     settings: ActiveProviderSettings
-    thinkingEnabled: boolean
+    thinkingLevel: ThinkingLevel
   }) => Promise<string>
 }
 
@@ -28,7 +28,7 @@ export function createProviderCompletion(options: ProviderCompletionOptions): Pr
         messages: request.messages,
         settings: request.settings,
         stream: false,
-        thinkingEnabled: request.thinkingEnabled,
+        thinkingLevel: request.thinkingLevel,
         tools: [],
       })
       const response = await options.httpAdapter.send({

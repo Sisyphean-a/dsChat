@@ -5,7 +5,6 @@ import type {
   ProviderId,
   ProviderCapabilities,
   ProviderSettings,
-  ProviderThinkingSettings,
   SettingsForm,
   ToolSettings,
   ThemeMode,
@@ -15,6 +14,7 @@ import {
   DEFAULT_UTOOLS_UPLOAD_MODE,
 } from './storage'
 import { DEFAULT_TAVILY_SEARCH_BASE_URL } from './tools'
+import { getDefaultThinkingLevel } from './thinking'
 
 export interface ProviderModelOption {
   supportsImageInput: boolean
@@ -42,11 +42,6 @@ export interface ProviderDefinition {
 
 const THEME_DEFAULT: ThemeMode = 'light'
 const FONT_SIZE_DEFAULT: FontSizeMode = 'medium'
-const DEFAULT_PROVIDER_THINKING: ProviderThinkingSettings = {
-  deepseek: true,
-  kimi: true,
-  minimax: true,
-}
 const DEFAULT_TOOL_SETTINGS: ToolSettings = {
   enabled: false,
   builtinTools: {
@@ -63,7 +58,6 @@ const DEFAULT_TOOL_SETTINGS: ToolSettings = {
 }
 const STANDARD_TEMPERATURE: TemperatureRange = { min: 0, max: 2, defaultValue: 1 }
 const MINIMAX_TEMPERATURE: TemperatureRange = { min: 0.1, max: 1, defaultValue: 1 }
-const DEEPSEEK_THINKING_MODELS = ['deepseek-v4-flash', 'deepseek-v4-pro', 'deepseek-chat'] as const
 
 export const DEFAULT_CONFIG_ID = 'deepseek'
 export const PROVIDER_IDS: ProviderId[] = ['deepseek', 'openai', 'minimax', 'kimi', 'custom']
@@ -191,10 +185,6 @@ export function getProviderTemperatureRange(provider: ProviderId): TemperatureRa
   return PROVIDER_REGISTRY[provider].temperature
 }
 
-export function supportsDeepseekThinking(model: string): boolean {
-  return DEEPSEEK_THINKING_MODELS.includes(model.trim() as (typeof DEEPSEEK_THINKING_MODELS)[number])
-}
-
 export function buildDefaultProviderSettings(provider: ProviderId): ProviderSettings {
   const definition = PROVIDER_REGISTRY[provider]
   const model = definition.defaultModels[0]?.value ?? ''
@@ -204,6 +194,7 @@ export function buildDefaultProviderSettings(provider: ProviderId): ProviderSett
     capabilities: createDefaultProviderCapabilities(provider, model),
     model,
     modelOptions: getProviderDefaultModelValues(provider),
+    reasoningLevel: getDefaultThinkingLevel(provider, model),
     temperature: definition.temperature.defaultValue,
   }
 }
@@ -214,7 +205,7 @@ function createDefaultProviderCapabilities(provider: ProviderId, model: string):
       imageInput: true,
       nativeWebSearch: true,
       protocol: 'responses',
-      reasoning: false,
+      reasoning: true,
       toolCalling: false,
     }
   }
@@ -244,9 +235,6 @@ export function buildDefaultSettings(): SettingsForm {
     customModels: [],
     deepseek: buildDefaultProviderSettings('deepseek'),
     fontSize: FONT_SIZE_DEFAULT,
-    providerThinking: {
-      ...DEFAULT_PROVIDER_THINKING,
-    },
     systemPrompt: '',
     toolSettings: {
       ...DEFAULT_TOOL_SETTINGS,

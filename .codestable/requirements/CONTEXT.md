@@ -38,16 +38,18 @@ scope: workspace
 ## 回复与工具
 
 - 发送前必须验证当前配置至少有 API Key、Base URL 和模型；工具总开关打开时还必须满足工具设置与 Provider 能力约束。
-- 回复开始时快照当前 Provider、思考开关、工具设置和全局系统提示词；发送中改变设置不得影响该回复。
+- 回复开始时快照当前 Provider 配置、思考等级、工具设置和全局系统提示词；发送中改变设置不得影响该回复。
 - 用户停止和插件中断使用中止信号结束正在进行的 Provider 或工具操作。停止、失败和成功是不同终态，均需写回会话。
 - 本地工具按模型给出的批次顺序执行。工具错误、参数错误、重复调用、超时和缺失最终回答必须显式暴露，不能退化为未使用工具的普通回答。
 - `customTools` 是预留数据形状，当前设置规范化会清空它，执行引擎也不支持它；任何非空且已启用的自定义工具必须在发送前被拒绝。
 
 ## Provider 与能力
 
-- `chat_completions` 和 `responses` 是协议选择，不是 Provider 名称。任何 Provider 配置的实际协议来自其能力配置。
+- `chat_completions` 和 `responses` 是协议选择，不是 Provider 名称。可选协议必须由 Provider 能力档案明确声明：DeepSeek、Kimi、MiniMax 仅可用 `chat_completions`；OpenAI 与自定义配置可选两者。持久化的无效组合必须规范化为该 Provider 的默认协议。
 - 本地函数工具调用只走 Chat Completions 适配器。Responses 适配器仅支持 OpenAI 原生联网搜索，不能假装支持本地工具轮次。
 - 预设模型列表是默认建议，不是已保存模型配置的白名单；规范化必须保留用户已保存的自定义模型 ID。
 - 模型或 Provider 的图片、推理、温度、原生联网与本地工具能力必须由注册表/能力档案声明，不能从名称猜测。
+- 思考等级属于单个 Provider 配置，而非供应商全局偏好；只有内置档案明确支持的供应商、协议与模型组合才显示可选等级并发送参数。固定思考模型和自定义接口不得伪装成可控等级。
+- 迁移缺少 `reasoningLevel` 的旧 OpenAI 配置时，历史默认的 `reasoning: false` 必须恢复为当前默认值；带有 `reasoningLevel` 的配置视为用户已明确选择，不得覆盖。
 
 关联决定：[ADR-0001：按 Provider 协议隔离请求，保留本地工具编排边界](adrs/0001-provider-protocol-and-tool-boundaries.md)。

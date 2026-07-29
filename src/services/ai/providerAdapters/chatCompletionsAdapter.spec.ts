@@ -47,7 +47,7 @@ describe('chatCompletionsAdapter', () => {
       }, { content: '{"ok":true}', role: 'tool', toolCallId: 'call_1' }],
       settings: createSettings(),
       stream: true,
-      thinkingEnabled: true,
+      thinkingLevel: 'high',
       tools: [],
     })
 
@@ -65,7 +65,7 @@ describe('chatCompletionsAdapter', () => {
       messages: [{ content: '查新闻', role: 'user' }],
       settings: createSettings(),
       stream: true,
-      thinkingEnabled: true,
+      thinkingLevel: 'high',
       tools: [{ type: 'function', function: { description: '联网搜索', name: 'tavily_search', parameters: {} } }],
     })
 
@@ -84,6 +84,7 @@ function createSettings() {
     model: 'deepseek-v4-flash',
     modelOptions: ['deepseek-v4-flash'],
     provider: 'deepseek' as const,
+    reasoningLevel: 'high' as const,
     temperature: 1,
   }
 }

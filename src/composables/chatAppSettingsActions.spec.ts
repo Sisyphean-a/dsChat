@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
-import { buildDefaultSettings } from '../constants/providers'
+import { buildDefaultSettings, createAddedModelDraft } from '../constants/providers'
 import { createChatAppSettingsActions } from './chatAppSettingsActions'
 
 describe('chatAppSettingsActions', () => {
@@ -20,6 +20,29 @@ describe('chatAppSettingsActions', () => {
     actions.updateSystemPrompt('言简意赅，避免大段回复')
 
     expect(settings.value.systemPrompt).toBe('言简意赅，避免大段回复')
+  })
+
+  it('updates the active configuration reasoning level without changing other configurations', () => {
+    const currentSettings = buildDefaultSettings()
+    const openai = createAddedModelDraft('openai', [])
+    currentSettings.activeConfigId = openai.id
+    currentSettings.customModels = [openai]
+    const settings = ref(currentSettings)
+    const actions = createChatAppSettingsActions({
+      applyAppearance: vi.fn(),
+      isSavingSettings: ref(false),
+      isSettingsOpen: ref(false),
+      isSidebarCollapsed: ref(false),
+      lastError: ref<string | null>(null),
+      saveSettings: vi.fn(),
+      settings,
+      settingsSaveError: ref<string | null>(null),
+    })
+
+    actions.updateActiveThinkingLevel('max')
+
+    expect(settings.value.customModels[0]?.reasoningLevel).toBe('max')
+    expect(settings.value.deepseek.reasoningLevel).toBe('high')
   })
 
   it('keeps settings open and exposes a save error when persistence fails', async () => {

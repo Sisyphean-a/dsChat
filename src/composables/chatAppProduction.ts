@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { ActiveProviderSettings, ChatMessage, ConversationDoc, MessageAttachment, SettingsForm } from '../types/chat'
+import type { ChatMessage, ConversationDoc, MessageAttachment, SettingsForm } from '../types/chat'
 import { createConversationTitleRequester } from '../services/conversationTitle'
 import { createProviderCompletion } from '../services/ai/providerCompletion'
 import { fetchHttpAdapter } from '../services/ai/httpAdapter'
@@ -16,7 +16,6 @@ interface ChatAppProductionOptions {
   conversationPersistence: ChatAppConversationPersistenceActions
   conversations: Ref<ConversationDoc[]>
   draftMessage: Ref<string>
-  getThinkingEnabled: (provider: ActiveProviderSettings['provider']) => boolean
   interruptedResponseMessage: string
   isSending: Ref<boolean>
   lastError: Ref<string | null>
@@ -54,7 +53,6 @@ export function createChatAppProduction(options: ChatAppProductionOptions): Repl
     activeConversationId: options.activeConversationId,
     draftMessage: options.draftMessage,
     getAbortController: () => activeAbortController,
-    getThinkingEnabled: options.getThinkingEnabled,
     interruptedResponseMessage: options.interruptedResponseMessage,
     isSending: options.isSending,
     lastError: options.lastError,

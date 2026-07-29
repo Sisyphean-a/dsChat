@@ -4,6 +4,7 @@ import {
   shouldIncludeProviderRequestTemperature,
   supportsOpenAiNativeWebSearchModel,
 } from '../../../constants/providerCapabilities'
+import { createThinkingPayloadForResponses } from '../../../constants/thinking'
 import type {
   ProviderAdapter,
   ProviderConversationMessage,
@@ -85,13 +86,18 @@ function createPayload(input: ProviderRequestInput): Record<string, unknown> {
     model: input.settings.model,
     stream: input.stream,
   }
-  if (shouldIncludeProviderRequestTemperature(input.settings.provider, input.settings, input.thinkingEnabled)) {
+  if (shouldIncludeProviderRequestTemperature(input.settings.provider, input.settings, input.thinkingLevel)) {
     payload.temperature = resolveProviderRequestTemperature(
       input.settings.provider,
       input.settings.temperature,
-      input.thinkingEnabled,
+      input.thinkingLevel,
     )
   }
+  Object.assign(payload, createThinkingPayloadForResponses(
+    input.settings.provider,
+    input.settings,
+    input.thinkingLevel,
+  ))
   if (providerSupportsNativeWebSearch(input.settings) && supportsOpenAiNativeWebSearchModel(input.settings.model)) {
     payload.tool_choice = 'auto'
     payload.tools = [{ type: 'web_search' }]

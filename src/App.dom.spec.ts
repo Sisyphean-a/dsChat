@@ -24,6 +24,8 @@ vi.mock('./composables/useMessageListAutoScroll', () => ({
 vi.mock('./composables/useChatApp', () => ({
   useChatApp: vi.fn(() => ({
     activeChatConfig: computed(() => ({ label: 'DeepSeek', model: 'deepseek-v4-flash' })),
+    thinkingLevel: computed(() => 'high'),
+    thinkingOptions: computed(() => []),
     activeConversationId: ref<string | null>(null),
     addCustomModel: vi.fn(),
     addCustomModelOption: vi.fn(),
@@ -77,14 +79,10 @@ vi.mock('./composables/useChatApp', () => ({
         },
         model: 'deepseek-v4-flash',
         modelOptions: ['deepseek-v4-flash'],
+        reasoningLevel: 'high',
         temperature: 1,
       },
       fontSize: 'medium',
-      providerThinking: {
-        deepseek: true,
-        kimi: true,
-        minimax: true,
-      },
       theme: 'light',
       toolSettings: {
         builtinTools: {
@@ -103,11 +101,9 @@ vi.mock('./composables/useChatApp', () => ({
       utoolsSessionIdleTimeoutMinutes: 1,
       utoolsUploadMode: 'local-only',
     }),
-    showThinkingToggle: computed(() => false),
     stopGenerating: vi.fn(),
-    thinkingEnabled: computed(() => true),
     toggleSidebar: vi.fn(),
-    updateActiveThinkingEnabled: vi.fn(),
+    updateActiveThinkingLevel: vi.fn(),
     updateBuiltinToolEnabled: vi.fn(),
     updateBuiltinToolTavilyApiKey: vi.fn(),
     updateBuiltinToolTavilyBaseUrl: vi.fn(),

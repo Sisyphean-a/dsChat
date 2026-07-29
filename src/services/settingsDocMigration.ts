@@ -9,16 +9,18 @@ import {
   normalizeUtoolsSessionIdleTimeoutMinutes,
   normalizeUtoolsUploadMode,
 } from '../composables/chatAppSettings'
+import { normalizeThinkingLevel } from '../constants/thinking'
 import type {
   AddableProviderId,
   FontSizeMode,
   ProviderSettings,
-  ProviderThinkingSettings,
   SettingsDoc,
   SettingsForm,
   ThemeMode,
   UtoolsUploadMode,
 } from '../types/chat'
+
+type LegacyProviderThinkingSettings = Partial<Record<AddableProviderId | 'deepseek', boolean>>
 
 export interface LegacySettingsDoc {
   _id: string
@@ -29,7 +31,7 @@ export interface LegacySettingsDoc {
   model?: string
   temperature?: number
   fontSize?: FontSizeMode
-  providerThinking?: Partial<ProviderThinkingSettings>
+  providerThinking?: LegacyProviderThinkingSettings
   theme?: ThemeMode
 }
 
@@ -39,7 +41,7 @@ export type LegacyMultiProviderDoc = {
   activeProvider?: string
   fontSize?: FontSizeMode
   providers?: Record<string, Partial<ProviderSettings>>
-  providerThinking?: Partial<ProviderThinkingSettings>
+  providerThinking?: LegacyProviderThinkingSettings
   theme?: ThemeMode
   type: 'settings'
 }
@@ -51,12 +53,12 @@ export function migrateSettingsDoc(
   legacyUploadModeFallback: UtoolsUploadMode,
 ): SettingsForm {
   if (isSettingsDoc(doc)) {
+    const legacyThinking = getLegacyProviderThinking(doc)
     return {
       activeConfigId: doc.activeConfigId,
-      customModels: doc.customModels,
-      deepseek: doc.deepseek,
+      customModels: doc.customModels.map((item) => withMigratedThinkingLevel(item.provider, item, legacyThinking)),
+      deepseek: withMigratedThinkingLevel('deepseek', doc.deepseek, legacyThinking),
       fontSize: doc.fontSize,
-      providerThinking: doc.providerThinking,
       systemPrompt: typeof doc.systemPrompt === 'string' ? doc.systemPrompt : '',
       theme: doc.theme,
       toolSettings: doc.toolSettings ?? { ...DEFAULT_SETTINGS.toolSettings },
@@ -74,7 +76,7 @@ export function migrateSettingsDoc(
   return {
     activeConfigId: 'deepseek',
     customModels: [],
-    deepseek: {
+    deepseek: withMigratedThinkingLevel('deepseek', {
       ...DEFAULT_SETTINGS.deepseek,
       apiKey: doc.apiKey ?? DEFAULT_SETTINGS.deepseek.apiKey,
       baseUrl: doc.baseUrl ?? DEFAULT_SETTINGS.deepseek.baseUrl,
@@ -87,12 +89,8 @@ export function migrateSettingsDoc(
       temperature: typeof doc.temperature === 'number'
         ? doc.temperature
         : DEFAULT_SETTINGS.deepseek.temperature,
-    },
+    }, doc.providerThinking, true),
     fontSize: doc.fontSize ?? DEFAULT_SETTINGS.fontSize,
-    providerThinking: {
-      ...DEFAULT_SETTINGS.providerThinking,
-      ...(doc.providerThinking ?? {}),
-    },
     systemPrompt: '',
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
     toolSettings: { ...DEFAULT_SETTINGS.toolSettings },
@@ -116,18 +114,14 @@ function migrateLegacyMultiProviderDoc(
     ),
   }
   const customModels = ADDABLE_PROVIDER_IDS
-    .map((provider) => toLegacyCustomModel(provider, doc.providers?.[provider]))
+    .map((provider) => toLegacyCustomModel(provider, doc.providers?.[provider], doc.providerThinking))
     .filter((item) => item !== null)
 
   return {
     activeConfigId: resolveLegacyActiveConfigId(doc.activeProvider, customModels),
     customModels,
-    deepseek,
+    deepseek: withMigratedThinkingLevel('deepseek', deepseek, doc.providerThinking, true),
     fontSize: doc.fontSize ?? DEFAULT_SETTINGS.fontSize,
-    providerThinking: {
-      ...DEFAULT_SETTINGS.providerThinking,
-      ...(doc.providerThinking ?? {}),
-    },
     systemPrompt: '',
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
     toolSettings: { ...DEFAULT_SETTINGS.toolSettings },
@@ -150,13 +144,14 @@ function resolveLegacyActiveConfigId(
 function toLegacyCustomModel(
   provider: AddableProviderId,
   incomingSettings: Partial<ProviderSettings> | undefined,
+  legacyThinking: LegacyProviderThinkingSettings | undefined,
 ): SettingsForm['customModels'][number] | null {
   if (!incomingSettings || !isMeaningfulProviderSettings(provider, incomingSettings)) {
     return null
   }
 
   const draft = createAddedModelDraft(provider, [])
-  return {
+  return withMigratedThinkingLevel(provider, {
     ...draft,
     apiKey: incomingSettings.apiKey ?? draft.apiKey,
     baseUrl: incomingSettings.baseUrl ?? draft.baseUrl,
@@ -165,7 +160,7 @@ function toLegacyCustomModel(
     temperature: typeof incomingSettings.temperature === 'number'
       ? incomingSettings.temperature
       : draft.temperature,
-  }
+  }, legacyThinking, true)
 }
 
 function buildLegacyModelOptions(
@@ -198,6 +193,34 @@ function isMeaningfulProviderSettings(
     (incomingSettings.baseUrl?.trim() && incomingSettings.baseUrl.trim() !== defaults.baseUrl)
     || (incomingSettings.model?.trim() && incomingSettings.model.trim() !== defaults.model),
   )
+}
+
+function withMigratedThinkingLevel<T extends Partial<ProviderSettings>>(
+  provider: AddableProviderId | 'deepseek',
+  settings: T,
+  legacyThinking: LegacyProviderThinkingSettings | undefined,
+  preferLegacyThinking = false,
+): T & Pick<ProviderSettings, 'reasoningLevel'> {
+  const migratedCapabilities = provider === 'openai'
+    && settings.reasoningLevel === undefined
+    && settings.capabilities?.reasoning === false
+    ? { ...settings.capabilities, reasoning: true }
+    : undefined
+
+  return {
+    ...settings,
+    ...(migratedCapabilities ? { capabilities: migratedCapabilities } : {}),
+    reasoningLevel: normalizeThinkingLevel(
+      provider,
+      settings.model ?? '',
+      (preferLegacyThinking ? undefined : settings.reasoningLevel)
+        ?? (legacyThinking?.[provider] === false ? 'off' : undefined),
+    ),
+  }
+}
+
+function getLegacyProviderThinking(doc: SettingsDoc): LegacyProviderThinkingSettings | undefined {
+  return (doc as SettingsDoc & { providerThinking?: LegacyProviderThinkingSettings }).providerThinking
 }
 
 function isSettingsDoc(doc: PersistedSettingsDoc): doc is SettingsDoc {

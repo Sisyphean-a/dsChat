@@ -1,9 +1,9 @@
 import type { ProviderId } from '../../../types/chat'
 import {
-  createThinkingPayloadForChatCompletions,
   resolveProviderRequestTemperature,
   shouldIncludeProviderRequestTemperature,
 } from '../../../constants/providerCapabilities'
+import { createThinkingPayloadForChatCompletions } from '../../../constants/thinking'
 import type {
   ProviderAdapter,
   ProviderConversationMessage,
@@ -108,18 +108,18 @@ function createPayload(input: ProviderRequestInput): Record<string, unknown> {
     stream: input.stream,
   }
 
-  if (shouldIncludeProviderRequestTemperature(input.settings.provider, input.settings, input.thinkingEnabled)) {
+  if (shouldIncludeProviderRequestTemperature(input.settings.provider, input.settings, input.thinkingLevel)) {
     payload.temperature = resolveProviderRequestTemperature(
       input.settings.provider,
       input.settings.temperature,
-      input.thinkingEnabled,
+      input.thinkingLevel,
     )
   }
 
   Object.assign(payload, createThinkingPayloadForChatCompletions(
     input.settings.provider,
     input.settings,
-    input.thinkingEnabled,
+    input.thinkingLevel,
   ))
 
   if (input.tools.length) {

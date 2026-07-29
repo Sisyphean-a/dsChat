@@ -1,4 +1,4 @@
-import type { ActiveProviderSettings } from '../../types/chat'
+import type { ActiveProviderSettings, ThinkingLevel } from '../../types/chat'
 import type { AiToolDefinition, NormalizedToolCall } from './toolTypes'
 import type { HttpAdapter, HttpResponse } from './httpAdapter'
 import type {
@@ -41,7 +41,7 @@ export interface ProviderStreamRequest {
   messages: ProviderConversationMessage[]
   settings: ActiveProviderSettings
   signal?: AbortSignal
-  thinkingEnabled: boolean
+  thinkingLevel: ThinkingLevel
   tools: AiToolDefinition[]
 }
 

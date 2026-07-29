@@ -54,12 +54,13 @@ src/
 
 ### 设置与 Provider
 
-`SettingsForm` 由 `chatAppSettings.ts` 规范化，旧持久化形状通过 `settingsDocMigration.ts` 迁移。全局系统提示词属于设置，不从属于单一 Provider。DeepSeek 是内置默认配置；OpenAI、Kimi、MiniMax 与 custom 作为可添加配置。每份 Provider 设置都包含模型、地址、密钥、温度与能力开关。
+`SettingsForm` 由 `chatAppSettings.ts` 规范化，旧持久化形状通过 `settingsDocMigration.ts` 迁移。全局系统提示词属于设置，不从属于单一 Provider。DeepSeek 是内置默认配置；OpenAI、Kimi、MiniMax 与 custom 作为可添加配置。每份 Provider 设置都包含模型、地址、密钥、温度、思考等级与能力开关。
 
 Provider 注册表和能力档案是唯一来源：
 
 - `constants/providers.ts`：可添加的 Provider、默认 Base URL、模型预设、温度/图片等模型级差异。
-- `constants/providerCapabilities.ts`：协议、原生联网、图片、推理和本地工具编排能力。
+- `constants/providerCapabilities.ts`：每个 Provider 可选的协议，以及原生联网、图片与本地工具编排能力。
+- `constants/thinking.ts`：按供应商、协议和模型声明可选思考等级，并生成对应请求参数。
 - `services/ai/providerAdapter.ts`：按 `chat_completions` 或 `responses` 选择适配器。
 
 详见 [ADR-0001](../../requirements/adrs/0001-provider-protocol-and-tool-boundaries.md)。
@@ -78,7 +79,7 @@ Provider 注册表和能力档案是唯一来源：
 ## 关键不变量
 
 - Provider 请求、流式事件和工具执行必须分别位于 `services/ai/` 与 `services/tools/`；UI 与 composable 不得拼接协议请求。
-- 回复启动时快照 Provider、思考开关、工具设置与全局系统提示词；后续编辑设置不能改变正在进行的回复。
+- 回复启动时快照 Provider 配置、思考等级、工具设置与全局系统提示词；后续编辑设置不能改变正在进行的回复。
 - 工具总开关开启时，必须至少有一个内置工具，且当前配置必须支持本地工具调用，或是支持原生联网的 Responses 配置；不支持时在发送前报错。实际本地工具轮次只在前者运行。
 - 本地工具调用按照单轮顺序执行；同一签名重复出现、超时、参数错误、未知工具或空最终回答均应显式失败。
 - 仅最终文本回答是成功回复；工具或推理阶段本身不是成功结果。

@@ -1,26 +1,17 @@
 import {
   providerModelSupportsImageInput,
   providerModelSupportsTemperature,
-  supportsDeepseekThinking,
 } from './providers'
-import type { ActiveProviderSettings, ProviderCapabilities, ProviderId, ProviderSettings } from '../types/chat'
-
-export type ThinkingProviderKey = 'deepseek' | 'kimi' | 'minimax'
+import { getThinkingOptions } from './thinking'
+import type { ActiveProviderSettings, ProviderCapabilities, ProviderId, ProviderSettings, ThinkingLevel } from '../types/chat'
 
 interface ProviderCapabilityProfile {
   protocol: ProviderCapabilities['protocol']
   supportsImageInput: boolean
   supportsToolOrchestrator: boolean
   supportsNativeWebSearch: boolean
-  thinking: {
-    providerKey: ThinkingProviderKey | null
-    showToggle: (model: string) => boolean
-    supportsRequestControl: (model: string) => boolean
-  }
+  supportsReasoningControl: boolean
 }
-
-const ALWAYS_TRUE = () => true
-const ALWAYS_FALSE = () => false
 const OPENAI_NATIVE_WEB_SEARCH_MODELS = [
   'gpt-5.6',
   'gpt-5.6-sol',
@@ -39,62 +30,54 @@ const PROVIDER_IMAGE_INPUT_ERRORS: Partial<Record<ProviderId, string>> = {
   minimax: 'MiniMax 当前文本模型不支持图片输入。请切换支持图片的供应商后再发送。',
 }
 
+const PROVIDER_PROTOCOLS: Record<ProviderId, ProviderCapabilities['protocol'][]> = {
+  custom: ['chat_completions', 'responses'],
+  deepseek: ['chat_completions'],
+  kimi: ['chat_completions'],
+  minimax: ['chat_completions'],
+  openai: ['chat_completions', 'responses'],
+}
+
 const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilityProfile> = {
   custom: {
     protocol: 'chat_completions',
     supportsImageInput: true,
     supportsToolOrchestrator: true,
     supportsNativeWebSearch: false,
-    thinking: {
-      providerKey: null,
-      showToggle: ALWAYS_FALSE,
-      supportsRequestControl: ALWAYS_FALSE,
-    },
+    supportsReasoningControl: false,
   },
   deepseek: {
     protocol: 'chat_completions',
     supportsImageInput: false,
     supportsToolOrchestrator: true,
     supportsNativeWebSearch: false,
-    thinking: {
-      providerKey: 'deepseek',
-      showToggle: supportsDeepseekThinking,
-      supportsRequestControl: supportsDeepseekThinking,
-    },
+    supportsReasoningControl: true,
   },
   kimi: {
     protocol: 'chat_completions',
     supportsImageInput: true,
     supportsToolOrchestrator: true,
     supportsNativeWebSearch: false,
-    thinking: {
-      providerKey: 'kimi',
-      showToggle: ALWAYS_TRUE,
-      supportsRequestControl: ALWAYS_TRUE,
-    },
+    supportsReasoningControl: true,
   },
   minimax: {
     protocol: 'chat_completions',
     supportsImageInput: false,
     supportsToolOrchestrator: true,
     supportsNativeWebSearch: false,
-    thinking: {
-      providerKey: 'minimax',
-      showToggle: ALWAYS_TRUE,
-      supportsRequestControl: ALWAYS_TRUE,
-    },
+    supportsReasoningControl: true,
   },
   openai: {
     protocol: 'responses',
     supportsImageInput: true,
     supportsToolOrchestrator: false,
     supportsNativeWebSearch: true,
-    thinking: {
-      providerKey: null,
-      showToggle: ALWAYS_FALSE,
-      supportsRequestControl: ALWAYS_FALSE,
-    },
+    supportsReasoningControl: true,
   },
+}
+
+export function getSupportedProviderProtocols(provider: ProviderId): ProviderCapabilities['protocol'][] {
+  return [...PROVIDER_PROTOCOLS[provider]]
 }
 
 export function getDefaultProviderCapabilities(provider: ProviderId): ProviderCapabilities {
@@ -103,7 +86,7 @@ export function getDefaultProviderCapabilities(provider: ProviderId): ProviderCa
     imageInput: profile.supportsImageInput,
     nativeWebSearch: profile.supportsNativeWebSearch,
     protocol: profile.protocol,
-    reasoning: profile.thinking.providerKey !== null,
+    reasoning: profile.supportsReasoningControl,
     toolCalling: profile.supportsToolOrchestrator,
   }
 }
@@ -116,6 +99,9 @@ export function normalizeProviderCapabilities(
   const normalized = {
     ...getDefaultProviderCapabilities(provider),
     ...(capabilities ?? {}),
+  }
+  if (!PROVIDER_PROTOCOLS[provider].includes(normalized.protocol)) {
+    normalized.protocol = PROVIDER_CAPABILITIES[provider].protocol
   }
   if (provider === 'kimi' && !providerModelSupportsImageInput(provider, model)) {
     normalized.imageInput = false
@@ -145,48 +131,10 @@ export function createImageInputUnsupportedMessage(provider: ProviderId, label: 
   return `${label} 当前模型不支持图片输入。请切换支持图片的供应商后再发送。`
 }
 
-export function resolveThinkingProviderKey(provider: ProviderId): ThinkingProviderKey | null {
-  return PROVIDER_CAPABILITIES[provider].thinking.providerKey
-}
-
-export function providerShowsThinkingToggle(
-  provider: ProviderId,
-  settings: ProviderSettings,
-): boolean {
-  return settings.capabilities.reasoning && PROVIDER_CAPABILITIES[provider].thinking.showToggle(settings.model)
-}
-
-export function createThinkingPayloadForChatCompletions(
-  provider: ProviderId,
-  settings: ProviderSettings,
-  thinkingEnabled: boolean | undefined,
-): Record<string, unknown> {
-  if (!settings.capabilities.reasoning) {
-    return {}
-  }
-
-  if (!PROVIDER_CAPABILITIES[provider].thinking.supportsRequestControl(settings.model)) {
-    return {}
-  }
-
-  const enabled = thinkingEnabled ?? true
-  if (provider === 'minimax') {
-    return {
-      reasoning_split: enabled,
-    }
-  }
-
-  return {
-    thinking: {
-      type: enabled ? 'enabled' : 'disabled',
-    },
-  }
-}
-
 export function shouldIncludeProviderRequestTemperature(
   provider: ProviderId,
   settings: ProviderSettings,
-  thinkingEnabled: boolean | undefined,
+  thinkingLevel: ThinkingLevel,
 ): boolean {
   if (!providerModelSupportsTemperature(provider, settings.model)) {
     return false
@@ -196,23 +144,20 @@ export function shouldIncludeProviderRequestTemperature(
     return true
   }
 
-  if (!settings.capabilities.reasoning || !supportsDeepseekThinking(settings.model)) {
-    return true
-  }
-
-  return (thinkingEnabled ?? true) === false
+  return !getThinkingOptions(provider, settings).some((option) => option.value === thinkingLevel)
+    || thinkingLevel === 'off'
 }
 
 export function resolveProviderRequestTemperature(
   provider: ProviderId,
   configuredTemperature: number,
-  thinkingEnabled: boolean | undefined,
+  thinkingLevel: ThinkingLevel,
 ): number {
   if (provider !== 'kimi') {
     return configuredTemperature
   }
 
-  return (thinkingEnabled ?? true) ? 1.0 : 0.6
+  return thinkingLevel === 'off' ? 0.6 : 1.0
 }
 
 export function providerSupportsToolOrchestrator(provider: ProviderId): boolean {
@@ -224,8 +169,11 @@ export function providerSupportsToolCalling(settings: ProviderSettings): boolean
     && settings.capabilities.toolCalling
 }
 
-export function providerSupportsNativeWebSearch(settings: ProviderSettings): boolean {
-  return settings.capabilities.nativeWebSearch
+export function providerSupportsNativeWebSearch(settings: ActiveProviderSettings): boolean {
+  return settings.provider === 'openai'
+    && settings.capabilities.protocol === 'responses'
+    && settings.capabilities.nativeWebSearch
+    && supportsOpenAiNativeWebSearchModel(settings.model)
 }
 
 export function supportsOpenAiNativeWebSearchModel(model: string): boolean {

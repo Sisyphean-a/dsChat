@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { providerSupportsToolCalling } from '../constants/providerCapabilities'
-import type { ProviderCapabilities, ProviderSettings } from '../types/chat'
+import {
+  getSupportedProviderProtocols,
+  providerSupportsToolCalling,
+} from '../constants/providerCapabilities'
+import type { ProviderCapabilities, ProviderId, ProviderSettings } from '../types/chat'
 
 const props = defineProps<{
   expanded: boolean
+  provider: ProviderId
   settings: ProviderSettings
 }>()
 
@@ -20,7 +24,7 @@ const CAPABILITY_HELP = {
   imageInput: '允许把用户上传的图片随消息发给模型。',
   nativeWebSearch: '使用服务商 API 自带的联网搜索能力，不经过本地工具编排。',
   protocol: '决定请求使用 Chat Completions API 还是 Responses API 格式。',
-  reasoning: '允许显示思考开关，并在请求中发送厂商支持的推理参数。',
+  reasoning: '仅内置支持的供应商与模型会在输入区显示思考等级；不会为自定义接口猜测推理参数。',
   toolCalling: '允许模型调用本地内置工具，例如时间工具、Tavily 搜索。',
 } as const
 
@@ -30,7 +34,12 @@ const CAPABILITY_LABELS = {
   toolCalling: '工具',
   nativeWebSearch: '联网',
 } as const
+const PROTOCOL_LABELS: Record<ProviderCapabilities['protocol'], string> = {
+  chat_completions: 'Chat Completions API',
+  responses: 'Responses API',
+}
 
+const protocolOptions = computed(() => getSupportedProviderProtocols(props.provider))
 const summaryCapabilities = computed(() => ({
   imageInput: props.settings.capabilities.imageInput,
   reasoning: props.settings.capabilities.reasoning,
@@ -59,6 +68,9 @@ function updateProtocol(protocol: ProviderCapabilities['protocol']): void {
   emit('updateCapability', 'protocol', protocol)
   if (protocol === 'responses' && props.settings.capabilities.toolCalling) {
     emit('updateCapability', 'toolCalling', false)
+  }
+  if (protocol === 'chat_completions' && props.settings.capabilities.nativeWebSearch) {
+    emit('updateCapability', 'nativeWebSearch', false)
   }
 }
 
@@ -103,14 +115,15 @@ function resolveToolCallingTitle(): string {
   </div>
 
   <div v-if="props.expanded" class="capability-panel">
-    <label class="field-shell">
+    <label v-if="protocolOptions.length > 1" class="field-shell">
       <span :title="CAPABILITY_HELP.protocol">协议</span>
       <select
         :value="props.settings.capabilities.protocol"
         @change="updateProtocol(($event.target as HTMLSelectElement).value as ProviderCapabilities['protocol'])"
       >
-        <option value="chat_completions">Chat Completions API</option>
-        <option value="responses">Responses API</option>
+        <option v-for="protocol in protocolOptions" :key="protocol" :value="protocol">
+          {{ PROTOCOL_LABELS[protocol] }}
+        </option>
       </select>
     </label>
     <div class="capability-switch-grid">

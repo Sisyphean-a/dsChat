@@ -20,7 +20,7 @@ npm install
 npm run dev
 ```
 
-开发态通过 `plugin.json > development.main` 指向 `http://127.0.0.1:5173/index.html`，可在 uTools 开发者工具中直接预览。
+开发态通过 `plugin.json > development.main` 指向 `http://127.0.0.1:5123/index.html`，可在 uTools 开发者工具中直接预览。
 
 说明：
 

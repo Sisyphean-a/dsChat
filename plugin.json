@@ -2,7 +2,7 @@
   "main": "dist/index.html",
   "logo": "logo.png",
   "development": {
-    "main": "http://127.0.0.1:5173/index.html"
+    "main": "http://127.0.0.1:5123/index.html"
   },
   "pluginSetting": {
     "height": 620,

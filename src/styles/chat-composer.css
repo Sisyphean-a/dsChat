@@ -80,73 +80,57 @@ textarea::placeholder {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.thinking-toggle {
-  position: relative;
+.thinking-level-control {
   display: inline-flex;
   flex: none;
   align-items: center;
+  position: relative;
   gap: 5px;
   height: 30px;
   margin-left: auto;
-  padding: 5px 10px;
+  padding: 0 9px;
   border: 1px solid transparent;
   border-radius: 10px;
-  color: var(--text-muted);
-  cursor: pointer;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
   font-size: 11px;
-  font-weight: 400;
   line-height: 16.5px;
   white-space: nowrap;
-  transition: color 150ms ease;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
-.thinking-toggle.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.thinking-toggle-input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-.thinking-toggle-track {
-  position: absolute;
-  inset: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: inherit;
-  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
-}
-.thinking-toggle-icon,
-.thinking-toggle-text {
-  position: relative;
-  z-index: 1;
-}
-.thinking-toggle-icon {
-  flex: none;
-  color: var(--text-muted);
-  transition: color 150ms ease;
-}
-.thinking-toggle-text {
-  color: var(--text-muted);
-  transition: color 150ms ease, font-weight 150ms ease;
-}
-.thinking-toggle:not(.disabled):hover .thinking-toggle-track {
-  background: var(--accent-soft);
+.thinking-level-control:focus-within,
+.thinking-level-control:not(.disabled):hover {
   border-color: var(--accent);
 }
-.thinking-toggle-input:focus-visible + .thinking-toggle-track {
+.thinking-level-control:focus-within {
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
-.thinking-toggle-input:checked + .thinking-toggle-track {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+.thinking-level-control.disabled {
+  opacity: 0.5;
 }
-.thinking-toggle-input:checked ~ .thinking-toggle-icon,
-.thinking-toggle-input:checked ~ .thinking-toggle-text {
-  color: var(--accent-strong);
+.thinking-level-icon {
+  flex: none;
 }
-.thinking-toggle-input:checked ~ .thinking-toggle-text {
+.thinking-level-label {
+  color: var(--text-muted);
+}
+.thinking-level-value {
   font-weight: 500;
+}
+.thinking-level-arrow {
+  flex: none;
+}
+.thinking-level-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.thinking-level-select:disabled {
+  cursor: not-allowed;
 }
 .hidden-file-input {
   display: none;
@@ -300,7 +284,7 @@ textarea::placeholder {
     flex-wrap: wrap;
     row-gap: 4px;
   }
-  .thinking-toggle {
+  .thinking-level-control {
     margin-left: 0;
     order: 2;
   }

@@ -21,10 +21,10 @@ import type {
   ChatMessage,
   ConversationDoc,
   MessageAttachment,
-  ProviderId,
   ProviderSettings,
   ProviderCapabilities,
   SettingsForm,
+  ThinkingLevel,
 } from '../types/chat'
 import { shouldResetConversation } from '../utils/session'
 import { cloneMessages } from '../utils/chat'
@@ -34,11 +34,7 @@ import { finalizeStreamingMessages } from './chatAppMessages'
 import { createChatAppConversationPersistence } from './chatAppConversationPersistence'
 import { getErrorMessage } from './chatAppErrors'
 import { providerSupportsImageInput } from '../constants/providerCapabilities'
-import {
-  resolveThinkingEnabled as getThinkingEnabledForProvider,
-  resolveThinkingProvider,
-  shouldShowThinkingToggle,
-} from './chatAppThinking'
+import { getThinkingOptions } from '../constants/thinking'
 import { createChatAppProduction } from './chatAppProduction'
 import { createChatAppSettingsActions } from './chatAppSettingsActions'
 import {
@@ -74,12 +70,10 @@ export function useChatApp() {
   const isProviderSwitchLocked = computed(() => {
     return isSending.value || messages.value.length > 0
   })
-  const showThinkingToggle = computed(() => {
-    return shouldShowThinkingToggle(activeChatConfig.value)
+  const thinkingOptions = computed(() => {
+    return getThinkingOptions(activeChatConfig.value.provider, activeChatConfig.value)
   })
-  const thinkingEnabled = computed(() => {
-    return resolveThinkingEnabled(activeChatConfig.value.provider)
-  })
+  const thinkingLevel = computed(() => activeChatConfig.value.reasoningLevel)
   const retryableAssistantMessageId = computed(() => {
     return resolveRetryableAssistantReply(messages.value)?.assistantId ?? null
   })
@@ -113,7 +107,6 @@ export function useChatApp() {
     conversationPersistence,
     conversations,
     draftMessage,
-    getThinkingEnabled: (provider) => getThinkingEnabledForProvider(settings.value, provider),
     interruptedResponseMessage: INTERRUPTED_RESPONSE_MESSAGE,
     isSending,
     lastError,
@@ -212,14 +205,8 @@ export function useChatApp() {
     }
   }
 
-  function updateActiveThinkingEnabled(enabled: boolean): void {
-    const provider = activeChatConfig.value.provider
-    const target = resolveThinkingProvider(provider)
-    if (!target) {
-      return
-    }
-
-    settingsActions.updateProviderThinking(target, enabled)
+  function updateActiveThinkingLevel(level: ThinkingLevel): void {
+    settingsActions.updateActiveThinkingLevel(level)
     void persistPreferenceChange()
   }
 
@@ -346,10 +333,6 @@ export function useChatApp() {
     return settingsActions.saveSettingsAction()
   }
 
-  function resolveThinkingEnabled(provider: ProviderId): boolean {
-    return getThinkingEnabledForProvider(settings.value, provider)
-  }
-
   async function persistPreferenceChange(): Promise<void> {
     try {
       const normalizedSettings = getNormalizedSettings()
@@ -407,8 +390,8 @@ export function useChatApp() {
     pluginEnterSignal,
     retryLastAssistantMessage: replyLifecycle.retry,
     retryableAssistantMessageId,
-    showThinkingToggle,
-    thinkingEnabled,
+    thinkingLevel,
+    thinkingOptions,
     renameCustomModelOption: settingsActions.renameCustomModelOption,
     removeCustomModel: settingsActions.removeCustomModel,
     removeCustomModelOption: settingsActions.removeCustomModelOption,
@@ -429,7 +412,7 @@ export function useChatApp() {
     updateCustomToolField: settingsActions.updateCustomToolField,
     updateDeepseekField,
     updateDeepseekCapability,
-    updateActiveThinkingEnabled,
+    updateActiveThinkingLevel,
     updateBuiltinToolEnabled: settingsActions.updateBuiltinToolEnabled,
     updateBuiltinToolTavilyApiKey: settingsActions.updateBuiltinToolTavilyApiKey,
     updateBuiltinToolTavilyBaseUrl: settingsActions.updateBuiltinToolTavilyBaseUrl,

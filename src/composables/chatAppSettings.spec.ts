@@ -132,13 +132,15 @@ describe('normalizeSettings', () => {
       reasoning: true,
       toolCalling: true,
     })
+    expect(normalized.deepseek.reasoningLevel).toBe('high')
     expect(normalized.customModels[0]?.capabilities).toEqual({
       imageInput: true,
       nativeWebSearch: true,
       protocol: 'responses',
-      reasoning: false,
+      reasoning: true,
       toolCalling: false,
     })
+    expect(normalized.customModels[0]?.reasoningLevel).toBe('medium')
   })
 
   it('preserves user capability overrides during normalization', () => {

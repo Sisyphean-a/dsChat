@@ -1,4 +1,4 @@
-import type { ActiveProviderSettings } from '../../types/chat'
+import type { ActiveProviderSettings, ThinkingLevel } from '../../types/chat'
 import type { MessageMapping } from './messageMapping'
 import type { ProviderConversationMessage } from './providerAdapter'
 import { ProviderRequestError, type ProviderStream } from './providerStream'
@@ -19,7 +19,7 @@ export interface ToolOrchestratorRequest {
   messages: ProviderConversationMessage[]
   settings: ActiveProviderSettings
   signal?: AbortSignal
-  thinkingEnabled: boolean
+  thinkingLevel: ThinkingLevel
   toolSettings: ToolSettings
 }
 
@@ -92,7 +92,7 @@ async function* streamProviderRound(
       messages,
       settings: request.settings,
       signal: timeout.signal,
-      thinkingEnabled: request.thinkingEnabled,
+      thinkingLevel: request.thinkingLevel,
       tools: tools.map((tool) => tool.definition),
     })) {
       if (event.type === 'content') content += event.content

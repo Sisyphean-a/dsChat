@@ -13,13 +13,12 @@ export interface SendPreparation {
   attachments: MessageAttachment[]
   content: string
   systemPrompt: string
-  thinkingEnabled: boolean
+  thinkingLevel: ActiveProviderSettings['reasoningLevel']
   toolSettings: ToolSettings
 }
 
 interface PrepareSendRequestOptions {
   draftMessage: Ref<string>
-  getThinkingEnabled: (provider: ActiveProviderSettings['provider']) => boolean
   isSending: Ref<boolean>
   lastError: Ref<string | null>
   openSettings: () => void
@@ -36,7 +35,6 @@ export function prepareSendRequest(options: PrepareSendRequestOptions): SendPrep
 
   const context = prepareRequestContext({
     attachments,
-    getThinkingEnabled: options.getThinkingEnabled,
     lastError: options.lastError,
     openSettings: options.openSettings,
     settings: options.settings,
@@ -50,7 +48,7 @@ export function prepareSendRequest(options: PrepareSendRequestOptions): SendPrep
     attachments,
     content,
     systemPrompt: context.systemPrompt,
-    thinkingEnabled: context.thinkingEnabled,
+    thinkingLevel: context.thinkingLevel,
     toolSettings: context.toolSettings,
   }
 }
