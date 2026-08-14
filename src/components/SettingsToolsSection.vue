@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ApiKeyField from './ApiKeyField.vue'
 import { openExternalLink } from '../services/linkNavigation'
 import type { SettingsForm } from '../types/chat'
 import type { SettingsEdit } from '../types/settingsPanel'
@@ -16,7 +17,7 @@ function openTavilyOfficialSite(): void {
 }
 
 function openQwenOfficialSite(): void {
-  openExternalLink('https://help.aliyun.com/zh/model-studio/user-guide/qwen3-vl')
+  openExternalLink('https://help.aliyun.com/zh/model-studio/get-api-key')
 }
 </script>
 
@@ -103,15 +104,11 @@ function openQwenOfficialSite(): void {
                   @input="emit('edit', { domain: 'tools', action: 'updateTavilyBaseUrl', value: ($event.target as HTMLInputElement).value })"
                 />
               </label>
-              <label class="field-shell">
-                <span>API Key</span>
-                <input
-                  :value="props.settings.toolSettings.builtinTools.tavilySearch.apiKey"
-                  placeholder="tvly-..."
-                  type="password"
-                  @input="emit('edit', { domain: 'tools', action: 'updateTavilyApiKey', value: ($event.target as HTMLInputElement).value })"
-                />
-              </label>
+              <ApiKeyField
+                :model-value="props.settings.toolSettings.builtinTools.tavilySearch.apiKey"
+                placeholder="tvly-..."
+                @update:model-value="emit('edit', { domain: 'tools', action: 'updateTavilyApiKey', value: $event })"
+              />
             </div>
           </section>
 
@@ -119,16 +116,16 @@ function openQwenOfficialSite(): void {
             <div class="builtin-tool-row">
               <p class="builtin-tool-meta">
                 <span class="builtin-tool-name">qwen_image</span>
-                <span class="builtin-tool-desc">使用阿里云 Qwen 视觉模型识别、提取和分析图片；基础地址填写到 compatible-mode/v1，应用会自动追加 chat/completions</span>
+                <span class="builtin-tool-desc">使用阿里云 Qwen 视觉模型识别、提取和分析图片；基础地址填写到 compatible-mode/v1即可</span>
               </p>
               <div class="builtin-tool-actions">
                 <a
                   class="tool-official-link"
-                  href="https://help.aliyun.com/zh/model-studio/user-guide/qwen3-vl"
+                  href="https://help.aliyun.com/zh/model-studio/get-api-key"
                   rel="noreferrer noopener"
                   @click.prevent="openQwenOfficialSite"
                 >
-                  文档
+                  官网
                 </a>
                 <label class="switch-row">
                   <input
@@ -140,8 +137,8 @@ function openQwenOfficialSite(): void {
                 </label>
               </div>
             </div>
-            <div class="builtin-tool-fields">
-              <label class="field-shell">
+            <div class="builtin-tool-fields qwen-image-fields">
+              <label class="field-shell qwen-image-base-url">
                 <span>基础地址</span>
                 <input
                   :value="props.settings.toolSettings.builtinTools.qwenImage.baseUrl"
@@ -159,15 +156,11 @@ function openQwenOfficialSite(): void {
                   @input="emit('edit', { domain: 'tools', action: 'updateQwenImageModel', value: ($event.target as HTMLInputElement).value })"
                 />
               </label>
-              <label class="field-shell">
-                <span>API Key</span>
-                <input
-                  :value="props.settings.toolSettings.builtinTools.qwenImage.apiKey"
-                  placeholder="DashScope API Key"
-                  type="password"
-                  @input="emit('edit', { domain: 'tools', action: 'updateQwenImageApiKey', value: ($event.target as HTMLInputElement).value })"
-                />
-              </label>
+              <ApiKeyField
+                :model-value="props.settings.toolSettings.builtinTools.qwenImage.apiKey"
+                placeholder="DashScope API Key"
+                @update:model-value="emit('edit', { domain: 'tools', action: 'updateQwenImageApiKey', value: $event })"
+              />
             </div>
           </section>
         </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ApiKeyField from './ApiKeyField.vue'
 import EditableModelPicker from './EditableModelPicker.vue'
 import ProviderCapabilitiesEditor from './ProviderCapabilitiesEditor.vue'
 import { ref } from 'vue'
@@ -95,15 +96,11 @@ function updateCustomCapability(
               @input="emit('edit', { domain: 'provider', action: 'updateDeepseekField', field: 'baseUrl', value: ($event.target as HTMLInputElement).value })"
             />
           </label>
-          <label class="field-shell">
-            <span>API Key</span>
-            <input
-              :value="props.settings.deepseek.apiKey"
-              :placeholder="getProviderDefinition('deepseek').apiKeyPlaceholder || 'API Key'"
-              type="password"
-              @input="emit('edit', { domain: 'provider', action: 'updateDeepseekField', field: 'apiKey', value: ($event.target as HTMLInputElement).value })"
-            />
-          </label>
+          <ApiKeyField
+            :model-value="props.settings.deepseek.apiKey"
+            :placeholder="getProviderDefinition('deepseek').apiKeyPlaceholder || 'API Key'"
+            @update:model-value="emit('edit', { domain: 'provider', action: 'updateDeepseekField', field: 'apiKey', value: $event })"
+          />
           <label class="field-shell">
             <span>默认模型</span>
             <EditableModelPicker
@@ -153,15 +150,11 @@ function updateCustomCapability(
               @input="emit('edit', { domain: 'provider', action: 'updateCustomModelField', id: item.id, field: 'baseUrl', value: ($event.target as HTMLInputElement).value })"
             />
           </label>
-          <label class="field-shell">
-            <span>API Key</span>
-            <input
-              :value="item.apiKey"
-              :placeholder="getProviderDefinition(item.provider).apiKeyPlaceholder || 'API Key'"
-              type="password"
-              @input="emit('edit', { domain: 'provider', action: 'updateCustomModelField', id: item.id, field: 'apiKey', value: ($event.target as HTMLInputElement).value })"
-            />
-          </label>
+          <ApiKeyField
+            :model-value="item.apiKey"
+            :placeholder="getProviderDefinition(item.provider).apiKeyPlaceholder || 'API Key'"
+            @update:model-value="emit('edit', { domain: 'provider', action: 'updateCustomModelField', id: item.id, field: 'apiKey', value: $event })"
+          />
           <label class="field-shell">
             <span>默认模型</span>
             <EditableModelPicker

@@ -270,6 +270,10 @@
   gap: 10px;
 }
 
+.qwen-image-base-url {
+  grid-column: 1 / -1;
+}
+
 .field-shell,
 .provider-title-field {
   --inline-label-width: 78px;
@@ -353,9 +357,46 @@
   white-space: nowrap;
 }
 
-.field-shell > :is(input, select, .model-picker),
+.field-shell > :is(input, select, .model-picker, .api-key-control),
 .provider-title-field > :is(input, .provider-name-input) {
   min-width: 0;
+}
+
+.api-key-control {
+  min-width: 0;
+  position: relative;
+  display: block;
+}
+
+.api-key-control > input {
+  padding-right: 38px;
+}
+
+.settings-panel .api-key-visibility {
+  width: 28px;
+  height: 28px;
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.settings-panel .api-key-visibility:hover {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.settings-panel .api-key-visibility:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .settings-panel .danger-text {
