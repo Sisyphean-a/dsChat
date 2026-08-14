@@ -3,6 +3,27 @@ import { getDefaultProviderCapabilities } from '../../../constants/providerCapab
 import { openAiResponsesAdapter } from './openAiResponsesAdapter'
 
 describe('openAiResponsesAdapter', () => {
+  it('rejects insecure OpenAI endpoints before sending a request', () => {
+    expect(() => openAiResponsesAdapter.createRequest({
+      messages: [{ content: '你好', role: 'user' }],
+      settings: {
+        apiKey: 'sk-test',
+        baseUrl: 'http://example.com/v1',
+        capabilities: getDefaultProviderCapabilities('openai'),
+        configId: 'openai',
+        label: 'OpenAI',
+        model: 'gpt-5.6',
+        modelOptions: ['gpt-5.6'],
+        provider: 'openai',
+        reasoningLevel: 'medium',
+        temperature: 1,
+      },
+      stream: true,
+      thinkingLevel: 'high',
+      tools: [],
+    })).toThrow('必须使用 HTTPS')
+  })
+
   it('sends the selected OpenAI reasoning effort in the Responses request', () => {
     const request = openAiResponsesAdapter.createRequest({
       messages: [{ content: '解释这段代码', role: 'user' }],

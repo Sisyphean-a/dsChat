@@ -3,7 +3,12 @@ import {
   providerSupportsToolCalling as configSupportsToolCalling,
   supportsOpenAiNativeWebSearchModel,
 } from '../constants/providerCapabilities'
-import { DEFAULT_TAVILY_SEARCH_BASE_URL } from '../constants/tools'
+import {
+  DEFAULT_TAVILY_SEARCH_BASE_URL,
+  DEFAULT_QWEN_IMAGE_BASE_URL,
+  DEFAULT_QWEN_IMAGE_MODEL,
+} from '../constants/tools'
+import { getQwenImageEndpointError } from '../services/qwenEndpointValidation'
 import type { ActiveProviderSettings, SettingsForm } from '../types/chat'
 
 export function normalizeToolSettings(
@@ -11,8 +16,13 @@ export function normalizeToolSettings(
 ): SettingsForm['toolSettings'] {
   const legacy = toolSettings as Partial<{
     tavilyApiKey: string
+    builtinTools?: {
+      zaiImage?: {
+        enabled?: boolean
+      }
+    }
   }>
-  const builtinTools = normalizeBuiltinToolSettings(toolSettings, legacy.tavilyApiKey)
+  const builtinTools = normalizeBuiltinToolSettings(toolSettings, legacy.tavilyApiKey, legacy.builtinTools?.zaiImage?.enabled)
   return {
     enabled: toolSettings?.enabled ?? false,
     builtinTools,
@@ -36,11 +46,38 @@ export function getToolSettingsError(
     return '请至少启用一个内置工具。'
   }
 
+  const supportsLocalTools = configSupportsToolCalling(activeSettings)
+  if (hasEnabledQwenImageTool(toolSettings) && !supportsLocalTools) {
+    return `${activeSettings.label} 当前配置暂不支持本地图片工具，请切换支持 Chat Completions 工具调用的配置。`
+  }
+
   if (!providerSupportsToolCalling(activeSettings)) {
     return `${activeSettings.label} 当前配置暂不支持工具调用。`
   }
 
+  if (supportsLocalTools && hasEnabledQwenImageTool(toolSettings)) {
+    if (!toolSettings.builtinTools.qwenImage?.apiKey.trim()) {
+      return '请先填写阿里云 Qwen 图片工具 API Key。'
+    }
+    const qwenEndpointError = getQwenImageEndpointError(
+      toolSettings.builtinTools.qwenImage.baseUrl,
+    )
+    if (qwenEndpointError) {
+      return qwenEndpointError
+    }
+  }
+
   return null
+}
+
+export function canUseBuiltinQwenImageTool(
+  activeSettings: ActiveProviderSettings,
+  toolSettings: SettingsForm['toolSettings'],
+): boolean {
+  return toolSettings.enabled
+    && configSupportsToolCalling(activeSettings)
+    && hasEnabledQwenImageTool(toolSettings)
+    && Boolean(toolSettings.builtinTools.qwenImage?.apiKey.trim())
 }
 
 export function canActiveSettingsSearchWeb(
@@ -57,6 +94,7 @@ export function canActiveSettingsSearchWeb(
 function normalizeBuiltinToolSettings(
   toolSettings: SettingsForm['toolSettings'] | undefined,
   legacyTavilyApiKey: string | undefined,
+  legacyQwenImageEnabled: boolean | undefined,
 ): SettingsForm['toolSettings']['builtinTools'] {
   const builtinTavilyApiKey = toolSettings?.builtinTools?.tavilySearch?.apiKey?.trim() ?? ''
   const builtinTavilyBaseUrl = normalizeTavilySearchBaseUrl(toolSettings?.builtinTools?.tavilySearch?.baseUrl)
@@ -69,6 +107,12 @@ function normalizeBuiltinToolSettings(
       enabled: toolSettings?.builtinTools?.tavilySearch?.enabled ?? true,
       apiKey: builtinTavilyApiKey || normalizedLegacyTavilyApiKey,
       baseUrl: builtinTavilyBaseUrl,
+    },
+    qwenImage: {
+      enabled: toolSettings?.builtinTools?.qwenImage?.enabled ?? legacyQwenImageEnabled ?? false,
+      apiKey: toolSettings?.builtinTools?.qwenImage?.apiKey?.trim() ?? '',
+      baseUrl: normalizeQwenImageBaseUrl(toolSettings?.builtinTools?.qwenImage?.baseUrl),
+      model: toolSettings?.builtinTools?.qwenImage?.model?.trim() || DEFAULT_QWEN_IMAGE_MODEL,
     },
   }
 }
@@ -118,9 +162,18 @@ function normalizeTavilySearchBaseUrl(value: string | undefined): string {
   return normalized || DEFAULT_TAVILY_SEARCH_BASE_URL
 }
 
+function normalizeQwenImageBaseUrl(value: string | undefined): string {
+  const normalized = value?.trim() ?? ''
+  return normalized || DEFAULT_QWEN_IMAGE_BASE_URL
+}
+
 function hasEnabledBuiltinTool(toolSettings: SettingsForm['toolSettings']): boolean {
-  const { currentTime, tavilySearch } = toolSettings.builtinTools
-  return currentTime.enabled || tavilySearch.enabled
+  const { currentTime, tavilySearch, qwenImage } = toolSettings.builtinTools
+  return currentTime.enabled || tavilySearch.enabled || qwenImage.enabled
+}
+
+function hasEnabledQwenImageTool(toolSettings: SettingsForm['toolSettings']): boolean {
+  return toolSettings.builtinTools.qwenImage?.enabled ?? false
 }
 
 function hasEnabledCustomTool(toolSettings: SettingsForm['toolSettings']): boolean {

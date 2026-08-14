@@ -17,6 +17,7 @@ import {
   UTOOLS_SESSION_IDLE_TIMEOUT_OPTIONS,
   UTOOLS_UPLOAD_MODES,
 } from '../constants/storage'
+import { getHttpsEndpointError } from '../services/endpointValidation'
 import type {
   ActiveProviderSettings,
   AddedModelConfig,
@@ -64,6 +65,11 @@ export function getSendSettingsError(currentSettings: SettingsForm): string | nu
 
   if (!activeSettings.baseUrl.trim()) {
     return `请先在设置面板中填写 ${activeSettings.label} Base URL。`
+  }
+
+  const endpointError = getHttpsEndpointError(activeSettings.baseUrl, `${activeSettings.label} Base URL`)
+  if (endpointError) {
+    return endpointError
   }
 
   if (!activeSettings.model.trim()) {

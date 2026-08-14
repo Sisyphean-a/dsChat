@@ -9,6 +9,7 @@ import {
   normalizeUtoolsSessionIdleTimeoutMinutes,
   normalizeUtoolsUploadMode,
 } from '../composables/chatAppSettings'
+import { normalizeToolSettings } from '../composables/chatAppToolSettings'
 import { normalizeThinkingLevel } from '../constants/thinking'
 import type {
   AddableProviderId,
@@ -61,7 +62,7 @@ export function migrateSettingsDoc(
       fontSize: doc.fontSize,
       systemPrompt: typeof doc.systemPrompt === 'string' ? doc.systemPrompt : '',
       theme: doc.theme,
-      toolSettings: doc.toolSettings ?? { ...DEFAULT_SETTINGS.toolSettings },
+      toolSettings: normalizeToolSettings(doc.toolSettings),
       utoolsSessionIdleTimeoutMinutes: normalizeUtoolsSessionIdleTimeoutMinutes(
         doc.utoolsSessionIdleTimeoutMinutes,
       ),

@@ -63,6 +63,29 @@ describe('migrateSettingsDoc', () => {
     expect(settings.systemPrompt).toBe('')
   })
 
+  it('fills the Qwen image tool defaults for saved settings without the new fields', () => {
+    const defaults = buildDefaultSettings()
+    const settings = migrateSettingsDoc({
+      _id: 'settings/config',
+      ...defaults,
+      toolSettings: {
+        ...defaults.toolSettings,
+        builtinTools: {
+          currentTime: defaults.toolSettings.builtinTools.currentTime,
+          tavilySearch: defaults.toolSettings.builtinTools.tavilySearch,
+        },
+      },
+      type: 'settings',
+    } as unknown as Parameters<typeof migrateSettingsDoc>[0], 'local-only')
+
+    expect(settings.toolSettings.builtinTools.qwenImage).toEqual({
+      enabled: false,
+      apiKey: '',
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      model: 'qwen3-vl-flash',
+    })
+  })
+
   it('restores the OpenAI reasoning default from settings saved before reasoning levels', () => {
     const defaults = buildDefaultSettings()
     const { reasoningLevel: _, ...legacyOpenAi } = buildDefaultProviderSettings('openai')

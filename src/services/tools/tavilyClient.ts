@@ -1,4 +1,5 @@
 import { DEFAULT_TAVILY_SEARCH_BASE_URL } from '../../constants/tools'
+import { normalizeHttpsEndpoint } from '../endpointValidation'
 
 export interface TavilySearchRequest {
   query: string
@@ -49,9 +50,7 @@ export async function searchWithTavily(
   if (!apiKey.trim()) {
     throw new Error('Tavily API Key 缺失。')
   }
-  if (!baseUrl.trim()) {
-    throw new Error('Tavily 后端地址缺失。')
-  }
+  const endpoint = normalizeHttpsEndpoint(baseUrl, 'Tavily 后端地址')
 
   const body: Record<string, unknown> = {
     query,
@@ -68,7 +67,7 @@ export async function searchWithTavily(
     body.days = days
   }
 
-  const response = await fetch(baseUrl.trim(), {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey.trim()}`,

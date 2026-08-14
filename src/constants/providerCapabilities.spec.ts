@@ -72,7 +72,7 @@ describe('providerCapabilities', () => {
 
   it('normalizes partial capability overrides with provider defaults', () => {
     expect(normalizeProviderCapabilities('deepseek', { imageInput: true })).toEqual({
-      imageInput: true,
+      imageInput: false,
       nativeWebSearch: false,
       protocol: 'chat_completions',
       reasoning: true,

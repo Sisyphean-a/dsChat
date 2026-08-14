@@ -116,9 +116,17 @@ export interface BuiltinTavilySearchToolSettings {
   baseUrl: string
 }
 
+export interface BuiltinQwenImageToolSettings {
+  enabled: boolean
+  apiKey: string
+  baseUrl: string
+  model: string
+}
+
 export interface BuiltinToolSettings {
   currentTime: BuiltinCurrentTimeToolSettings
   tavilySearch: BuiltinTavilySearchToolSettings
+  qwenImage: BuiltinQwenImageToolSettings
 }
 
 export interface CustomToolSettings {

@@ -39,9 +39,12 @@ const emit = defineEmits<{
   removeCustomTool: [id: string]
   renameCustomModelOption: [id: string, from: string, to: string]
   save: []
-  updateBuiltinToolEnabled: [tool: 'currentTime' | 'tavilySearch', enabled: boolean]
+  updateBuiltinToolEnabled: [tool: 'currentTime' | 'tavilySearch' | 'qwenImage', enabled: boolean]
   updateBuiltinToolTavilyApiKey: [apiKey: string]
   updateBuiltinToolTavilyBaseUrl: [baseUrl: string]
+  updateBuiltinToolQwenImageApiKey: [apiKey: string]
+  updateBuiltinToolQwenImageBaseUrl: [baseUrl: string]
+  updateBuiltinToolQwenImageModel: [model: string]
   updateCustomModelField: [id: string, field: CustomModelField, value: string | number]
   updateCustomModelCapability: [
     id: string,
@@ -70,8 +73,8 @@ const activeSection = ref<SettingsSectionId>('general')
 const closeButtonRef = ref<HTMLButtonElement | null>(null)
 const dialogRef = ref<HTMLElement | null>(null)
 const enabledBuiltinToolCount = computed(() => {
-  const { currentTime, tavilySearch } = props.settings.toolSettings.builtinTools
-  return Number(currentTime.enabled) + Number(tavilySearch.enabled)
+  const { currentTime, tavilySearch, qwenImage } = props.settings.toolSettings.builtinTools
+  return Number(currentTime.enabled) + Number(tavilySearch.enabled) + Number(qwenImage.enabled)
 })
 const navItems = computed(() => [
   {
@@ -204,6 +207,9 @@ const { handleModalKeydown } = useModalFocus({
               @update-builtin-tool-enabled="(tool, enabled) => emit('updateBuiltinToolEnabled', tool, enabled)"
               @update-builtin-tool-tavily-api-key="emit('updateBuiltinToolTavilyApiKey', $event)"
               @update-builtin-tool-tavily-base-url="emit('updateBuiltinToolTavilyBaseUrl', $event)"
+              @update-builtin-tool-qwen-image-api-key="emit('updateBuiltinToolQwenImageApiKey', $event)"
+              @update-builtin-tool-qwen-image-base-url="emit('updateBuiltinToolQwenImageBaseUrl', $event)"
+              @update-builtin-tool-qwen-image-model="emit('updateBuiltinToolQwenImageModel', $event)"
               @update-tool-enabled="emit('updateToolEnabled', $event)"
             />
           </main>

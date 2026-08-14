@@ -4,6 +4,8 @@ import {
   shouldIncludeProviderRequestTemperature,
 } from '../../../constants/providerCapabilities'
 import { createThinkingPayloadForChatCompletions } from '../../../constants/thinking'
+import { normalizeHttpsEndpoint } from '../../endpointValidation'
+import { validateImageAttachment } from '../../imageAttachmentValidation'
 import type {
   ProviderAdapter,
   ProviderConversationMessage,
@@ -51,7 +53,7 @@ export const chatCompletionsAdapter: ProviderAdapter = {
     return {
       body: createPayload(input),
       headers: createHeaders(input.settings.apiKey),
-      url: `${input.settings.baseUrl.replace(/\/$/, '')}/chat/completions`,
+      url: `${normalizeHttpsEndpoint(input.settings.baseUrl, `${input.settings.label} Base URL`).replace(/\/$/, '')}/chat/completions`,
     }
   },
   createStreamState(settings) {
@@ -173,6 +175,7 @@ function createMessageContent(
     parts.push({ text: content, type: 'text' })
   }
   for (const attachment of attachments) {
+    validateImageAttachment(attachment)
     parts.push({ image_url: { url: attachment.dataUrl }, type: 'image_url' })
   }
   return parts.length ? parts : content

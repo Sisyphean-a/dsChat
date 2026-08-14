@@ -7,14 +7,21 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  updateBuiltinToolEnabled: [tool: 'currentTime' | 'tavilySearch', enabled: boolean]
+  updateBuiltinToolEnabled: [tool: 'currentTime' | 'tavilySearch' | 'qwenImage', enabled: boolean]
   updateBuiltinToolTavilyApiKey: [apiKey: string]
   updateBuiltinToolTavilyBaseUrl: [baseUrl: string]
+  updateBuiltinToolQwenImageApiKey: [apiKey: string]
+  updateBuiltinToolQwenImageBaseUrl: [baseUrl: string]
+  updateBuiltinToolQwenImageModel: [model: string]
   updateToolEnabled: [enabled: boolean]
 }>()
 
 function openTavilyOfficialSite(): void {
   openExternalLink('https://www.tavily.com')
+}
+
+function openQwenOfficialSite(): void {
+  openExternalLink('https://help.aliyun.com/zh/model-studio/user-guide/qwen3-vl')
 }
 </script>
 
@@ -108,6 +115,62 @@ function openTavilyOfficialSite(): void {
                   placeholder="tvly-..."
                   type="password"
                   @input="emit('updateBuiltinToolTavilyApiKey', ($event.target as HTMLInputElement).value)"
+                />
+              </label>
+            </div>
+          </section>
+
+          <section class="builtin-tool-item">
+            <div class="builtin-tool-row">
+              <p class="builtin-tool-meta">
+                <span class="builtin-tool-name">qwen_image</span>
+                <span class="builtin-tool-desc">使用阿里云 Qwen 视觉模型识别、提取和分析图片；基础地址填写到 compatible-mode/v1，应用会自动追加 chat/completions</span>
+              </p>
+              <div class="builtin-tool-actions">
+                <a
+                  class="tool-official-link"
+                  href="https://help.aliyun.com/zh/model-studio/user-guide/qwen3-vl"
+                  rel="noreferrer noopener"
+                  @click.prevent="openQwenOfficialSite"
+                >
+                  文档
+                </a>
+                <label class="switch-row">
+                  <input
+                    :checked="props.settings.toolSettings.builtinTools.qwenImage.enabled"
+                    type="checkbox"
+                    @change="emit('updateBuiltinToolEnabled', 'qwenImage', ($event.target as HTMLInputElement).checked)"
+                  />
+                  <span>启用</span>
+                </label>
+              </div>
+            </div>
+            <div class="builtin-tool-fields">
+              <label class="field-shell">
+                <span>基础地址</span>
+                <input
+                  :value="props.settings.toolSettings.builtinTools.qwenImage.baseUrl"
+                  placeholder="https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+                  type="text"
+                  @input="emit('updateBuiltinToolQwenImageBaseUrl', ($event.target as HTMLInputElement).value)"
+                />
+              </label>
+              <label class="field-shell">
+                <span>模型</span>
+                <input
+                  :value="props.settings.toolSettings.builtinTools.qwenImage.model"
+                  placeholder="qwen3-vl-flash"
+                  type="text"
+                  @input="emit('updateBuiltinToolQwenImageModel', ($event.target as HTMLInputElement).value)"
+                />
+              </label>
+              <label class="field-shell">
+                <span>API Key</span>
+                <input
+                  :value="props.settings.toolSettings.builtinTools.qwenImage.apiKey"
+                  placeholder="DashScope API Key"
+                  type="password"
+                  @input="emit('updateBuiltinToolQwenImageApiKey', ($event.target as HTMLInputElement).value)"
                 />
               </label>
             </div>

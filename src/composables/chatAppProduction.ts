@@ -58,8 +58,8 @@ export function createChatAppProduction(options: ChatAppProductionOptions): Repl
     lastError: options.lastError,
     messages: options.messages,
     messageMapping,
-    notifyNewConversation(conversationId, firstMessageContent, settings) {
-      titleManager.generate({ conversationId, firstMessageContent, settings })
+    notifyNewConversation(conversationId, firstMessageContent, settings, hasAttachments) {
+      titleManager.generate({ conversationId, firstMessageContent, hasAttachments, settings })
     },
     openSettings: options.openSettings,
     pendingAttachments: options.pendingAttachments,

@@ -13,7 +13,11 @@ import {
   DEFAULT_UTOOLS_SESSION_IDLE_TIMEOUT_MINUTES,
   DEFAULT_UTOOLS_UPLOAD_MODE,
 } from './storage'
-import { DEFAULT_TAVILY_SEARCH_BASE_URL } from './tools'
+import {
+  DEFAULT_TAVILY_SEARCH_BASE_URL,
+  DEFAULT_QWEN_IMAGE_BASE_URL,
+  DEFAULT_QWEN_IMAGE_MODEL,
+} from './tools'
 import { getDefaultThinkingLevel } from './thinking'
 
 export interface ProviderModelOption {
@@ -52,6 +56,12 @@ const DEFAULT_TOOL_SETTINGS: ToolSettings = {
       enabled: true,
       apiKey: '',
       baseUrl: DEFAULT_TAVILY_SEARCH_BASE_URL,
+    },
+    qwenImage: {
+      enabled: false,
+      apiKey: '',
+      baseUrl: DEFAULT_QWEN_IMAGE_BASE_URL,
+      model: DEFAULT_QWEN_IMAGE_MODEL,
     },
   },
   customTools: [],

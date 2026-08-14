@@ -71,16 +71,21 @@ Provider 注册表和能力档案是唯一来源：
 
 - `providerStream.ts`：负责 HTTP 状态、SSE 缓冲、协议错误和空结果判断，不理解会话 UI。
 - `providerCompletion.ts`：只用于非流式标题生成。
-- `providerAdapters/chatCompletionsAdapter.ts`：处理兼容 Chat Completions 的文本、推理、图片和函数工具调用。
-- `providerAdapters/openAiResponsesAdapter.ts`：处理 Responses 事件和 OpenAI 原生 `web_search` 状态；它不参与本地工具轮次。
-- `toolOrchestrator.ts`：针对本地工具创建多轮上下文，追加 assistant tool-call 与 tool result 消息，阻止重复调用，并让最终回答缺失显式失败。
-- `services/tools/toolRegistry.ts`：当前只登记 `get_current_time` 和 `tavily_search`。`customTools` 是预留数据形状，设置规范化会清空它；执行引擎仍会拒绝任何非空且启用的自定义工具，因为没有执行实现。
+- `providerAdapters/chatCompletionsAdapter.ts`：处理兼容 Chat Completions 的文本、推理、图片和函数工具调用；请求地址和图片附件在序列化边界再次校验。
+- `providerAdapters/openAiResponsesAdapter.ts`：处理 Responses 事件和 OpenAI 原生 `web_search` 状态；它不参与本地工具轮次，且复用 HTTPS endpoint 与图片附件校验。
+- `toolOrchestrator.ts`：针对本地工具创建多轮上下文，追加 assistant tool-call 与 tool result 消息，阻止重复调用，并让最终回答缺失显式失败；工具执行上下文可携带当前回合附件。
+- `services/ai/systemPrompt.ts`：在每次回复启动时根据原生联网、直接图片输入、当前工具定义和当前附件动态组装默认系统提示词，再追加用户自定义规则。
+- `services/conversationTitle.ts`：标题请求只使用首条用户文字和“是否带图片”提示，不把图片 Data URL 发给标题模型；模型返回请求补充内容等非标题文本时回退到用户问题或“图片分析”。
+- `services/tools/toolRegistry.ts`：登记 `get_current_time`、`tavily_search` 以及三个受控阿里云 Qwen 图片工具。Qwen 工具只接收模型给出的 `attachment_id` 和任务参数，由运行时从当前附件解析图片，不接受模型提供的 URL、路径或 Base64；它们仅在支持本地 Chat Completions 工具轮次的配置中启用。`customTools` 是预留数据形状，设置规范化会清空它；执行引擎仍会拒绝任何非空且启用的自定义工具，因为没有执行实现。
 
 ## 关键不变量
 
 - Provider 请求、流式事件和工具执行必须分别位于 `services/ai/` 与 `services/tools/`；UI 与 composable 不得拼接协议请求。
-- 回复启动时快照 Provider 配置、思考等级、工具设置与全局系统提示词；后续编辑设置不能改变正在进行的回复。
+- 标题生成不得把图片 Data URL 或图片附件直接交给文本标题模型；图片问题优先从用户文字生成标题，标题模型输出拒答或请求补充内容时必须回退为稳定的本地标题。
+- 回复启动时快照 Provider 配置、思考等级、工具设置与全局系统提示词；后续编辑设置不能改变正在进行的回复。动态提示词不得暴露图片 Data URL 或其他内部附件内容。
 - 工具总开关开启时，必须至少有一个内置工具，且当前配置必须支持本地工具调用，或是支持原生联网的 Responses 配置；不支持时在发送前报错。实际本地工具轮次只在前者运行。
+- 所有 Provider、Tavily 和阿里云 Qwen 外部服务地址必须使用 HTTPS，且不得在 URL 中携带用户名或密码；Qwen 图片工具基础地址可填写至 `/compatible-mode/v1`，运行时自动追加 `/chat/completions`，也兼容完整 endpoint；图片 Data URL 在 Qwen 工具和 Provider 序列化边界都要校验类型、Base64 格式和大小。
+- 当前 Provider 不支持直接图片输入时，Provider 消息必须剥离图片附件；若当前回合提供了阿里云 Qwen 图片工具，则优先走 Qwen 工具轮次并始终剥离 Provider 图片附件，原始附件仅通过工具执行上下文保留。Qwen 请求使用 HTTPS、非流式 `qwen3-vl-flash` 视觉接口；图片工具单次执行允许 60 秒，普通工具仍为 20 秒，失败、超时和空结果必须显式失败。
 - 本地工具调用按照单轮顺序执行；同一签名重复出现、超时、参数错误、未知工具或空最终回答均应显式失败。
 - 仅最终文本回答是成功回复；工具或推理阶段本身不是成功结果。
 

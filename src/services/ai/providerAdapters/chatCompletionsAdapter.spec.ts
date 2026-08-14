@@ -60,6 +60,39 @@ describe('chatCompletionsAdapter', () => {
     })
   })
 
+  it('rejects insecure Provider endpoints before sending a request', () => {
+    expect(() => chatCompletionsAdapter.createRequest({
+      messages: [{ content: '你好', role: 'user' }],
+      settings: { ...createSettings(), baseUrl: 'http://example.com/v1' },
+      stream: true,
+      thinkingLevel: 'high',
+      tools: [],
+    })).toThrow('必须使用 HTTPS')
+  })
+
+  it('validates image attachments before Provider serialization', () => {
+    expect(() => chatCompletionsAdapter.createRequest({
+      messages: [{
+        attachments: [{
+          dataUrl: 'https://example.com/image.png',
+          height: 1,
+          id: 'image-1',
+          mimeType: 'image/png',
+          name: 'image.png',
+          size: 1,
+          type: 'image',
+          width: 1,
+        }],
+        content: '分析图片',
+        role: 'user',
+      }],
+      settings: createSettings(),
+      stream: true,
+      thinkingLevel: 'high',
+      tools: [],
+    })).toThrow('图片附件格式无效：image-1')
+  })
+
   it('serializes tool definitions with serial execution', () => {
     const request = chatCompletionsAdapter.createRequest({
       messages: [{ content: '查新闻', role: 'user' }],

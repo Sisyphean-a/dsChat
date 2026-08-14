@@ -143,7 +143,7 @@ describe('normalizeSettings', () => {
     expect(normalized.customModels[0]?.reasoningLevel).toBe('medium')
   })
 
-  it('preserves user capability overrides during normalization', () => {
+  it('keeps fixed-provider image capability disabled during normalization', () => {
     const settings = buildDefaultSettings()
     settings.deepseek.capabilities = {
       ...settings.deepseek.capabilities,
@@ -153,7 +153,7 @@ describe('normalizeSettings', () => {
 
     const normalized = normalizeSettings(settings)
 
-    expect(normalized.deepseek.capabilities.imageInput).toBe(true)
+    expect(normalized.deepseek.capabilities.imageInput).toBe(false)
     expect(normalized.deepseek.capabilities.reasoning).toBe(false)
   })
 
@@ -173,12 +173,55 @@ describe('normalizeSettings', () => {
           apiKey: '',
           baseUrl: 'https://api.tavily.com/search',
         },
+        qwenImage: {
+          enabled: false,
+          apiKey: '',
+          baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+          model: 'qwen3-vl-flash',
+        },
       },
     }
 
     const normalized = normalizeSettings(settings)
     expect(normalized.toolSettings.builtinTools.tavilySearch.apiKey).toBe('tvly-legacy-key')
     expect(normalized.toolSettings.builtinTools.tavilySearch.baseUrl).toBe('https://api.tavily.com/search')
+  })
+
+  it('migrates legacy Z.AI enablement without carrying its credentials', () => {
+    const settings = buildDefaultSettings() as unknown as {
+      toolSettings: {
+        enabled: boolean
+        builtinTools: {
+          currentTime: { enabled: boolean }
+          tavilySearch: { enabled: boolean; apiKey: string; baseUrl: string }
+          zaiImage: { enabled: boolean; apiKey: string; baseUrl: string; model: string }
+        }
+        customTools: []
+      }
+    }
+    settings.toolSettings = {
+      enabled: true,
+      builtinTools: {
+        currentTime: { enabled: false },
+        tavilySearch: { enabled: false, apiKey: '', baseUrl: 'https://api.tavily.com/search' },
+        zaiImage: {
+          enabled: true,
+          apiKey: 'old-zai-key',
+          baseUrl: 'https://api.z.ai/api/paas/v4/chat/completions',
+          model: 'glm-4.5v',
+        },
+      },
+      customTools: [],
+    }
+
+    const normalized = normalizeSettings(settings as unknown as Parameters<typeof normalizeSettings>[0])
+
+    expect(normalized.toolSettings.builtinTools.qwenImage).toEqual({
+      enabled: true,
+      apiKey: '',
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      model: 'qwen3-vl-flash',
+    })
   })
 })
 

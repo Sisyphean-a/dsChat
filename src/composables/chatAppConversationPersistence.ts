@@ -30,9 +30,11 @@ export interface ConversationTitleManager {
   generate: (input: {
     conversationId: string
     firstMessageContent: string
+    hasAttachments?: boolean
     settings: ActiveProviderSettings
   }) => void
 }
+
 
 export function createChatAppConversationPersistence(
   options: ChatAppConversationPersistenceOptions,
@@ -161,7 +163,10 @@ export function createConversationTitleManager(options: {
   conversations: Ref<ConversationDoc[]>
   lastError: Ref<string | null>
   persistence: ChatAppConversationPersistenceActions
-  requestTitle: (settings: ActiveProviderSettings, firstMessageContent: string) => Promise<string>
+  requestTitle: (settings: ActiveProviderSettings, input: {
+    content: string
+    hasAttachments?: boolean
+  }) => Promise<string>
 }): ConversationTitleManager {
   return {
     generate(input) {
@@ -175,12 +180,23 @@ async function generateTitle(
     conversations: Ref<ConversationDoc[]>
     lastError: Ref<string | null>
     persistence: ChatAppConversationPersistenceActions
-    requestTitle: (settings: ActiveProviderSettings, firstMessageContent: string) => Promise<string>
+    requestTitle: (settings: ActiveProviderSettings, input: {
+      content: string
+      hasAttachments?: boolean
+    }) => Promise<string>
   },
-  input: { conversationId: string; firstMessageContent: string; settings: ActiveProviderSettings },
+  input: {
+    conversationId: string
+    firstMessageContent: string
+    hasAttachments?: boolean
+    settings: ActiveProviderSettings
+  },
 ): Promise<void> {
   try {
-    const title = await options.requestTitle(input.settings, input.firstMessageContent)
+    const title = await options.requestTitle(input.settings, {
+      content: input.firstMessageContent,
+      hasAttachments: input.hasAttachments,
+    })
     if (!hasConversation(options.conversations.value, input.conversationId)) {
       return
     }

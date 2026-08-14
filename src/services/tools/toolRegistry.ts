@@ -1,8 +1,9 @@
 import type { AiTool, ToolSettings } from '../ai/toolTypes'
 import { currentTimeTool } from './currentTimeTool'
 import { tavilySearchTool } from './tavilySearchTool'
+import { qwenImageTools } from './qwenImageTools'
 
-const TOOL_REGISTRY: AiTool[] = [currentTimeTool, tavilySearchTool]
+const TOOL_REGISTRY: AiTool[] = [currentTimeTool, tavilySearchTool, ...qwenImageTools]
 
 export function getRegisteredTools(): AiTool[] {
   return [...TOOL_REGISTRY]
@@ -25,6 +26,14 @@ export function getEnabledTools(settings: ToolSettings): AiTool[] {
       throw new Error('请先填写 Tavily API Key。')
     }
     tools.push(tavilySearchTool)
+  }
+
+  const qwenImage = settings.builtinTools.qwenImage
+  if (qwenImage?.enabled) {
+    if (!qwenImage.apiKey.trim()) {
+      throw new Error('请先填写阿里云 Qwen 图片工具 API Key。')
+    }
+    tools.push(...qwenImageTools)
   }
 
   return tools

@@ -58,7 +58,7 @@ describe('ReplyLifecycle', () => {
 
     expect(providerStream.stream).toHaveBeenCalledWith(expect.objectContaining({
       messages: [
-        { content: '言简意赅，避免大段回复', role: 'system' },
+        { content: expect.stringContaining('言简意赅，避免大段回复'), role: 'system' },
         { content: '你好', role: 'user' },
       ],
       thinkingLevel: 'high',
@@ -100,7 +100,7 @@ describe('ReplyLifecycle', () => {
 
     expect(providerStream.stream).toHaveBeenCalledWith(expect.objectContaining({
       messages: [
-        { content: '第一次规则', role: 'system' },
+        { content: expect.stringContaining('第一次规则'), role: 'system' },
         { content: '你好', role: 'user' },
       ],
       thinkingLevel: 'high',
@@ -135,7 +135,7 @@ describe('ReplyLifecycle', () => {
 
     expect(providerStream.stream).toHaveBeenCalledWith(expect.objectContaining({
       messages: [
-        { content: '言简意赅，避免大段回复', role: 'system' },
+        { content: expect.stringContaining('言简意赅，避免大段回复'), role: 'system' },
         { content: '你好', role: 'user' },
       ],
     }))
@@ -166,7 +166,106 @@ describe('ReplyLifecycle', () => {
 
     expect(toolOrchestrator.stream).toHaveBeenCalledWith(expect.objectContaining({
       messages: [
-        { content: '言简意赅，避免大段回复', role: 'system' },
+        { content: expect.stringContaining('言简意赅，避免大段回复'), role: 'system' },
+        { content: '你好', role: 'user' },
+      ],
+    }))
+  })
+
+  it('keeps non-visual attachments for local image tools but strips them from Provider messages', async () => {
+    const state = createState()
+    const attachment: MessageAttachment = {
+      dataUrl: 'data:image/png;base64,aW1hZ2U=',
+      height: 10,
+      id: 'image-1',
+      mimeType: 'image/png',
+      name: 'screen.png',
+      size: 10,
+      type: 'image',
+      width: 10,
+    }
+    state.pendingAttachments.value = [attachment]
+    state.settings.value.deepseek.capabilities.imageInput = true
+    state.settings.value.toolSettings.enabled = true
+    state.settings.value.toolSettings.builtinTools.qwenImage.enabled = true
+    state.settings.value.toolSettings.builtinTools.qwenImage.apiKey = 'qwen-key'
+    const toolOrchestrator = {
+      getEnabledTools: () => [{
+        definition: {
+          type: 'function' as const,
+          function: { description: '分析图片', name: 'qwen_analyze_image', parameters: {} },
+        },
+        execute: async () => ({ content: '图片结果' }),
+      }],
+      stream: vi.fn(async function* (_request: unknown) {
+        yield { type: 'content' as const, content: '已完成' }
+      }),
+    }
+    const lifecycle = createReplyLifecycle({
+      ...state,
+      getAbortController: () => state.controller.value,
+      messageMapping,
+      notifyNewConversation: vi.fn(),
+      openSettings: vi.fn(),
+      providerStream: { async *stream() { throw new Error('unexpected provider stream') } },
+      setAbortController: (controller) => { state.controller.value = controller },
+      toolOrchestrator,
+    })
+    state.draftMessage.value = '请分析这张图'
+
+    await lifecycle.send()
+
+    const request = toolOrchestrator.stream.mock.calls[0]?.[0] as {
+      attachments?: MessageAttachment[]
+      messages: Array<{ attachments?: MessageAttachment[]; content: string }>
+    } | undefined
+    expect(request?.attachments).toEqual([attachment])
+    expect(request?.messages.at(-1)?.attachments).toBeUndefined()
+    expect(request?.messages.at(-1)?.content).toBe('请分析这张图')
+  })
+
+  it('does not expose Qwen tools when the current request has no image', async () => {
+    const state = createState()
+    state.settings.value.toolSettings.enabled = true
+    state.settings.value.toolSettings.builtinTools.currentTime.enabled = false
+    state.settings.value.toolSettings.builtinTools.tavilySearch.enabled = false
+    state.settings.value.toolSettings.builtinTools.qwenImage.enabled = true
+    state.settings.value.toolSettings.builtinTools.qwenImage.apiKey = 'qwen-key'
+    const providerStream = {
+      stream: vi.fn(async function* () {
+        yield { type: 'content' as const, content: '普通回答' }
+      }),
+    }
+    const toolOrchestrator = {
+      getEnabledTools: () => [{
+        definition: {
+          type: 'function' as const,
+          function: { description: '分析图片', name: 'qwen_analyze_image', parameters: {} },
+        },
+        execute: async () => ({ content: '图片结果' }),
+      }],
+      stream: vi.fn(async function* () {
+        yield { type: 'content' as const, content: '不应进入工具轮次' }
+      }),
+    }
+    const lifecycle = createReplyLifecycle({
+      ...state,
+      getAbortController: () => state.controller.value,
+      messageMapping,
+      notifyNewConversation: vi.fn(),
+      openSettings: vi.fn(),
+      providerStream,
+      setAbortController: (controller) => { state.controller.value = controller },
+      toolOrchestrator,
+    })
+    state.draftMessage.value = '你好'
+
+    await lifecycle.send()
+
+    expect(toolOrchestrator.stream).not.toHaveBeenCalled()
+    expect(providerStream.stream).toHaveBeenCalledWith(expect.objectContaining({
+      messages: [
+        { content: expect.not.stringContaining('qwen_analyze_image'), role: 'system' },
         { content: '你好', role: 'user' },
       ],
     }))

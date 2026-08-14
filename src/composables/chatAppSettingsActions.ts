@@ -47,6 +47,9 @@ export interface ChatAppSettingsActions {
   updateBuiltinToolEnabled: (tool: BuiltinToolField, enabled: boolean) => void
   updateBuiltinToolTavilyApiKey: (apiKey: string) => void
   updateBuiltinToolTavilyBaseUrl: (baseUrl: string) => void
+  updateBuiltinToolQwenImageApiKey: (apiKey: string) => void
+  updateBuiltinToolQwenImageBaseUrl: (baseUrl: string) => void
+  updateBuiltinToolQwenImageModel: (model: string) => void
   updateCustomToolField: (id: string, field: CustomToolField, value: CustomToolSettings[CustomToolField]) => void
   updateCustomModelField: (id: string, field: CustomModelField, value: string | number) => void
   updateCustomModelCapability: (
@@ -422,6 +425,54 @@ export function createChatAppSettingsActions(
     }
   }
 
+  function updateBuiltinToolQwenImageApiKey(apiKey: string): void {
+    settings.value = {
+      ...settings.value,
+      toolSettings: {
+        ...settings.value.toolSettings,
+        builtinTools: {
+          ...settings.value.toolSettings.builtinTools,
+          qwenImage: {
+            ...settings.value.toolSettings.builtinTools.qwenImage,
+            apiKey,
+          },
+        },
+      },
+    }
+  }
+
+  function updateBuiltinToolQwenImageBaseUrl(baseUrl: string): void {
+    settings.value = {
+      ...settings.value,
+      toolSettings: {
+        ...settings.value.toolSettings,
+        builtinTools: {
+          ...settings.value.toolSettings.builtinTools,
+          qwenImage: {
+            ...settings.value.toolSettings.builtinTools.qwenImage,
+            baseUrl,
+          },
+        },
+      },
+    }
+  }
+
+  function updateBuiltinToolQwenImageModel(model: string): void {
+    settings.value = {
+      ...settings.value,
+      toolSettings: {
+        ...settings.value.toolSettings,
+        builtinTools: {
+          ...settings.value.toolSettings.builtinTools,
+          qwenImage: {
+            ...settings.value.toolSettings.builtinTools.qwenImage,
+            model,
+          },
+        },
+      },
+    }
+  }
+
   function addCustomTool(): void {
     const tool = createCustomToolDraft()
     settings.value = {
@@ -506,6 +557,9 @@ export function createChatAppSettingsActions(
     updateBuiltinToolEnabled,
     updateBuiltinToolTavilyApiKey,
     updateBuiltinToolTavilyBaseUrl,
+    updateBuiltinToolQwenImageApiKey,
+    updateBuiltinToolQwenImageBaseUrl,
+    updateBuiltinToolQwenImageModel,
     updateCustomToolField,
     updateCustomModelField,
     updateCustomModelCapability,

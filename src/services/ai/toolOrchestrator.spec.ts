@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { getDefaultProviderCapabilities } from '../../constants/providerCapabilities'
-import { createToolOrchestrator } from './toolOrchestrator'
+import { createToolOrchestrator, getToolDefinitions } from './toolOrchestrator'
+import { getToolExecutionTimeoutMs, QWEN_IMAGE_TOOL_TIMEOUT_MS, TOOL_EXECUTION_TIMEOUT_MS } from './toolExecution'
 import { messageMapping } from './messageMapping'
 import type { ProviderStream } from './providerStream'
 
 describe('ToolOrchestrator', () => {
+  it('allows longer execution time for remote Qwen image analysis', () => {
+    expect(getToolExecutionTimeoutMs('get_current_time')).toBe(TOOL_EXECUTION_TIMEOUT_MS)
+    expect(getToolExecutionTimeoutMs('qwen_analyze_image')).toBe(QWEN_IMAGE_TOOL_TIMEOUT_MS)
+  })
+
+  it('surfaces tool configuration failures while building definitions', () => {
+    expect(() => getToolDefinitions(() => {
+      throw new Error('缺少工具密钥')
+    }, request().toolSettings)).toThrow('缺少工具密钥')
+  })
+
   it('executes a tool batch serially and forwards the final text', async () => {
     const calls: string[] = []
     const providerStream = scriptedProviderStream([

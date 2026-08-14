@@ -1,8 +1,14 @@
 import type { Ref } from 'vue'
 import type { ActiveProviderSettings, ChatMessage, MessageAttachment, SettingsForm, ToolSettings } from '../types/chat'
-import { providerSupportsNativeWebSearch, providerSupportsToolCalling } from '../constants/providerCapabilities'
+import {
+  providerSupportsImageInput,
+  providerSupportsNativeWebSearch,
+  providerSupportsToolCalling,
+} from '../constants/providerCapabilities'
 import type { MessageMapping } from '../services/ai/messageMapping'
 import type { ProviderConversationMessage } from '../services/ai/providerAdapter'
+import { buildSystemPrompt } from '../services/ai/systemPrompt'
+import { getToolDefinitions } from '../services/ai/toolOrchestrator'
 import { ProviderStreamStoppedError, type ProviderStream } from '../services/ai/providerStream'
 import type { ReplyStreamEvent, ToolOrchestrator } from '../services/ai/toolOrchestrator'
 import { createConversationId } from '../utils/chat'
@@ -29,7 +35,12 @@ interface ReplyLifecycleOptions {
   lastError: Ref<string | null>
   messageMapping: MessageMapping
   messages: Ref<ChatMessage[]>
-  notifyNewConversation: (conversationId: string, firstMessageContent: string, settings: ActiveProviderSettings) => void
+  notifyNewConversation: (
+    conversationId: string,
+    firstMessageContent: string,
+    settings: ActiveProviderSettings,
+    hasAttachments: boolean,
+  ) => void
   openSettings: () => void
   pendingAttachments: Ref<MessageAttachment[]>
   persistConversation: () => Promise<void>
@@ -98,7 +109,9 @@ async function sendReply(state: LifecycleState): Promise<void> {
   const start = startNewReply(state, prepared)
   if (!await persistInitialReply(state, start.snapshot.assistantId)) return
   if (start.controller.signal.aborted) return finishStoppedBeforeStream(state)
-  if (start.isNew) notifyNewConversation(state, prepared.content, start.snapshot.settings)
+  if (start.isNew) {
+    notifyNewConversation(state, prepared.content, start.snapshot.settings, prepared.attachments.length > 0)
+  }
   await consumeReply(state, start.snapshot, start.controller)
 }
 
@@ -172,8 +185,14 @@ function notifyNewConversation(
   state: LifecycleState,
   content: string,
   settings: ActiveProviderSettings,
+  hasAttachments: boolean,
 ): void {
-  state.options.notifyNewConversation(state.options.activeConversationId.value as string, content, settings)
+  state.options.notifyNewConversation(
+    state.options.activeConversationId.value as string,
+    content,
+    settings,
+    hasAttachments,
+  )
 }
 
 async function interruptReply(state: LifecycleState, fallback?: string): Promise<void> {
@@ -214,19 +233,52 @@ function chooseReplyStream(
   request: ReplyRequest,
   signal: AbortSignal,
 ): AsyncIterable<ReplyStreamEvent> {
+  const requestMessages = buildRequestMessages(state.options.messages.value.slice(0, -1))
+  const attachments = requestMessages.at(-1)?.attachments ?? []
+  const tools = request.toolSettings.enabled
+    && providerSupportsToolCalling(request.settings)
+    && state.options.toolOrchestrator.getEnabledTools
+    ? getToolDefinitions(state.options.toolOrchestrator.getEnabledTools, request.toolSettings, attachments)
+    : []
+  const hasQwenImageTool = tools.some((tool) => tool.function.name.startsWith('qwen_'))
+  const directImageInput = providerSupportsImageInput(request.settings) && !hasQwenImageTool
+  const providerMessages = state.options.messageMapping.toProviderConversationMessages(requestMessages)
   const messages = prependSystemPrompt(
-    state.options.messageMapping.toProviderConversationMessages(
-      buildRequestMessages(state.options.messages.value.slice(0, -1)),
-    ),
-    request.systemPrompt,
+    stripUnsupportedImageAttachments(providerMessages, directImageInput),
+    buildSystemPrompt({
+      attachments,
+      customPrompt: request.systemPrompt,
+      directImageInput,
+      nativeWebSearch: providerSupportsNativeWebSearch(request.settings),
+      tools,
+    }),
   )
-  if (request.toolSettings.enabled && providerSupportsToolCalling(request.settings)) {
-    return state.options.toolOrchestrator.stream({ ...request, messages, signal })
+  const canRunLocalToolRound = request.toolSettings.enabled
+    && providerSupportsToolCalling(request.settings)
+    && (tools.length > 0 || !state.options.toolOrchestrator.getEnabledTools)
+  if (canRunLocalToolRound) {
+    return state.options.toolOrchestrator.stream({ ...request, attachments, messages, signal })
   }
-  if (request.toolSettings.enabled && !providerSupportsNativeWebSearch(request.settings)) {
+  if (request.toolSettings.enabled
+    && !providerSupportsToolCalling(request.settings)
+    && !providerSupportsNativeWebSearch(request.settings)) {
     throw new Error(`${request.settings.label} 当前配置暂不支持工具调用。`)
   }
   return streamDirectReply(state.options.providerStream, { ...request, messages, signal })
+}
+
+function stripUnsupportedImageAttachments(
+  messages: ProviderConversationMessage[],
+  supportsImageInput: boolean,
+): ProviderConversationMessage[] {
+  if (supportsImageInput) {
+    return messages
+  }
+
+  return messages.map((message) => ({
+    ...message,
+    attachments: undefined,
+  }))
 }
 
 function prependSystemPrompt(

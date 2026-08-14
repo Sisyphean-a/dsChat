@@ -46,6 +46,18 @@ describe('searchWithTavily', () => {
     })
   })
 
+  it('rejects insecure custom endpoints before sending the API key', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await expect(searchWithTavily(
+      { query: 'test' },
+      'tvly-key',
+      'http://example.com/tavily/search',
+    )).rejects.toThrow('必须使用 HTTPS')
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
   it('throws explicit status code when tavily responds non-2xx', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('denied', { status: 429 })))
 

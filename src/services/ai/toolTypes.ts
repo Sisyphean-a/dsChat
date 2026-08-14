@@ -1,3 +1,5 @@
+import type { MessageAttachment } from '../../types/chat'
+
 export interface AiToolDefinition {
   type: 'function'
   function: {
@@ -17,9 +19,17 @@ export interface RuntimeTavilySearchToolSettings {
   baseUrl: string
 }
 
+export interface RuntimeQwenImageToolSettings {
+  enabled: boolean
+  apiKey: string
+  baseUrl: string
+  model: string
+}
+
 export interface RuntimeBuiltinToolSettings {
   currentTime: RuntimeCurrentTimeToolSettings
   tavilySearch: RuntimeTavilySearchToolSettings
+  qwenImage?: RuntimeQwenImageToolSettings
 }
 
 export interface RuntimeCustomToolSettings {
@@ -39,6 +49,7 @@ export interface ToolSettings {
 }
 
 export interface ToolExecutionContext {
+  attachments?: MessageAttachment[]
   settings: ToolSettings
   signal?: AbortSignal
 }

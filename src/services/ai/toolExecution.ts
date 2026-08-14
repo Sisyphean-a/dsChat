@@ -1,4 +1,4 @@
-import type { ProcessTimelineItem, ToolTraceRecord } from '../../types/chat'
+import type { MessageAttachment, ProcessTimelineItem, ToolTraceRecord } from '../../types/chat'
 import { ProviderStreamStoppedError } from './providerStream'
 import type { ReplyStreamEvent } from './replyStreamEvents'
 import { ToolFlowError, isToolFlowError, toToolFlowError } from './toolFlowErrors'
@@ -15,13 +15,22 @@ import {
 import { createToolTimelineItem } from './toolTimelineNarration'
 import type { AiTool, NormalizedToolCall, ToolSettings } from './toolTypes'
 
-const TOOL_EXECUTION_TIMEOUT_MS = 20000
+export const TOOL_EXECUTION_TIMEOUT_MS = 20000
+export const QWEN_IMAGE_TOOL_TIMEOUT_MS = 60000
+
+export function getToolExecutionTimeoutMs(toolName: string): number {
+  return toolName.startsWith('qwen_') ? QWEN_IMAGE_TOOL_TIMEOUT_MS : TOOL_EXECUTION_TIMEOUT_MS
+}
 
 export async function* executeToolCall(options: {
+  attachments?: MessageAttachment[]
   call: NormalizedToolCall
   round: number
   settings: ToolSettings
   signal?: AbortSignal
+  timeoutCode?: ToolFlowError['code']
+  timeoutMessage?: string
+  timeoutMs?: number
   tools: AiTool[]
 }): AsyncGenerator<ReplyStreamEvent, string> {
   const args = parseToolArguments(options.call.argumentsJson)
@@ -36,12 +45,19 @@ export async function* executeToolCall(options: {
   yield { type: 'status', status: buildToolCallingStatusText(options.call.name, args) }
 
   try {
+    const timeoutMs = options.timeoutMs ?? TOOL_EXECUTION_TIMEOUT_MS
+    const timeoutCode = options.timeoutCode ?? 'tool_execute_timeout'
+    const timeoutMessage = options.timeoutMessage ?? `工具调用超时（${options.call.name}，${timeoutMs}ms）。`
     const result = await runWithAbortTimeout({
-      operation: (signal) => tool.execute(args, { settings: options.settings, signal }),
+      operation: (signal) => tool.execute(args, {
+        attachments: options.attachments,
+        settings: options.settings,
+        signal,
+      }),
       parentSignal: options.signal,
-      timeoutCode: 'tool_execute_timeout',
-      timeoutMessage: `工具调用超时（${options.call.name}，${TOOL_EXECUTION_TIMEOUT_MS}ms）。`,
-      timeoutMs: TOOL_EXECUTION_TIMEOUT_MS,
+      timeoutCode,
+      timeoutMessage,
+      timeoutMs,
     })
     if (options.signal?.aborted) throw new ProviderStreamStoppedError()
 

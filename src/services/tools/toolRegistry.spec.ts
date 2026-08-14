@@ -2,9 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { getEnabledTools, getRegisteredTools } from './toolRegistry'
 
 describe('toolRegistry', () => {
-  it('registers current time and tavily tools', () => {
+  it('registers current time, tavily, and Qwen image tools', () => {
     const names = getRegisteredTools().map((item) => item.definition.function.name)
-    expect(names).toEqual(['get_current_time', 'tavily_search'])
+    expect(names).toEqual([
+      'get_current_time',
+      'tavily_search',
+      'qwen_extract_text_from_screenshot',
+      'qwen_diagnose_error_screenshot',
+      'qwen_analyze_image',
+    ])
   })
 
   it('enables current time tool when tool calling is enabled', () => {

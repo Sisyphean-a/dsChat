@@ -5,6 +5,8 @@ import {
   supportsOpenAiNativeWebSearchModel,
 } from '../../../constants/providerCapabilities'
 import { createThinkingPayloadForResponses } from '../../../constants/thinking'
+import { normalizeHttpsEndpoint } from '../../endpointValidation'
+import { validateImageAttachment } from '../../imageAttachmentValidation'
 import type {
   ProviderAdapter,
   ProviderConversationMessage,
@@ -41,7 +43,7 @@ export const openAiResponsesAdapter: ProviderAdapter = {
         Authorization: `Bearer ${input.settings.apiKey}`,
         'Content-Type': 'application/json',
       },
-      url: `${input.settings.baseUrl.replace(/\/$/, '')}/responses`,
+      url: `${normalizeHttpsEndpoint(input.settings.baseUrl, `${input.settings.label} Base URL`).replace(/\/$/, '')}/responses`,
     }
   },
   createStreamState(settings) {
@@ -114,6 +116,7 @@ function createResponsesInputContent(message: ProviderConversationMessage): Resp
   }
   if (role !== 'assistant') {
     for (const attachment of message.attachments ?? []) {
+      validateImageAttachment(attachment)
       parts.push({ image_url: attachment.dataUrl, type: 'input_image' })
     }
   }
