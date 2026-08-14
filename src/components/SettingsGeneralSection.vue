@@ -9,6 +9,7 @@ import type {
   ThemeMode,
   UtoolsUploadMode,
 } from '../types/chat'
+import type { SettingsEdit } from '../types/settingsPanel'
 
 const props = defineProps<{
   isBrowserMode: boolean
@@ -17,9 +18,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  updateFontSize: [fontSize: FontSizeMode]
-  updateTheme: [theme: ThemeMode]
-  updateUtoolsUploadMode: [mode: UtoolsUploadMode]
+  edit: [edit: SettingsEdit]
 }>()
 
 const themeCards: Array<{ label: string; value: ThemeMode }> = [
@@ -73,7 +72,7 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
                 :key="theme.value"
                 :class="{ active: props.settings.theme === theme.value }"
                 type="button"
-                @click="emit('updateTheme', theme.value)"
+                @click="emit('edit', { domain: 'general', field: 'theme', value: theme.value })"
               >
                 {{ theme.label }}
               </button>
@@ -87,7 +86,7 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
                 :key="fontSize.value"
                 :class="{ active: props.settings.fontSize === fontSize.value }"
                 type="button"
-                @click="emit('updateFontSize', fontSize.value)"
+                @click="emit('edit', { domain: 'general', field: 'fontSize', value: fontSize.value })"
               >
                 {{ fontSize.label }}
               </button>
@@ -109,7 +108,7 @@ const uploadModePickerOptions = computed<ModelConfigOption[]>(() => {
           :model-value="props.settings.utoolsUploadMode"
           :options="uploadModePickerOptions"
           panel-direction="down"
-          @select="emit('updateUtoolsUploadMode', $event as UtoolsUploadMode)"
+          @select="emit('edit', { domain: 'general', field: 'utoolsUploadMode', value: $event as 'all-data' | 'local-only' | 'settings-only' })"
         />
         <p v-if="props.isBrowserMode" class="hint-row">浏览器预览模式仅使用本地存储。</p>
       </article>

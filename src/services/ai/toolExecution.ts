@@ -18,8 +18,8 @@ import type { AiTool, NormalizedToolCall, ToolSettings } from './toolTypes'
 export const TOOL_EXECUTION_TIMEOUT_MS = 20000
 export const QWEN_IMAGE_TOOL_TIMEOUT_MS = 60000
 
-export function getToolExecutionTimeoutMs(toolName: string): number {
-  return toolName.startsWith('qwen_') ? QWEN_IMAGE_TOOL_TIMEOUT_MS : TOOL_EXECUTION_TIMEOUT_MS
+export function getToolExecutionTimeoutMs(tool: Pick<AiTool, 'executionTimeoutMs'>): number {
+  return tool.executionTimeoutMs ?? TOOL_EXECUTION_TIMEOUT_MS
 }
 
 export async function* executeToolCall(options: {

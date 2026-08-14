@@ -25,6 +25,7 @@ export interface SystemPromptContext {
   attachments: MessageAttachment[]
   customPrompt: string
   directImageInput: boolean
+  imageToolAvailable: boolean
   nativeWebSearch: boolean
   tools: AiToolDefinition[]
 }
@@ -56,7 +57,7 @@ function buildCapabilitySection(context: SystemPromptContext): string {
     const attachmentIds = context.attachments.map((attachment) => attachment.id).join('、')
     if (context.directImageInput) {
       lines.push(`本轮用户消息包含图片附件（attachment_id：${attachmentIds}），当前模型可以直接查看。`)
-    } else if (context.tools.some((tool) => tool.function.name.startsWith('qwen_'))) {
+    } else if (context.imageToolAvailable) {
       lines.push(`本轮用户消息包含图片附件（attachment_id：${attachmentIds}），当前模型不会直接接收图片；如需查看，必须调用图片工具，并使用对应的 attachment_id。`)
     } else {
       lines.push('本轮用户消息包含图片附件，但当前回合没有可用的图片理解能力。')

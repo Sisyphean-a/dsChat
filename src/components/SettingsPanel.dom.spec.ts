@@ -35,11 +35,17 @@ describe('SettingsPanel', () => {
     expect(wrapper.get('textarea').attributes('placeholder')).toBe('例如：言简意赅，避免大段回复')
     expect(wrapper.text()).toContain('控制离开 uTools 多久后以新对话打开。')
     await wrapper.get('textarea').setValue('言简意赅，避免大段回复')
-    wrapper.findComponent(SettingsConversationSection).vm.$emit('updateUtoolsSessionIdleTimeoutMinutes', 5)
+    wrapper.findComponent(SettingsConversationSection).vm.$emit('edit', {
+      domain: 'conversation',
+      field: 'utoolsSessionIdleTimeoutMinutes',
+      value: 5,
+    })
     await nextTick()
 
-    expect(wrapper.emitted('updateSystemPrompt')).toEqual([['言简意赅，避免大段回复']])
-    expect(wrapper.emitted('updateUtoolsSessionIdleTimeoutMinutes')).toEqual([[5]])
+    expect(wrapper.emitted('edit')).toEqual([
+      [{ domain: 'conversation', field: 'systemPrompt', value: '言简意赅，避免大段回复' }],
+      [{ domain: 'conversation', field: 'utoolsSessionIdleTimeoutMinutes', value: 5 }],
+    ])
   })
 
   it('does not close the dialog when Escape cancels active input composition', async () => {

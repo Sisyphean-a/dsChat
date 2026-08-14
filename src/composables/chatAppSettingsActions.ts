@@ -1,7 +1,6 @@
 import type { Ref } from 'vue'
 import type {
   AddableProviderId,
-  CustomToolSettings,
   FontSizeMode,
   ProviderSettings,
   SettingsForm,
@@ -9,6 +8,7 @@ import type {
   ThemeMode,
   UtoolsUploadMode,
 } from '../types/chat'
+import type { SettingsEdit } from '../types/settingsPanel'
 import { createAddedModelDraft } from '../constants/providers'
 import { getErrorMessage } from './chatAppErrors'
 import { appendModelOption, replaceModelOption } from './chatAppModelOptions'
@@ -18,7 +18,6 @@ type ProviderEditableField = Exclude<keyof ProviderSettings, 'modelOptions'>
 type ProviderCapabilityField = keyof ProviderSettings['capabilities']
 type CustomModelField = ProviderEditableField | 'name'
 type BuiltinToolField = keyof SettingsForm['toolSettings']['builtinTools']
-type CustomToolField = Exclude<keyof CustomToolSettings, 'id'>
 
 interface ChatAppSettingsActionsOptions {
   settings: Ref<SettingsForm>
@@ -31,47 +30,14 @@ interface ChatAppSettingsActionsOptions {
 }
 
 export interface ChatAppSettingsActions {
-  addCustomModel: (provider: AddableProviderId) => void
-  addCustomModelOption: (id: string, option: string) => void
-  addCustomTool: () => void
+  applySettingsEdit: (edit: SettingsEdit) => void
   closeSettings: () => void
   openSettings: () => void
-  renameCustomModelOption: (id: string, fromOption: string, toOption: string) => void
-  removeCustomModel: (id: string) => void
-  removeCustomModelOption: (id: string, option: string) => void
-  removeCustomTool: (id: string) => void
   saveSettingsAction: () => Promise<void>
   selectActiveConfig: (configId: string) => void
   selectActiveModel: (model: string) => void
   toggleSidebar: () => void
-  updateBuiltinToolEnabled: (tool: BuiltinToolField, enabled: boolean) => void
-  updateBuiltinToolTavilyApiKey: (apiKey: string) => void
-  updateBuiltinToolTavilyBaseUrl: (baseUrl: string) => void
-  updateBuiltinToolQwenImageApiKey: (apiKey: string) => void
-  updateBuiltinToolQwenImageBaseUrl: (baseUrl: string) => void
-  updateBuiltinToolQwenImageModel: (model: string) => void
-  updateCustomToolField: (id: string, field: CustomToolField, value: CustomToolSettings[CustomToolField]) => void
-  updateCustomModelField: (id: string, field: CustomModelField, value: string | number) => void
-  updateCustomModelCapability: (
-    id: string,
-    field: ProviderCapabilityField,
-    value: ProviderSettings['capabilities'][ProviderCapabilityField],
-  ) => void
-  updateDeepseekCapability: (
-    field: ProviderCapabilityField,
-    value: ProviderSettings['capabilities'][ProviderCapabilityField],
-  ) => void
-  updateDeepseekField: (
-    field: ProviderEditableField,
-    value: ProviderSettings[ProviderEditableField],
-  ) => void
-  updateFontSize: (fontSize: FontSizeMode) => void
   updateActiveThinkingLevel: (level: ThinkingLevel) => void
-  updateSystemPrompt: (systemPrompt: string) => void
-  updateTheme: (theme: ThemeMode) => void
-  updateToolEnabled: (enabled: boolean) => void
-  updateUtoolsSessionIdleTimeoutMinutes: (minutes: number) => void
-  updateUtoolsUploadMode: (mode: UtoolsUploadMode) => void
 }
 
 interface ChatAppUiState {
@@ -473,47 +439,37 @@ export function createChatAppSettingsActions(
     }
   }
 
-  function addCustomTool(): void {
-    const tool = createCustomToolDraft()
-    settings.value = {
-      ...settings.value,
-      toolSettings: {
-        ...settings.value.toolSettings,
-        customTools: [...settings.value.toolSettings.customTools, tool],
-      },
-    }
-  }
-
-  function removeCustomTool(id: string): void {
-    settings.value = {
-      ...settings.value,
-      toolSettings: {
-        ...settings.value.toolSettings,
-        customTools: settings.value.toolSettings.customTools.filter((item) => item.id !== id),
-      },
-    }
-  }
-
-  function updateCustomToolField(
-    id: string,
-    field: CustomToolField,
-    value: CustomToolSettings[CustomToolField],
-  ): void {
-    settings.value = {
-      ...settings.value,
-      toolSettings: {
-        ...settings.value.toolSettings,
-        customTools: settings.value.toolSettings.customTools.map((item) => {
-          if (item.id !== id) {
-            return item
-          }
-
-          return {
-            ...item,
-            [field]: value,
-          }
-        }),
-      },
+  function applySettingsEdit(edit: SettingsEdit): void {
+    switch (edit.domain) {
+      case 'general':
+        if (edit.field === 'fontSize') updateFontSize(edit.value)
+        if (edit.field === 'theme') updateTheme(edit.value)
+        if (edit.field === 'utoolsUploadMode') updateUtoolsUploadMode(edit.value)
+        return
+      case 'conversation':
+        if (edit.field === 'systemPrompt') updateSystemPrompt(edit.value)
+        if (edit.field === 'utoolsSessionIdleTimeoutMinutes') updateUtoolsSessionIdleTimeoutMinutes(edit.value)
+        return
+      case 'provider':
+        if (edit.action === 'addModel') addCustomModel(edit.provider)
+        if (edit.action === 'removeModel') removeCustomModel(edit.id)
+        if (edit.action === 'addModelOption') addCustomModelOption(edit.id, edit.option)
+        if (edit.action === 'removeModelOption') removeCustomModelOption(edit.id, edit.option)
+        if (edit.action === 'renameModelOption') renameCustomModelOption(edit.id, edit.from, edit.to)
+        if (edit.action === 'updateDeepseekField') updateDeepseekField(edit.field, edit.value)
+        if (edit.action === 'updateDeepseekCapability') updateDeepseekCapability(edit.field, edit.value)
+        if (edit.action === 'updateCustomModelField') updateCustomModelField(edit.id, edit.field, edit.value)
+        if (edit.action === 'updateCustomModelCapability') updateCustomModelCapability(edit.id, edit.field, edit.value)
+        return
+      case 'tools':
+        if (edit.action === 'toggle') updateToolEnabled(edit.enabled)
+        if (edit.action === 'toggleBuiltin') updateBuiltinToolEnabled(edit.tool, edit.enabled)
+        if (edit.action === 'updateTavilyApiKey') updateBuiltinToolTavilyApiKey(edit.value)
+        if (edit.action === 'updateTavilyBaseUrl') updateBuiltinToolTavilyBaseUrl(edit.value)
+        if (edit.action === 'updateQwenImageApiKey') updateBuiltinToolQwenImageApiKey(edit.value)
+        if (edit.action === 'updateQwenImageBaseUrl') updateBuiltinToolQwenImageBaseUrl(edit.value)
+        if (edit.action === 'updateQwenImageModel') updateBuiltinToolQwenImageModel(edit.value)
+        return
     }
   }
 
@@ -541,49 +497,13 @@ export function createChatAppSettingsActions(
   }
 
   return {
-    addCustomModel,
-    addCustomModelOption,
-    addCustomTool,
+    applySettingsEdit,
     closeSettings,
     openSettings,
-    renameCustomModelOption,
-    removeCustomModel,
-    removeCustomModelOption,
-    removeCustomTool,
     saveSettingsAction,
     selectActiveConfig,
     selectActiveModel,
     toggleSidebar,
-    updateBuiltinToolEnabled,
-    updateBuiltinToolTavilyApiKey,
-    updateBuiltinToolTavilyBaseUrl,
-    updateBuiltinToolQwenImageApiKey,
-    updateBuiltinToolQwenImageBaseUrl,
-    updateBuiltinToolQwenImageModel,
-    updateCustomToolField,
-    updateCustomModelField,
-    updateCustomModelCapability,
-    updateDeepseekCapability,
-    updateDeepseekField,
-    updateFontSize,
     updateActiveThinkingLevel,
-    updateSystemPrompt,
-    updateTheme,
-    updateToolEnabled,
-    updateUtoolsSessionIdleTimeoutMinutes,
-    updateUtoolsUploadMode,
-  }
-}
-
-function createCustomToolDraft(): CustomToolSettings {
-  const suffix = Math.random().toString(36).slice(2, 8)
-  return {
-    id: `custom-tool-${Date.now().toString(36)}-${suffix}`,
-    name: '未命名工具',
-    description: '',
-    enabled: false,
-    url: '',
-    method: 'POST',
-    headers: [],
   }
 }

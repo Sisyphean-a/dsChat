@@ -1,19 +1,14 @@
 <script setup lang="ts">
 import { openExternalLink } from '../services/linkNavigation'
 import type { SettingsForm } from '../types/chat'
+import type { SettingsEdit } from '../types/settingsPanel'
 
 const props = defineProps<{
   settings: SettingsForm
 }>()
 
 const emit = defineEmits<{
-  updateBuiltinToolEnabled: [tool: 'currentTime' | 'tavilySearch' | 'qwenImage', enabled: boolean]
-  updateBuiltinToolTavilyApiKey: [apiKey: string]
-  updateBuiltinToolTavilyBaseUrl: [baseUrl: string]
-  updateBuiltinToolQwenImageApiKey: [apiKey: string]
-  updateBuiltinToolQwenImageBaseUrl: [baseUrl: string]
-  updateBuiltinToolQwenImageModel: [model: string]
-  updateToolEnabled: [enabled: boolean]
+  edit: [edit: SettingsEdit]
 }>()
 
 function openTavilyOfficialSite(): void {
@@ -42,7 +37,7 @@ function openQwenOfficialSite(): void {
             <input
               :checked="props.settings.toolSettings.enabled"
               type="checkbox"
-              @change="emit('updateToolEnabled', ($event.target as HTMLInputElement).checked)"
+              @change="emit('edit', { domain: 'tools', action: 'toggle', enabled: ($event.target as HTMLInputElement).checked })"
             />
             <span>启用</span>
           </label>
@@ -66,7 +61,7 @@ function openQwenOfficialSite(): void {
                 <input
                   :checked="props.settings.toolSettings.builtinTools.currentTime.enabled"
                   type="checkbox"
-                  @change="emit('updateBuiltinToolEnabled', 'currentTime', ($event.target as HTMLInputElement).checked)"
+                  @change="emit('edit', { domain: 'tools', action: 'toggleBuiltin', tool: 'currentTime', enabled: ($event.target as HTMLInputElement).checked })"
                 />
                 <span>启用</span>
               </label>
@@ -92,7 +87,7 @@ function openQwenOfficialSite(): void {
                   <input
                     :checked="props.settings.toolSettings.builtinTools.tavilySearch.enabled"
                     type="checkbox"
-                    @change="emit('updateBuiltinToolEnabled', 'tavilySearch', ($event.target as HTMLInputElement).checked)"
+                    @change="emit('edit', { domain: 'tools', action: 'toggleBuiltin', tool: 'tavilySearch', enabled: ($event.target as HTMLInputElement).checked })"
                   />
                   <span>启用</span>
                 </label>
@@ -105,7 +100,7 @@ function openQwenOfficialSite(): void {
                   :value="props.settings.toolSettings.builtinTools.tavilySearch.baseUrl"
                   placeholder="Tavily 后端地址"
                   type="text"
-                  @input="emit('updateBuiltinToolTavilyBaseUrl', ($event.target as HTMLInputElement).value)"
+                  @input="emit('edit', { domain: 'tools', action: 'updateTavilyBaseUrl', value: ($event.target as HTMLInputElement).value })"
                 />
               </label>
               <label class="field-shell">
@@ -114,7 +109,7 @@ function openQwenOfficialSite(): void {
                   :value="props.settings.toolSettings.builtinTools.tavilySearch.apiKey"
                   placeholder="tvly-..."
                   type="password"
-                  @input="emit('updateBuiltinToolTavilyApiKey', ($event.target as HTMLInputElement).value)"
+                  @input="emit('edit', { domain: 'tools', action: 'updateTavilyApiKey', value: ($event.target as HTMLInputElement).value })"
                 />
               </label>
             </div>
@@ -139,7 +134,7 @@ function openQwenOfficialSite(): void {
                   <input
                     :checked="props.settings.toolSettings.builtinTools.qwenImage.enabled"
                     type="checkbox"
-                    @change="emit('updateBuiltinToolEnabled', 'qwenImage', ($event.target as HTMLInputElement).checked)"
+                    @change="emit('edit', { domain: 'tools', action: 'toggleBuiltin', tool: 'qwenImage', enabled: ($event.target as HTMLInputElement).checked })"
                   />
                   <span>启用</span>
                 </label>
@@ -152,7 +147,7 @@ function openQwenOfficialSite(): void {
                   :value="props.settings.toolSettings.builtinTools.qwenImage.baseUrl"
                   placeholder="https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
                   type="text"
-                  @input="emit('updateBuiltinToolQwenImageBaseUrl', ($event.target as HTMLInputElement).value)"
+                  @input="emit('edit', { domain: 'tools', action: 'updateQwenImageBaseUrl', value: ($event.target as HTMLInputElement).value })"
                 />
               </label>
               <label class="field-shell">
@@ -161,7 +156,7 @@ function openQwenOfficialSite(): void {
                   :value="props.settings.toolSettings.builtinTools.qwenImage.model"
                   placeholder="qwen3-vl-flash"
                   type="text"
-                  @input="emit('updateBuiltinToolQwenImageModel', ($event.target as HTMLInputElement).value)"
+                  @input="emit('edit', { domain: 'tools', action: 'updateQwenImageModel', value: ($event.target as HTMLInputElement).value })"
                 />
               </label>
               <label class="field-shell">
@@ -170,7 +165,7 @@ function openQwenOfficialSite(): void {
                   :value="props.settings.toolSettings.builtinTools.qwenImage.apiKey"
                   placeholder="DashScope API Key"
                   type="password"
-                  @input="emit('updateBuiltinToolQwenImageApiKey', ($event.target as HTMLInputElement).value)"
+                  @input="emit('edit', { domain: 'tools', action: 'updateQwenImageApiKey', value: ($event.target as HTMLInputElement).value })"
                 />
               </label>
             </div>

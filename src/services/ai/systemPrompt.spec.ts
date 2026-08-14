@@ -25,6 +25,7 @@ describe('systemPrompt', () => {
       }],
       customPrompt: '回答要简短',
       directImageInput: false,
+      imageToolAvailable: true,
       nativeWebSearch: true,
       tools,
     })
@@ -41,6 +42,7 @@ describe('systemPrompt', () => {
       attachments: [],
       customPrompt: '',
       directImageInput: false,
+      imageToolAvailable: false,
       nativeWebSearch: true,
       tools: [],
     })
@@ -62,6 +64,7 @@ describe('systemPrompt', () => {
       }],
       customPrompt: '',
       directImageInput: false,
+      imageToolAvailable: false,
       nativeWebSearch: false,
       tools: [],
     })

@@ -6,15 +6,28 @@ import { messageMapping } from './messageMapping'
 import type { ProviderStream } from './providerStream'
 
 describe('ToolOrchestrator', () => {
-  it('allows longer execution time for remote Qwen image analysis', () => {
-    expect(getToolExecutionTimeoutMs('get_current_time')).toBe(TOOL_EXECUTION_TIMEOUT_MS)
-    expect(getToolExecutionTimeoutMs('qwen_analyze_image')).toBe(QWEN_IMAGE_TOOL_TIMEOUT_MS)
+  it('uses tool metadata for execution timeouts', () => {
+    expect(getToolExecutionTimeoutMs({})).toBe(TOOL_EXECUTION_TIMEOUT_MS)
+    expect(getToolExecutionTimeoutMs({ executionTimeoutMs: QWEN_IMAGE_TOOL_TIMEOUT_MS })).toBe(QWEN_IMAGE_TOOL_TIMEOUT_MS)
   })
 
   it('surfaces tool configuration failures while building definitions', () => {
     expect(() => getToolDefinitions(() => {
       throw new Error('缺少工具密钥')
     }, request().toolSettings)).toThrow('缺少工具密钥')
+  })
+
+  it('filters attachment-dependent tools by metadata instead of their names', () => {
+    const definitions = getToolDefinitions(() => [{
+      requiresImageAttachment: true,
+      definition: {
+        type: 'function' as const,
+        function: { description: '图片工具', name: 'image_reader', parameters: {} },
+      },
+      execute: async () => ({ content: '图片结果' }),
+    }], request().toolSettings)
+
+    expect(definitions).toEqual([])
   })
 
   it('executes a tool batch serially and forwards the final text', async () => {

@@ -21,8 +21,6 @@ import type {
   ChatMessage,
   ConversationDoc,
   MessageAttachment,
-  ProviderSettings,
-  ProviderCapabilities,
   SettingsForm,
   ThinkingLevel,
 } from '../types/chat'
@@ -307,28 +305,6 @@ export function useChatApp() {
     }
   }
 
-  function updateDeepseekField(
-    field: Exclude<keyof ProviderSettings, 'modelOptions'>,
-    value: ProviderSettings[Exclude<keyof ProviderSettings, 'modelOptions'>],
-  ): void {
-    settingsActions.updateDeepseekField(field, value)
-  }
-
-  function updateDeepseekCapability(
-    field: keyof ProviderCapabilities,
-    value: ProviderCapabilities[keyof ProviderCapabilities],
-  ): void {
-    settingsActions.updateDeepseekCapability(field, value)
-  }
-
-  function updateCustomModelCapability(
-    id: string,
-    field: keyof ProviderCapabilities,
-    value: ProviderCapabilities[keyof ProviderCapabilities],
-  ): void {
-    settingsActions.updateCustomModelCapability(id, field, value)
-  }
-
   function saveSettingsAction(): Promise<void> {
     return settingsActions.saveSettingsAction()
   }
@@ -364,10 +340,8 @@ export function useChatApp() {
   return {
     activeChatConfig,
     activeConversationId,
-    addCustomModel: settingsActions.addCustomModel,
-    addCustomModelOption: settingsActions.addCustomModelOption,
-    addCustomTool: settingsActions.addCustomTool,
     addPendingImages,
+    applySettingsEdit: settingsActions.applySettingsEdit,
     canSendMessage,
     closeSettings: settingsActions.closeSettings,
     composerFocusPosition,
@@ -392,10 +366,6 @@ export function useChatApp() {
     retryableAssistantMessageId,
     thinkingLevel,
     thinkingOptions,
-    renameCustomModelOption: settingsActions.renameCustomModelOption,
-    removeCustomModel: settingsActions.removeCustomModel,
-    removeCustomModelOption: settingsActions.removeCustomModelOption,
-    removeCustomTool: settingsActions.removeCustomTool,
     removePendingAttachment,
     saveSettings: saveSettingsAction,
     settingsSaveError,
@@ -407,23 +377,6 @@ export function useChatApp() {
     stopGenerating: replyLifecycle.stop,
     startFreshConversation,
     toggleSidebar: settingsActions.toggleSidebar,
-    updateCustomModelField: settingsActions.updateCustomModelField,
-    updateCustomModelCapability,
-    updateCustomToolField: settingsActions.updateCustomToolField,
-    updateDeepseekField,
-    updateDeepseekCapability,
     updateActiveThinkingLevel,
-    updateBuiltinToolEnabled: settingsActions.updateBuiltinToolEnabled,
-    updateBuiltinToolTavilyApiKey: settingsActions.updateBuiltinToolTavilyApiKey,
-    updateBuiltinToolTavilyBaseUrl: settingsActions.updateBuiltinToolTavilyBaseUrl,
-    updateBuiltinToolQwenImageApiKey: settingsActions.updateBuiltinToolQwenImageApiKey,
-    updateBuiltinToolQwenImageBaseUrl: settingsActions.updateBuiltinToolQwenImageBaseUrl,
-    updateBuiltinToolQwenImageModel: settingsActions.updateBuiltinToolQwenImageModel,
-    updateFontSize: settingsActions.updateFontSize,
-    updateSystemPrompt: settingsActions.updateSystemPrompt,
-    updateTheme: settingsActions.updateTheme,
-    updateToolEnabled: settingsActions.updateToolEnabled,
-    updateUtoolsSessionIdleTimeoutMinutes: settingsActions.updateUtoolsSessionIdleTimeoutMinutes,
-    updateUtoolsUploadMode: settingsActions.updateUtoolsUploadMode,
   }
 }

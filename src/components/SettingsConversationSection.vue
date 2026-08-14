@@ -2,6 +2,7 @@
 import ModelPicker from './ModelPicker.vue'
 import { UTOOLS_SESSION_IDLE_TIMEOUT_OPTIONS } from '../constants/storage'
 import type { ModelConfigOption, SettingsForm } from '../types/chat'
+import type { SettingsEdit } from '../types/settingsPanel'
 
 const props = defineProps<{
   saving: boolean
@@ -9,8 +10,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  updateSystemPrompt: [systemPrompt: string]
-  updateUtoolsSessionIdleTimeoutMinutes: [minutes: number]
+  edit: [edit: SettingsEdit]
 }>()
 
 const sessionIdleTimeoutPickerOptions: ModelConfigOption[] = UTOOLS_SESSION_IDLE_TIMEOUT_OPTIONS.map((option) => ({
@@ -24,12 +24,12 @@ const sessionIdleTimeoutPickerOptions: ModelConfigOption[] = UTOOLS_SESSION_IDLE
 function selectSessionIdleTimeout(value: string): void {
   const option = UTOOLS_SESSION_IDLE_TIMEOUT_OPTIONS.find((item) => item.value === Number(value))
   if (option) {
-    emit('updateUtoolsSessionIdleTimeoutMinutes', option.value)
+    emit('edit', { domain: 'conversation', field: 'utoolsSessionIdleTimeoutMinutes', value: option.value })
   }
 }
 
 function updateSystemPrompt(event: Event): void {
-  emit('updateSystemPrompt', (event.target as HTMLTextAreaElement).value)
+  emit('edit', { domain: 'conversation', field: 'systemPrompt', value: (event.target as HTMLTextAreaElement).value })
 }
 </script>
 

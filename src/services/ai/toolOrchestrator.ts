@@ -35,15 +35,24 @@ export interface ToolOrchestratorOptions {
   providerStream: ProviderStream
 }
 
+export function getEnabledToolsForAttachments(
+  getEnabledTools: ToolOrchestratorOptions['getEnabledTools'],
+  settings: ToolSettings,
+  attachments: MessageAttachment[] = [],
+): AiTool[] {
+  return filterToolsForAttachments(
+    resolveEnabledTools(getEnabledTools, structuredClone(settings)),
+    attachments,
+  )
+}
+
 export function getToolDefinitions(
   getEnabledTools: ToolOrchestratorOptions['getEnabledTools'],
   settings: ToolSettings,
   attachments: MessageAttachment[] = [],
 ): AiTool['definition'][] {
-  return filterToolsForAttachments(
-    resolveEnabledTools(getEnabledTools, structuredClone(settings)),
-    attachments,
-  ).map((tool) => tool.definition)
+  return getEnabledToolsForAttachments(getEnabledTools, settings, attachments)
+    .map((tool) => tool.definition)
 }
 
 interface RoundOutcome {
@@ -64,8 +73,9 @@ async function* streamToolReply(
   request: ToolOrchestratorRequest,
 ): AsyncGenerator<ReplyStreamEvent> {
   const settings = structuredClone(request.toolSettings)
-  const tools = filterToolsForAttachments(
-    resolveEnabledTools(options.getEnabledTools, settings),
+  const tools = getEnabledToolsForAttachments(
+    options.getEnabledTools,
+    settings,
     request.attachments ?? [],
   )
   assertToolsAvailable(settings, tools)
@@ -176,7 +186,8 @@ async function* executeBatch(
   startedAt: number,
 ): AsyncGenerator<ReplyStreamEvent> {
   for (const call of calls) {
-    const toolTimeoutMs = getToolExecutionTimeoutMs(call.name)
+    const tool = tools.find((item) => item.definition.function.name === call.name)
+    const toolTimeoutMs = getToolExecutionTimeoutMs(tool ?? {})
     const timeoutMs = Math.min(toolTimeoutMs, getRemainingTime(startedAt))
     const orchestratorTimedOut = timeoutMs < toolTimeoutMs
     const result = yield* executeToolCall({
@@ -201,7 +212,7 @@ function filterToolsForAttachments(tools: AiTool[], attachments: MessageAttachme
     return tools
   }
 
-  return tools.filter((tool) => !tool.definition.function.name.startsWith('qwen_'))
+  return tools.filter((tool) => !tool.requiresImageAttachment)
 }
 
 function resolveEnabledTools(getTools: ToolOrchestratorOptions['getEnabledTools'], settings: ToolSettings): AiTool[] {

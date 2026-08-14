@@ -7,7 +7,7 @@ import {
   getProviderDefinition,
 } from '../constants/providers'
 import type { AddableProviderId, ProviderCapabilities, SettingsForm } from '../types/chat'
-import type { CustomModelField, ProviderEditableField } from '../types/settingsPanel'
+import type { SettingsEdit } from '../types/settingsPanel'
 
 const props = defineProps<{
   saving: boolean
@@ -15,22 +15,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  addCustomModel: [provider: AddableProviderId]
-  addCustomModelOption: [id: string, option: string]
-  removeCustomModel: [id: string]
-  removeCustomModelOption: [id: string, option: string]
-  renameCustomModelOption: [id: string, from: string, to: string]
-  updateCustomModelCapability: [
-    id: string,
-    field: keyof ProviderCapabilities,
-    value: ProviderCapabilities[keyof ProviderCapabilities],
-  ]
-  updateCustomModelField: [id: string, field: CustomModelField, value: string | number]
-  updateDeepseekCapability: [
-    field: keyof ProviderCapabilities,
-    value: ProviderCapabilities[keyof ProviderCapabilities],
-  ]
-  updateDeepseekField: [field: ProviderEditableField, value: string | number]
+  edit: [edit: SettingsEdit]
 }>()
 
 const addableProviders = getAddableProviderDefinitions()
@@ -51,7 +36,7 @@ function confirmRemoveProvider(): void {
     return
   }
 
-  emit('removeCustomModel', target.id)
+  emit('edit', { domain: 'provider', action: 'removeModel', id: target.id })
   pendingDeleteProvider.value = null
 }
 
@@ -74,7 +59,7 @@ function updateDeepseekCapability(
   field: keyof ProviderCapabilities,
   value: ProviderCapabilities[keyof ProviderCapabilities],
 ): void {
-  emit('updateDeepseekCapability', field, value)
+  emit('edit', { domain: 'provider', action: 'updateDeepseekCapability', field, value })
 }
 
 function updateCustomCapability(
@@ -82,7 +67,7 @@ function updateCustomCapability(
   field: keyof ProviderCapabilities,
   value: ProviderCapabilities[keyof ProviderCapabilities],
 ): void {
-  emit('updateCustomModelCapability', id, field, value)
+  emit('edit', { domain: 'provider', action: 'updateCustomModelCapability', id, field, value })
 }
 </script>
 
@@ -107,7 +92,7 @@ function updateCustomCapability(
               :value="props.settings.deepseek.baseUrl"
               :placeholder="getProviderDefinition('deepseek').baseUrlPlaceholder || 'Base URL'"
               type="text"
-              @input="emit('updateDeepseekField', 'baseUrl', ($event.target as HTMLInputElement).value)"
+              @input="emit('edit', { domain: 'provider', action: 'updateDeepseekField', field: 'baseUrl', value: ($event.target as HTMLInputElement).value })"
             />
           </label>
           <label class="field-shell">
@@ -116,7 +101,7 @@ function updateCustomCapability(
               :value="props.settings.deepseek.apiKey"
               :placeholder="getProviderDefinition('deepseek').apiKeyPlaceholder || 'API Key'"
               type="password"
-              @input="emit('updateDeepseekField', 'apiKey', ($event.target as HTMLInputElement).value)"
+              @input="emit('edit', { domain: 'provider', action: 'updateDeepseekField', field: 'apiKey', value: ($event.target as HTMLInputElement).value })"
             />
           </label>
           <label class="field-shell">
@@ -127,7 +112,7 @@ function updateCustomCapability(
               :model-value="props.settings.deepseek.model"
               :options="props.settings.deepseek.modelOptions"
               placeholder="输入模型 ID"
-              @select="emit('updateDeepseekField', 'model', $event)"
+              @select="emit('edit', { domain: 'provider', action: 'updateDeepseekField', field: 'model', value: $event })"
             />
           </label>
         </div>
@@ -153,7 +138,7 @@ function updateCustomCapability(
               :value="item.name"
               placeholder="未命名模型"
               type="text"
-              @input="emit('updateCustomModelField', item.id, 'name', ($event.target as HTMLInputElement).value)"
+              @input="emit('edit', { domain: 'provider', action: 'updateCustomModelField', id: item.id, field: 'name', value: ($event.target as HTMLInputElement).value })"
             />
           </label>
           <button class="danger-text" type="button" @click="requestRemoveProvider(item.id, item.name)">删除</button>
@@ -165,7 +150,7 @@ function updateCustomCapability(
               :value="item.baseUrl"
               :placeholder="getProviderDefinition(item.provider).baseUrlPlaceholder || 'Base URL'"
               type="text"
-              @input="emit('updateCustomModelField', item.id, 'baseUrl', ($event.target as HTMLInputElement).value)"
+              @input="emit('edit', { domain: 'provider', action: 'updateCustomModelField', id: item.id, field: 'baseUrl', value: ($event.target as HTMLInputElement).value })"
             />
           </label>
           <label class="field-shell">
@@ -174,7 +159,7 @@ function updateCustomCapability(
               :value="item.apiKey"
               :placeholder="getProviderDefinition(item.provider).apiKeyPlaceholder || 'API Key'"
               type="password"
-              @input="emit('updateCustomModelField', item.id, 'apiKey', ($event.target as HTMLInputElement).value)"
+              @input="emit('edit', { domain: 'provider', action: 'updateCustomModelField', id: item.id, field: 'apiKey', value: ($event.target as HTMLInputElement).value })"
             />
           </label>
           <label class="field-shell">
@@ -185,10 +170,10 @@ function updateCustomCapability(
               :model-value="item.model"
               :options="item.modelOptions"
               placeholder="输入模型 ID"
-              @add-option="emit('addCustomModelOption', item.id, $event)"
-              @remove-option="emit('removeCustomModelOption', item.id, $event)"
-              @rename-option="emit('renameCustomModelOption', item.id, $event.from, $event.to)"
-              @select="emit('updateCustomModelField', item.id, 'model', $event)"
+              @add-option="emit('edit', { domain: 'provider', action: 'addModelOption', id: item.id, option: $event })"
+              @remove-option="emit('edit', { domain: 'provider', action: 'removeModelOption', id: item.id, option: $event })"
+              @rename-option="emit('edit', { domain: 'provider', action: 'renameModelOption', id: item.id, from: $event.from, to: $event.to })"
+              @select="emit('edit', { domain: 'provider', action: 'updateCustomModelField', id: item.id, field: 'model', value: $event })"
             />
           </label>
         </div>
@@ -226,7 +211,7 @@ function updateCustomCapability(
             :key="provider.id"
             class="add-button"
             type="button"
-            @click="emit('addCustomModel', provider.id as AddableProviderId)"
+            @click="emit('edit', { domain: 'provider', action: 'addModel', provider: provider.id as AddableProviderId })"
           >
             + {{ provider.label }}
           </button>

@@ -27,6 +27,7 @@ vi.mock('./composables/useChatApp', () => ({
     thinkingLevel: computed(() => 'high'),
     thinkingOptions: computed(() => []),
     activeConversationId: ref<string | null>(null),
+    applySettingsEdit: vi.fn(),
     addCustomModel: vi.fn(),
     addCustomModelOption: vi.fn(),
     addCustomTool: vi.fn(),

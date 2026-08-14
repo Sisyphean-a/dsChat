@@ -191,6 +191,7 @@ describe('ReplyLifecycle', () => {
     state.settings.value.toolSettings.builtinTools.qwenImage.apiKey = 'qwen-key'
     const toolOrchestrator = {
       getEnabledTools: () => [{
+        requiresImageAttachment: true,
         definition: {
           type: 'function' as const,
           function: { description: '分析图片', name: 'qwen_analyze_image', parameters: {} },
@@ -238,6 +239,7 @@ describe('ReplyLifecycle', () => {
     }
     const toolOrchestrator = {
       getEnabledTools: () => [{
+        requiresImageAttachment: true,
         definition: {
           type: 'function' as const,
           function: { description: '分析图片', name: 'qwen_analyze_image', parameters: {} },

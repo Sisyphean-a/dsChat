@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import { buildDefaultSettings, createAddedModelDraft } from '../constants/providers'
+import type { SettingsEdit } from '../types/settingsPanel'
 import { createChatAppSettingsActions } from './chatAppSettingsActions'
 
 describe('chatAppSettingsActions', () => {
@@ -17,7 +18,11 @@ describe('chatAppSettingsActions', () => {
       settingsSaveError: ref<string | null>(null),
     })
 
-    actions.updateSystemPrompt('言简意赅，避免大段回复')
+    actions.applySettingsEdit({
+      domain: 'conversation',
+      field: 'systemPrompt',
+      value: '言简意赅，避免大段回复',
+    } as SettingsEdit)
 
     expect(settings.value.systemPrompt).toBe('言简意赅，避免大段回复')
   })

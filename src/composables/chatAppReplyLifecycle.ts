@@ -1,15 +1,8 @@
 import type { Ref } from 'vue'
 import type { ActiveProviderSettings, ChatMessage, MessageAttachment, SettingsForm, ToolSettings } from '../types/chat'
-import {
-  providerSupportsImageInput,
-  providerSupportsNativeWebSearch,
-  providerSupportsToolCalling,
-} from '../constants/providerCapabilities'
-import type { MessageMapping } from '../services/ai/messageMapping'
-import type { ProviderConversationMessage } from '../services/ai/providerAdapter'
-import { buildSystemPrompt } from '../services/ai/systemPrompt'
-import { getToolDefinitions } from '../services/ai/toolOrchestrator'
+import { type MessageMapping } from '../services/ai/messageMapping'
 import { ProviderStreamStoppedError, type ProviderStream } from '../services/ai/providerStream'
+import type { ProviderConversationMessage } from '../services/ai/providerAdapter'
 import type { ReplyStreamEvent, ToolOrchestrator } from '../services/ai/toolOrchestrator'
 import { createConversationId } from '../utils/chat'
 import { getErrorMessage } from './chatAppErrors'
@@ -23,7 +16,8 @@ import {
   resetReply,
   type ReplyMessageState,
 } from './chatAppReplyMessages'
-import { buildRequestMessages, prepareRetryRequest } from './chatAppRetry'
+import { prepareRetryRequest } from './chatAppRetry'
+import { buildReplyRequestPlan } from './chatAppReplyPlan'
 import { prepareSendRequest, type SendPreparation } from './chatAppSendHelpers'
 
 interface ReplyLifecycleOptions {
@@ -233,64 +227,23 @@ function chooseReplyStream(
   request: ReplyRequest,
   signal: AbortSignal,
 ): AsyncIterable<ReplyStreamEvent> {
-  const requestMessages = buildRequestMessages(state.options.messages.value.slice(0, -1))
-  const attachments = requestMessages.at(-1)?.attachments ?? []
-  const tools = request.toolSettings.enabled
-    && providerSupportsToolCalling(request.settings)
-    && state.options.toolOrchestrator.getEnabledTools
-    ? getToolDefinitions(state.options.toolOrchestrator.getEnabledTools, request.toolSettings, attachments)
-    : []
-  const hasQwenImageTool = tools.some((tool) => tool.function.name.startsWith('qwen_'))
-  const directImageInput = providerSupportsImageInput(request.settings) && !hasQwenImageTool
-  const providerMessages = state.options.messageMapping.toProviderConversationMessages(requestMessages)
-  const messages = prependSystemPrompt(
-    stripUnsupportedImageAttachments(providerMessages, directImageInput),
-    buildSystemPrompt({
-      attachments,
-      customPrompt: request.systemPrompt,
-      directImageInput,
-      nativeWebSearch: providerSupportsNativeWebSearch(request.settings),
-      tools,
-    }),
-  )
-  const canRunLocalToolRound = request.toolSettings.enabled
-    && providerSupportsToolCalling(request.settings)
-    && (tools.length > 0 || !state.options.toolOrchestrator.getEnabledTools)
-  if (canRunLocalToolRound) {
-    return state.options.toolOrchestrator.stream({ ...request, attachments, messages, signal })
+  const plan = buildReplyRequestPlan({
+    messageMapping: state.options.messageMapping,
+    messages: state.options.messages.value,
+    request,
+    toolOrchestrator: state.options.toolOrchestrator,
+  })
+  if (plan.useToolOrchestrator) {
+    return state.options.toolOrchestrator.stream({
+      ...request,
+      attachments: plan.attachments,
+      messages: plan.messages,
+      signal,
+    })
   }
-  if (request.toolSettings.enabled
-    && !providerSupportsToolCalling(request.settings)
-    && !providerSupportsNativeWebSearch(request.settings)) {
-    throw new Error(`${request.settings.label} 当前配置暂不支持工具调用。`)
-  }
-  return streamDirectReply(state.options.providerStream, { ...request, messages, signal })
+  return streamDirectReply(state.options.providerStream, { ...request, messages: plan.messages, signal })
 }
 
-function stripUnsupportedImageAttachments(
-  messages: ProviderConversationMessage[],
-  supportsImageInput: boolean,
-): ProviderConversationMessage[] {
-  if (supportsImageInput) {
-    return messages
-  }
-
-  return messages.map((message) => ({
-    ...message,
-    attachments: undefined,
-  }))
-}
-
-function prependSystemPrompt(
-  messages: ProviderConversationMessage[],
-  systemPrompt: string,
-): ProviderConversationMessage[] {
-  if (!systemPrompt.trim()) {
-    return messages
-  }
-
-  return [{ content: systemPrompt, role: 'system' }, ...messages]
-}
 
 async function* streamDirectReply(
   providerStream: ProviderStream,

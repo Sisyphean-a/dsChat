@@ -39,6 +39,7 @@ src/
 - 发送期间或已有消息时禁止切换 Provider 配置，避免同一会话的请求上下文和配置混用。
 - 首个用户消息创建会话；标题先使用默认值，随后由独立的非流式请求异步更新。
 - `useMessageListAutoScroll.ts` 用显式状态机处理用户上滚后的自动滚动锁定；不要在组件中临时滚动到底部。
+- 设置面板的各领域子页面只发结构化 `SettingsEdit`；`SettingsPanel.vue` 统一转发一个 `edit` 事件，`useChatApp.ts` 只暴露 `applySettingsEdit`，设置动作模块负责按领域分发，避免字段级事件穿过组合根。
 
 ### 会话与持久化
 
@@ -67,7 +68,8 @@ Provider 注册表和能力档案是唯一来源：
 
 ### 回复、Provider 与工具
 
-`chatAppProduction.ts` 把生产依赖组装一次：`ProviderStream`、`ProviderCompletion`、标题请求器与 `ToolOrchestrator`。`chatAppReplyLifecycle.ts` 是发送、重试、停止和中断的唯一回复生命周期：先持久化占位助手消息，再消费事件，最后写入终态。停止通过同一个 `AbortController` 传播到网络或工具调用；失败不会伪装为成功。
+- `chatAppReplyLifecycle.ts` 是发送、重试、停止和中断的唯一回复生命周期；先持久化占位助手消息，再消费事件，最后写入终态。停止通过同一个 `AbortController` 传播到网络或工具调用；失败不会伪装为成功。
+- `chatAppReplyPlan.ts` 在每次请求开始时集中生成本回合的附件、工具、Provider 消息、系统提示词和路由计划；生命周期只消费计划。`AiTool` 通过元数据声明图片附件要求和单次超时，不再用工具名称前缀承载路由规则。
 
 - `providerStream.ts`：负责 HTTP 状态、SSE 缓冲、协议错误和空结果判断，不理解会话 UI。
 - `providerCompletion.ts`：只用于非流式标题生成。
@@ -81,6 +83,7 @@ Provider 注册表和能力档案是唯一来源：
 ## 关键不变量
 
 - Provider 请求、流式事件和工具执行必须分别位于 `services/ai/` 与 `services/tools/`；UI 与 composable 不得拼接协议请求。
+- 回复请求的附件筛选、图片能力描述和工具超时必须读取 `AiTool` 元数据；工具名称（包括 `qwen_` 名称）只作为模型协议标识，不得用于路由或执行策略判断。
 - 标题生成不得把图片 Data URL 或图片附件直接交给文本标题模型；图片问题优先从用户文字生成标题，标题模型输出拒答或请求补充内容时必须回退为稳定的本地标题。
 - 回复启动时快照 Provider 配置、思考等级、工具设置与全局系统提示词；后续编辑设置不能改变正在进行的回复。动态提示词不得暴露图片 Data URL 或其他内部附件内容。
 - 工具总开关开启时，必须至少有一个内置工具，且当前配置必须支持本地工具调用，或是支持原生联网的 Responses 配置；不支持时在发送前报错。实际本地工具轮次只在前者运行。
