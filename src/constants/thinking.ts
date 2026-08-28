@@ -9,6 +9,7 @@ type ThinkingSettings = Pick<ProviderSettings, 'capabilities' | 'model'>
 
 const DEEPSEEK_THINKING_MODELS = new Set([
   'deepseek-v4-flash',
+  'deepseek-v4-flash-vision-exp',
   'deepseek-v4-pro',
   'deepseek-chat',
 ])

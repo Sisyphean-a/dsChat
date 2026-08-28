@@ -104,7 +104,7 @@ export function normalizeProviderCapabilities(
     normalized.protocol = PROVIDER_CAPABILITIES[provider].protocol
   }
   if (provider === 'deepseek' || provider === 'minimax') {
-    normalized.imageInput = false
+    normalized.imageInput = providerModelSupportsImageInput(provider, model)
   }
   if (provider === 'kimi' && !providerModelSupportsImageInput(provider, model)) {
     normalized.imageInput = false

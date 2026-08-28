@@ -4,7 +4,7 @@ import { buildDefaultProviderSettings, getProviderDefaultModelValues } from './p
 describe('provider model presets', () => {
   it('exposes the current stable model presets and selects the first as default', () => {
     const expectedModels = {
-      deepseek: ['deepseek-v4-pro', 'deepseek-v4-flash'],
+      deepseek: ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-v4-flash-vision-exp'],
       kimi: ['kimi-k3', 'kimi-k2.7-code', 'kimi-k2.7-code-highspeed', 'kimi-k2.6'],
       minimax: ['MiniMax-M3', 'MiniMax-M2.7', 'MiniMax-M2.7-highspeed', 'MiniMax-M2.5', 'MiniMax-M2.5-highspeed'],
       openai: ['gpt-5.6-sol', 'gpt-5.6', 'gpt-5.6-terra', 'gpt-5.6-luna'],

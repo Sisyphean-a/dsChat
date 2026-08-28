@@ -96,6 +96,7 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     defaultModels: [
       createModelOption('deepseek-v4-pro', true, false),
       createModelOption('deepseek-v4-flash', true, false),
+      createModelOption('deepseek-v4-flash-vision-exp', true, true),
     ],
     temperature: STANDARD_TEMPERATURE,
   },
@@ -188,7 +189,7 @@ export function providerModelSupportsTemperature(provider: ProviderId, model: st
 
 export function providerModelSupportsImageInput(provider: ProviderId, model: string): boolean {
   const matched = findProviderModel(provider, model)
-  return matched?.supportsImageInput ?? true
+  return matched?.supportsImageInput ?? (provider !== 'deepseek' && provider !== 'minimax')
 }
 
 export function getProviderTemperatureRange(provider: ProviderId): TemperatureRange {
@@ -231,7 +232,7 @@ function createDefaultProviderCapabilities(provider: ProviderId, model: string):
   }
 
   return {
-    imageInput: false,
+    imageInput: providerModelSupportsImageInput(provider, model),
     nativeWebSearch: false,
     protocol: 'chat_completions',
     reasoning: true,

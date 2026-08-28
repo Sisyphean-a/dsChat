@@ -172,6 +172,47 @@ describe('ReplyLifecycle', () => {
     }))
   })
 
+  it('passes attachments to DeepSeek vision models', async () => {
+    const state = createState()
+    state.settings.value.deepseek.model = 'deepseek-v4-flash-vision-exp'
+    const attachment: MessageAttachment = {
+      dataUrl: 'data:image/png;base64,aW1hZ2U=',
+      height: 10,
+      id: 'image-vision-1',
+      mimeType: 'image/png',
+      name: 'screen.png',
+      size: 10,
+      type: 'image',
+      width: 10,
+    }
+    state.pendingAttachments.value = [attachment]
+    const providerStream = {
+      stream: vi.fn(async function* () {
+        yield { type: 'content' as const, content: '图片内容' }
+      }),
+    }
+    const lifecycle = createReplyLifecycle({
+      ...state,
+      getAbortController: () => state.controller.value,
+      messageMapping,
+      notifyNewConversation: vi.fn(),
+      openSettings: vi.fn(),
+      providerStream,
+      setAbortController: (controller) => { state.controller.value = controller },
+      toolOrchestrator: { async *stream() { throw new Error('unexpected tool stream') } },
+    })
+    state.draftMessage.value = '请描述这张图'
+
+    await lifecycle.send()
+
+    expect(providerStream.stream).toHaveBeenCalledWith(expect.objectContaining({
+      messages: [
+        expect.objectContaining({ role: 'system' }),
+        expect.objectContaining({ attachments: [attachment], content: '请描述这张图', role: 'user' }),
+      ],
+    }))
+  })
+
   it('keeps non-visual attachments for local image tools but strips them from Provider messages', async () => {
     const state = createState()
     const attachment: MessageAttachment = {

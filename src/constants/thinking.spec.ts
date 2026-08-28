@@ -12,6 +12,8 @@ describe('thinking', () => {
   it('only exposes levels that the active provider protocol and model can accept', () => {
     expect(getThinkingOptions('deepseek', settings('deepseek', 'deepseek-v4-flash')).map(({ value }) => value))
       .toEqual(['off', 'high', 'max'])
+    expect(getThinkingOptions('deepseek', settings('deepseek', 'deepseek-v4-flash-vision-exp')).map(({ value }) => value))
+      .toEqual(['off', 'high', 'max'])
     expect(getThinkingOptions('openai', settings('openai', 'gpt-5.4')).map(({ value }) => value))
       .toEqual(['off', 'low', 'medium', 'high', 'max'])
     expect(getThinkingOptions('openai', settings('openai', 'gpt-5.6')).map(({ value }) => value))
@@ -40,6 +42,8 @@ describe('thinking', () => {
   it('maps supported Chat Completions levels to documented vendor payloads', () => {
     expect(createThinkingPayloadForChatCompletions('deepseek', settings('deepseek', 'deepseek-v4-flash'), 'max'))
       .toEqual({ reasoning_effort: 'max', thinking: { type: 'enabled' } })
+    expect(createThinkingPayloadForChatCompletions('deepseek', settings('deepseek', 'deepseek-v4-flash-vision-exp'), 'high'))
+      .toEqual({ reasoning_effort: 'high', thinking: { type: 'enabled' } })
     expect(createThinkingPayloadForChatCompletions('deepseek', settings('deepseek', 'deepseek-v4-flash'), 'off'))
       .toEqual({ thinking: { type: 'disabled' } })
     expect(createThinkingPayloadForChatCompletions('kimi', settings('kimi', 'kimi-k3'), 'low'))

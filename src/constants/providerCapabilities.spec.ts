@@ -93,6 +93,16 @@ describe('providerCapabilities', () => {
     expect(providerSupportsImageInput(createProviderSettings('kimi', {}, 'kimi-k2.6'))).toBe(true)
   })
 
+  it('enables direct image input for the DeepSeek vision preset', () => {
+    const vision = createProviderSettings('deepseek', {}, 'deepseek-v4-flash-vision-exp')
+    const text = createProviderSettings('deepseek', { imageInput: true }, 'deepseek-v4-flash')
+
+    expect(vision.capabilities.imageInput).toBe(true)
+    expect(providerSupportsImageInput(vision)).toBe(true)
+    expect(text.capabilities.imageInput).toBe(false)
+    expect(providerSupportsImageInput(text)).toBe(false)
+  })
+
   it('keeps temperature out of active DeepSeek thinking requests', () => {
     const settings = createProviderSettings('deepseek', {}, 'deepseek-v4-flash')
 
@@ -119,7 +129,7 @@ function createProviderSettings(
   return {
     apiKey: 'sk-test',
     baseUrl: 'https://example.com',
-    capabilities: normalizeProviderCapabilities(provider, capabilities),
+    capabilities: normalizeProviderCapabilities(provider, capabilities, model),
     configId: 'test',
     label: 'Test',
     model,

@@ -31,7 +31,7 @@ describe('migrateSettingsDoc', () => {
         toolCalling: true,
       },
       model: 'deepseek-chat',
-      modelOptions: ['deepseek-v4-pro', 'deepseek-v4-flash'],
+      modelOptions: ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-v4-flash-vision-exp'],
       reasoningLevel: 'high',
       temperature: 1.5,
     })
