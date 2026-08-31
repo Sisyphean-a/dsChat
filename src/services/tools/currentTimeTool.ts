@@ -24,7 +24,7 @@ export const currentTimeTool: AiTool = {
     type: 'function',
     function: {
       name: 'get_current_time',
-      description: '获取当前精确时间，帮助理解今天/昨天/本周等相对时间。',
+      description: '获取当前时间；时效性搜索前先调用本工具。',
       parameters: {
         type: 'object',
         properties: {

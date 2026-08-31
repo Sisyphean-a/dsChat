@@ -6,6 +6,11 @@ afterEach(() => {
 })
 
 describe('tavilySearchTool', () => {
+  it('requires current time before time-sensitive searches', () => {
+    expect(tavilySearchTool.definition.function.description).toContain('时效性问题先调用 get_current_time')
+    expect(tavilySearchTool.definition.function.description).toContain('再用结果搜索')
+  })
+
   it('throws when query is missing', async () => {
     await expect(
       tavilySearchTool.execute({}, {

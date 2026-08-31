@@ -70,6 +70,7 @@ Provider 注册表和能力档案是唯一来源：
 
 - `chatAppReplyLifecycle.ts` 是发送、重试、停止和中断的唯一回复生命周期；先持久化占位助手消息，再消费事件，最后写入终态。停止通过同一个 `AbortController` 传播到网络或工具调用；失败不会伪装为成功。
 - `chatAppReplyPlan.ts` 在每次请求开始时集中生成本回合的附件、工具、Provider 消息、系统提示词和路由计划；生命周期只消费计划。`AiTool` 通过元数据声明图片附件要求和单次超时，不再用工具名称前缀承载路由规则。
+- 时效性 Tavily 查询依靠工具说明要求模型先调用 `get_current_time`，再用时间结果构造搜索条件；普通问题不调用时间工具，也不引入时间信息。
 
 - `providerStream.ts`：负责 HTTP 状态、SSE 缓冲、协议错误和空结果判断，不理解会话 UI。
 - `providerCompletion.ts`：只用于非流式标题生成。

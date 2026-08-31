@@ -9,7 +9,7 @@ export const tavilySearchTool: AiTool = {
     type: 'function',
     function: {
       name: 'tavily_search',
-      description: '检索最新网页信息并返回高相关摘要。',
+      description: '检索网页信息；时效性问题先调用 get_current_time，再用结果搜索。',
       parameters: {
         type: 'object',
         properties: {
