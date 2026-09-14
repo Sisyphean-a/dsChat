@@ -50,6 +50,57 @@ describe('chatAppSettingsActions', () => {
     expect(settings.value.deepseek.reasoningLevel).toBe('high')
   })
 
+  it('closes protocol-dependent capabilities when the protocol changes', () => {
+    const settings = ref(buildDefaultSettings())
+    const openai = createAddedModelDraft('openai', [])
+    openai.capabilities = {
+      ...openai.capabilities,
+      toolCalling: true,
+    }
+    settings.value = {
+      ...settings.value,
+      activeConfigId: openai.id,
+      customModels: [openai],
+    }
+    const actions = createChatAppSettingsActions({
+      applyAppearance: vi.fn(),
+      isSavingSettings: ref(false),
+      isSettingsOpen: ref(false),
+      isSidebarCollapsed: ref(false),
+      lastError: ref<string | null>(null),
+      saveSettings: vi.fn(),
+      settings,
+      settingsSaveError: ref<string | null>(null),
+    })
+
+    actions.applySettingsEdit({
+      domain: 'provider',
+      action: 'updateCustomModelCapability',
+      id: openai.id,
+      field: 'protocol',
+      value: 'chat_completions',
+    })
+
+    expect(settings.value.customModels[0]?.capabilities).toMatchObject({
+      nativeWebSearch: false,
+      protocol: 'chat_completions',
+      toolCalling: true,
+    })
+
+    actions.applySettingsEdit({
+      domain: 'provider',
+      action: 'updateCustomModelCapability',
+      id: openai.id,
+      field: 'protocol',
+      value: 'responses',
+    })
+
+    expect(settings.value.customModels[0]?.capabilities).toMatchObject({
+      protocol: 'responses',
+      toolCalling: false,
+    })
+  })
+
   it('keeps settings open and exposes a save error when persistence fails', async () => {
     const isSavingSettings = ref(false)
     const isSettingsOpen = ref(false)

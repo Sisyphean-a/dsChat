@@ -50,7 +50,7 @@ scope: workspace
 - `chat_completions` 和 `responses` 是协议选择，不是 Provider 名称。可选协议必须由 Provider 能力档案明确声明：DeepSeek、Kimi、MiniMax 仅可用 `chat_completions`；OpenAI 与自定义配置可选两者。持久化的无效组合必须规范化为该 Provider 的默认协议。
 - 本地函数工具调用只走 Chat Completions 适配器。Responses 适配器仅支持 OpenAI 原生联网搜索，不能假装支持本地工具轮次；阿里云 Qwen 图片工具同样只在支持本地 Chat Completions 工具轮次的配置中启用。
 - Provider 不支持直接图片输入时，发送给 Provider 的消息不得携带图片附件；当前回合提供阿里云 Qwen 图片工具时优先走工具轮次，即使 Provider 能力配置声称支持图片，也不得将该附件直接发给 Provider；本地图片工具通过工具执行上下文取得当前附件。Qwen 图片工具单次执行上限为 60 秒，普通本地工具为 20 秒，总工具流程仍受统一 deadline 限制。所有 Provider、Tavily 和 Qwen 服务地址必须使用 HTTPS，URL 不得携带用户名或密码；Qwen 图片工具基础地址允许填写到 `/compatible-mode/v1`，运行时会追加 `/chat/completions`，也兼容完整 endpoint；图片 Data URL 在工具和 Provider 序列化边界都要校验。
-- 预设模型列表是默认建议，不是已保存模型配置的白名单；规范化必须保留用户已保存的自定义模型 ID。
+- 预设模型列表是默认建议，不是已保存模型配置的白名单；规范化必须保留用户已保存的自定义模型 ID。模型 ID 解析忽略大小写并先按别名归一到当前模型；别名只影响能力与参数解析，不改写已保存的模型 ID。
 - 模型或 Provider 的图片、推理、温度、原生联网与本地工具能力必须由注册表/能力档案声明，不能从名称猜测。
 - 思考等级属于单个 Provider 配置，而非供应商全局偏好；只有内置档案明确支持的供应商、协议与模型组合才显示可选等级并发送参数。固定思考模型和自定义接口不得伪装成可控等级。
 - 迁移缺少 `reasoningLevel` 的旧 OpenAI 配置时，历史默认的 `reasoning: false` 必须恢复为当前默认值；带有 `reasoningLevel` 的配置视为用户已明确选择，不得覆盖。

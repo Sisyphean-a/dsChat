@@ -1,4 +1,5 @@
 import type { ProviderId, ProviderSettings, ThinkingLevel } from '../types/chat'
+import { findModelProfile, getProviderProfile, type ThinkingRequestStyle } from './providerProfiles'
 
 export interface ThinkingOption {
   label: string
@@ -7,32 +8,25 @@ export interface ThinkingOption {
 
 type ThinkingSettings = Pick<ProviderSettings, 'capabilities' | 'model'>
 
-const DEEPSEEK_THINKING_MODELS = new Set([
-  'deepseek-flash',
-  'deepseek-v4-flash',
-  'deepseek-v4-flash-vision-exp',
-  'deepseek-v4-pro',
-])
-interface OpenAiReasoningProfile {
-  maxEffort: 'max' | 'xhigh'
-}
-
-const OPENAI_REASONING_PROFILES = new Map<string, OpenAiReasoningProfile>([
-  ['gpt-6-astra', { maxEffort: 'max' }],
-  ['gpt-5.4', { maxEffort: 'xhigh' }],
-  ['gpt-5.6', { maxEffort: 'max' }],
-  ['gpt-5.6-sol', { maxEffort: 'max' }],
-  ['gpt-5.6-terra', { maxEffort: 'max' }],
-  ['gpt-5.6-luna', { maxEffort: 'max' }],
-])
-
 const OFF: ThinkingOption = { label: '关闭', value: 'off' }
 const LOW: ThinkingOption = { label: '低', value: 'low' }
 const MEDIUM: ThinkingOption = { label: '标准', value: 'medium' }
 const HIGH: ThinkingOption = { label: '高', value: 'high' }
 const MAX: ThinkingOption = { label: '极高', value: 'max' }
-const ENABLED: ThinkingOption = { label: '启用', value: 'high' }
-const ADAPTIVE: ThinkingOption = { label: '自适应', value: 'high' }
+
+const LEVEL_OPTIONS: Record<ThinkingLevel, ThinkingOption> = {
+  high: HIGH,
+  low: LOW,
+  max: MAX,
+  medium: MEDIUM,
+  off: OFF,
+}
+
+/** Rule: 同一等级在不同供应商的界面说法不同，例如 Kimi 的启用与 MiniMax 的自适应。 */
+const LEVEL_LABEL_OVERRIDES: Partial<Record<ThinkingRequestStyle, Partial<Record<ThinkingLevel, ThinkingOption>>>> = {
+  'thinking-toggle': { high: { label: '启用', value: 'high' } },
+  'minimax-adaptive': { high: { label: '自适应', value: 'high' } },
+}
 
 /**
  * Rule: 选项和请求参数必须从同一份供应商/模型档案生成，避免界面暴露无法实际发送的等级。
@@ -42,54 +36,23 @@ export function getThinkingOptions(provider: ProviderId, settings: ThinkingSetti
     return []
   }
 
-  if (provider === 'deepseek') {
-    return settings.capabilities.protocol === 'chat_completions' && supportsDeepseekThinking(settings.model)
-      ? [OFF, HIGH, MAX]
-      : []
-  }
-
-  if (provider === 'openai') {
-    return settings.capabilities.protocol === 'responses' && supportsOpenAiReasoning(settings.model)
-      ? [OFF, LOW, MEDIUM, HIGH, MAX]
-      : []
-  }
-
-  if (provider === 'kimi') {
-    if (settings.capabilities.protocol !== 'chat_completions') {
-      return []
-    }
-    if (isKimiK3(settings.model)) {
-      return [LOW, HIGH, MAX]
-    }
-    if (isKimiK26(settings.model)) {
-      return [OFF, ENABLED]
-    }
+  const providerProfile = getProviderProfile(provider)
+  if (providerProfile.thinkingProtocol && settings.capabilities.protocol !== providerProfile.thinkingProtocol) {
     return []
   }
 
-  if (provider === 'minimax') {
-    return settings.capabilities.protocol === 'chat_completions' && isMiniMaxM3(settings.model)
-      ? [OFF, ADAPTIVE]
-      : []
+  const thinking = findModelProfile(provider, settings.model)?.thinking
+  if (!thinking) {
+    return []
   }
 
-  return []
+  const overrides = LEVEL_LABEL_OVERRIDES[thinking.request]
+  return thinking.levels.map((level) => overrides?.[level] ?? LEVEL_OPTIONS[level])
 }
 
 export function getDefaultThinkingLevel(provider: ProviderId, model: string): ThinkingLevel {
-  if (provider === 'deepseek') {
-    return 'high'
-  }
-  if (provider === 'openai') {
-    return 'medium'
-  }
-  if (provider === 'kimi') {
-    return isKimiK3(model) ? 'max' : 'high'
-  }
-  if (provider === 'minimax') {
-    return 'high'
-  }
-  return 'off'
+  return findModelProfile(provider, model)?.thinking?.defaultLevel
+    ?? getProviderProfile(provider).defaultThinkingLevel
 }
 
 export function normalizeThinkingLevel(
@@ -119,7 +82,8 @@ export function createThinkingPayloadForChatCompletions(
     return {}
   }
 
-  if (provider === 'deepseek') {
+  const request = findModelProfile(provider, settings.model)?.thinking?.request
+  if (request === 'deepseek-effort') {
     return level === 'off'
       ? { thinking: { type: 'disabled' } }
       : {
@@ -128,14 +92,15 @@ export function createThinkingPayloadForChatCompletions(
         }
   }
 
-  if (provider === 'kimi') {
-    if (isKimiK3(settings.model)) {
-      return { reasoning_effort: level }
-    }
+  if (request === 'reasoning-effort') {
+    return { reasoning_effort: level }
+  }
+
+  if (request === 'thinking-toggle') {
     return { thinking: { type: level === 'off' ? 'disabled' : 'enabled' } }
   }
 
-  if (provider === 'minimax') {
+  if (request === 'minimax-adaptive') {
     return level === 'off'
       ? { thinking: { type: 'disabled' } }
       : {
@@ -152,63 +117,24 @@ export function createThinkingPayloadForResponses(
   settings: ThinkingSettings,
   level: ThinkingLevel,
 ): Record<string, unknown> {
-  if (provider !== 'openai' || !getThinkingOptions(provider, settings).some((option) => option.value === level)) {
+  if (!getThinkingOptions(provider, settings).some((option) => option.value === level)) {
     return {}
   }
 
-  const profile = getOpenAiReasoningProfile(settings.model)
-  if (!profile) {
+  const thinking = findModelProfile(provider, settings.model)?.thinking
+  if (thinking?.request !== 'openai-effort') {
     return {}
   }
 
   return {
     reasoning: {
-      effort: level === 'off' ? 'none' : level === 'max' ? profile.maxEffort : level,
+      effort: level === 'off' ? 'none' : level === 'max' ? (thinking.maxEffort ?? 'max') : level,
     },
   }
 }
 
-export function supportsDeepseekThinking(model: string): boolean {
-  return DEEPSEEK_THINKING_MODELS.has(model.trim())
-}
-
 function getModelThinkingLevels(provider: ProviderId, model: string): ThinkingLevel[] {
-  if (provider === 'deepseek' && supportsDeepseekThinking(model)) {
-    return ['off', 'high', 'max']
-  }
-  if (provider === 'openai' && supportsOpenAiReasoning(model)) {
-    return ['off', 'low', 'medium', 'high', 'max']
-  }
-  if (provider === 'kimi' && isKimiK3(model)) {
-    return ['low', 'high', 'max']
-  }
-  if (provider === 'kimi' && isKimiK26(model)) {
-    return ['off', 'high']
-  }
-  if (provider === 'minimax' && isMiniMaxM3(model)) {
-    return ['off', 'high']
-  }
-  return []
-}
-
-function supportsOpenAiReasoning(model: string): boolean {
-  return Boolean(getOpenAiReasoningProfile(model))
-}
-
-function getOpenAiReasoningProfile(model: string): OpenAiReasoningProfile | undefined {
-  return OPENAI_REASONING_PROFILES.get(model.trim().toLowerCase())
-}
-
-function isKimiK3(model: string): boolean {
-  return model.trim().toLowerCase().startsWith('kimi-k3')
-}
-
-function isKimiK26(model: string): boolean {
-  return model.trim().toLowerCase().startsWith('kimi-k2.6')
-}
-
-function isMiniMaxM3(model: string): boolean {
-  return model.trim().toLowerCase() === 'minimax-m3'
+  return findModelProfile(provider, model)?.thinking?.levels ?? []
 }
 
 function isThinkingLevel(value: unknown): value is ThinkingLevel {

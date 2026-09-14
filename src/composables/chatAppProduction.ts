@@ -7,7 +7,7 @@ import { defaultProviderAdapterRegistry } from '../services/ai/providerAdapter'
 import { messageMapping } from '../services/ai/messageMapping'
 import { createProviderStream } from '../services/ai/providerStream'
 import { createToolOrchestrator } from '../services/ai/toolOrchestrator'
-import { getEnabledTools } from '../services/tools/toolRegistry'
+import { getTurnTools } from '../services/tools/toolRegistry'
 import { createConversationTitleManager, type ChatAppConversationPersistenceActions } from './chatAppConversationPersistence'
 import { createReplyLifecycle, type ReplyLifecycle } from './chatAppReplyLifecycle'
 
@@ -37,7 +37,6 @@ export function createChatAppProduction(options: ChatAppProductionOptions): Repl
   })
   const titleRequester = createConversationTitleRequester(completion)
   const toolOrchestrator = createToolOrchestrator({
-    getEnabledTools,
     messageMapping,
     providerStream,
   })
@@ -65,6 +64,7 @@ export function createChatAppProduction(options: ChatAppProductionOptions): Repl
     pendingAttachments: options.pendingAttachments,
     persistConversation: options.conversationPersistence.persistConversation,
     providerStream,
+    resolveTools: getTurnTools,
     setAbortController(controller) {
       activeAbortController = controller
     },

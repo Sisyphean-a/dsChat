@@ -1,94 +1,30 @@
-import {
-  providerModelSupportsImageInput,
-  providerModelSupportsTemperature,
-} from './providers'
 import { getThinkingOptions } from './thinking'
-import type { ActiveProviderSettings, ProviderCapabilities, ProviderId, ProviderSettings, ThinkingLevel } from '../types/chat'
+import { findModelProfile, getProviderProfile, type ImageInputPolicy } from './providerProfiles'
+import type {
+  ActiveProviderSettings,
+  ProviderCapabilities,
+  ProviderId,
+  ProviderSettings,
+  ThinkingLevel,
+} from '../types/chat'
 
-interface ProviderCapabilityProfile {
-  protocol: ProviderCapabilities['protocol']
-  supportsImageInput: boolean
-  supportsToolOrchestrator: boolean
-  supportsNativeWebSearch: boolean
-  supportsReasoningControl: boolean
-}
-const OPENAI_NATIVE_WEB_SEARCH_MODELS = [
-  'gpt-6-astra',
-  'gpt-5.6',
-  'gpt-5.6-sol',
-  'gpt-5.6-terra',
-  'gpt-5.6-luna',
-  'gpt-5.5',
-  'gpt-5.4',
-  'gpt-5.4-mini',
-  'gpt-5.4-nano',
-  'gpt-5',
-  'gpt-5-mini',
-  'gpt-5-nano',
-] as const
 const PROVIDER_IMAGE_INPUT_ERRORS: Partial<Record<ProviderId, string>> = {
   deepseek: 'DeepSeek 当前模型不支持图片输入，请切换到 deepseek-flash 或其他支持图片的模型后再发送。',
   minimax: 'MiniMax 当前模型不支持图片输入，请切换到 MiniMax-M3 或其他支持图片的模型后再发送。',
 }
 
-const PROVIDER_PROTOCOLS: Record<ProviderId, ProviderCapabilities['protocol'][]> = {
-  custom: ['chat_completions', 'responses'],
-  deepseek: ['chat_completions'],
-  kimi: ['chat_completions'],
-  minimax: ['chat_completions'],
-  openai: ['chat_completions', 'responses'],
-}
-
-const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilityProfile> = {
-  custom: {
-    protocol: 'chat_completions',
-    supportsImageInput: true,
-    supportsToolOrchestrator: true,
-    supportsNativeWebSearch: false,
-    supportsReasoningControl: false,
-  },
-  deepseek: {
-    protocol: 'chat_completions',
-    supportsImageInput: false,
-    supportsToolOrchestrator: true,
-    supportsNativeWebSearch: false,
-    supportsReasoningControl: true,
-  },
-  kimi: {
-    protocol: 'chat_completions',
-    supportsImageInput: true,
-    supportsToolOrchestrator: true,
-    supportsNativeWebSearch: false,
-    supportsReasoningControl: true,
-  },
-  minimax: {
-    protocol: 'chat_completions',
-    supportsImageInput: false,
-    supportsToolOrchestrator: true,
-    supportsNativeWebSearch: false,
-    supportsReasoningControl: true,
-  },
-  openai: {
-    protocol: 'responses',
-    supportsImageInput: true,
-    supportsToolOrchestrator: false,
-    supportsNativeWebSearch: true,
-    supportsReasoningControl: true,
-  },
-}
-
 export function getSupportedProviderProtocols(provider: ProviderId): ProviderCapabilities['protocol'][] {
-  return [...PROVIDER_PROTOCOLS[provider]]
+  return [...getProviderProfile(provider).protocols]
 }
 
-export function getDefaultProviderCapabilities(provider: ProviderId): ProviderCapabilities {
-  const profile = PROVIDER_CAPABILITIES[provider]
+export function getDefaultProviderCapabilities(provider: ProviderId, model = ''): ProviderCapabilities {
+  const profile = getProviderProfile(provider)
   return {
-    imageInput: profile.supportsImageInput,
-    nativeWebSearch: profile.supportsNativeWebSearch,
-    protocol: profile.protocol,
-    reasoning: profile.supportsReasoningControl,
-    toolCalling: profile.supportsToolOrchestrator,
+    imageInput: resolveModelImageInput(provider, model, profile.capabilities.imageInput),
+    nativeWebSearch: profile.capabilities.nativeWebSearch,
+    protocol: profile.capabilities.protocol,
+    reasoning: profile.capabilities.reasoning,
+    toolCalling: profile.capabilities.toolCalling,
   }
 }
 
@@ -97,24 +33,48 @@ export function normalizeProviderCapabilities(
   capabilities: Partial<ProviderCapabilities> | undefined,
   model = '',
 ): ProviderCapabilities {
+  const profile = getProviderProfile(provider)
+  const defaults = getDefaultProviderCapabilities(provider, model)
   const normalized = {
-    ...getDefaultProviderCapabilities(provider),
+    ...defaults,
     ...(capabilities ?? {}),
   }
-  if (!PROVIDER_PROTOCOLS[provider].includes(normalized.protocol)) {
-    normalized.protocol = PROVIDER_CAPABILITIES[provider].protocol
+  if (!profile.protocols.includes(normalized.protocol)) {
+    normalized.protocol = defaults.protocol
   }
-  if (provider === 'deepseek' || provider === 'minimax') {
-    normalized.imageInput = providerModelSupportsImageInput(provider, model)
-  }
-  if (provider === 'kimi' && !providerModelSupportsImageInput(provider, model)) {
-    normalized.imageInput = false
-  }
+  normalized.imageInput = resolveImageInput(
+    profile.imageInputPolicy,
+    normalized.imageInput,
+    defaults.imageInput,
+  )
   return normalized
 }
 
 export function resolveProviderProtocol(settings: ProviderSettings): ProviderCapabilities['protocol'] {
   return settings.capabilities.protocol
+}
+
+/**
+ * Rule: 协议决定哪些能力可用——Responses 不支持本地工具调用，Chat Completions 不支持原生联网；
+ * 切换协议时同步关闭不再生效的能力。
+ */
+export function applyCapabilityEdit(
+  capabilities: ProviderCapabilities,
+  field: keyof ProviderCapabilities,
+  value: ProviderCapabilities[keyof ProviderCapabilities],
+): ProviderCapabilities {
+  const next = { ...capabilities, [field]: value } as ProviderCapabilities
+  if (field !== 'protocol') {
+    return next
+  }
+
+  if (next.protocol === 'responses') {
+    next.toolCalling = false
+  }
+  if (next.protocol === 'chat_completions') {
+    next.nativeWebSearch = false
+  }
+  return next
 }
 
 export function providerSupportsImageInput(settings: ActiveProviderSettings): boolean {
@@ -123,7 +83,7 @@ export function providerSupportsImageInput(settings: ActiveProviderSettings): bo
   }
 
   return settings.provider !== 'kimi'
-    || providerModelSupportsImageInput(settings.provider, settings.model)
+    || (findModelProfile(settings.provider, settings.model)?.supportsImageInput ?? true)
 }
 
 export function createImageInputUnsupportedMessage(provider: ProviderId, label: string): string {
@@ -140,7 +100,7 @@ export function shouldIncludeProviderRequestTemperature(
   settings: ProviderSettings,
   thinkingLevel: ThinkingLevel,
 ): boolean {
-  if (!providerModelSupportsTemperature(provider, settings.model)) {
+  if (!modelSupportsTemperature(provider, settings.model)) {
     return false
   }
 
@@ -164,10 +124,6 @@ export function resolveProviderRequestTemperature(
   return thinkingLevel === 'off' ? 0.6 : 1.0
 }
 
-export function providerSupportsToolOrchestrator(provider: ProviderId): boolean {
-  return PROVIDER_CAPABILITIES[provider].supportsToolOrchestrator
-}
-
 export function providerSupportsToolCalling(settings: ProviderSettings): boolean {
   return settings.capabilities.protocol === 'chat_completions'
     && settings.capabilities.toolCalling
@@ -181,7 +137,29 @@ export function providerSupportsNativeWebSearch(settings: ActiveProviderSettings
 }
 
 export function supportsOpenAiNativeWebSearchModel(model: string): boolean {
-  return OPENAI_NATIVE_WEB_SEARCH_MODELS.includes(
-    model.trim() as (typeof OPENAI_NATIVE_WEB_SEARCH_MODELS)[number],
-  )
+  return findModelProfile('openai', model)?.supportsNativeWebSearch === true
+}
+
+function resolveImageInput(
+  policy: ImageInputPolicy,
+  configured: boolean,
+  modelDefault: boolean,
+): boolean {
+  if (policy === 'follow-model') {
+    return modelDefault
+  }
+
+  if (policy === 'veto-model') {
+    return configured && modelDefault
+  }
+
+  return configured
+}
+
+function resolveModelImageInput(provider: ProviderId, model: string, fallback: boolean): boolean {
+  return findModelProfile(provider, model)?.supportsImageInput ?? fallback
+}
+
+function modelSupportsTemperature(provider: ProviderId, model: string): boolean {
+  return findModelProfile(provider, model)?.supportsTemperature ?? true
 }

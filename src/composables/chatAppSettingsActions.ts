@@ -10,6 +10,7 @@ import type {
 } from '../types/chat'
 import type { SettingsEdit } from '../types/settingsPanel'
 import { createAddedModelDraft } from '../constants/providers'
+import { applyCapabilityEdit } from '../constants/providerCapabilities'
 import { getErrorMessage } from './chatAppErrors'
 import { appendModelOption, replaceModelOption } from './chatAppModelOptions'
 import { normalizeSettings } from './chatAppSettings'
@@ -120,10 +121,7 @@ export function createChatAppSettingsActions(
       ...settings.value,
       deepseek: {
         ...settings.value.deepseek,
-        capabilities: {
-          ...settings.value.deepseek.capabilities,
-          [field]: value,
-        },
+        capabilities: applyCapabilityEdit(settings.value.deepseek.capabilities, field, value),
       },
     }
   }
@@ -142,10 +140,7 @@ export function createChatAppSettingsActions(
 
         return {
           ...item,
-          capabilities: {
-            ...item.capabilities,
-            [field]: value,
-          },
+          capabilities: applyCapabilityEdit(item.capabilities, field, value),
         }
       }),
     }

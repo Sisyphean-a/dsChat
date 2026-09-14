@@ -16,7 +16,6 @@ import {
   saveSession,
   saveSettings as saveSettingsDoc,
 } from '../services/utools'
-import type { PluginEnterPayload } from '../types/utools'
 import type {
   ChatMessage,
   ConversationDoc,
@@ -27,6 +26,7 @@ import type {
 import { shouldResetConversation } from '../utils/session'
 import { cloneMessages } from '../utils/chat'
 import { resolveComposerCommand } from '../utils/composerCommands'
+import { formatAskDsDraft } from '../utils/askDsPayload'
 import { preparePendingImages } from './chatAppAttachments'
 import { finalizeStreamingMessages } from './chatAppMessages'
 import { createChatAppConversationPersistence } from './chatAppConversationPersistence'
@@ -35,6 +35,7 @@ import { providerSupportsImageInput } from '../constants/providerCapabilities'
 import { getThinkingOptions } from '../constants/thinking'
 import { createChatAppProduction } from './chatAppProduction'
 import { createChatAppSettingsActions } from './chatAppSettingsActions'
+import { createUtoolsHostLifecycle } from './utoolsHostLifecycle'
 import {
   getActiveProviderSettings,
   getActiveModelSelectionOptions,
@@ -56,7 +57,6 @@ export function useChatApp() {
   const lastError = ref<string | null>(null)
   const settingsSaveError = ref<string | null>(null)
   const environmentNotice = ref<string | null>(null)
-  const pluginEnterSignal = ref(0)
   const composerFocusPosition = ref<'start' | 'end'>('end')
   const initialized = ref(false)
   const isBrowserMode = computed(() => !hasUtools())
@@ -75,9 +75,6 @@ export function useChatApp() {
   const retryableAssistantMessageId = computed(() => {
     return resolveRetryableAssistantReply(messages.value)?.assistantId ?? null
   })
-
-  let lifecycleRegistered = false
-  let initialPluginEnterPayload: PluginEnterPayload | null = null
 
   const settingsActions = createChatAppSettingsActions({
     applyAppearance,
@@ -115,6 +112,27 @@ export function useChatApp() {
     stoppedResponseMessage: STOPPED_RESPONSE_MESSAGE,
   })
 
+  const hostLifecycle = createUtoolsHostLifecycle({
+    isReady: () => initialized.value,
+    async onEnter(payload) {
+      await restoreSession()
+      const draft = formatAskDsDraft(payload)
+      if (draft !== null) {
+        draftMessage.value = draft
+      }
+      composerFocusPosition.value = draft === null ? 'end' : 'start'
+    },
+    async onOut() {
+      await replyLifecycle.interrupt(INTERRUPTED_RESPONSE_MESSAGE)
+      await saveSession({
+        _id: SESSION_DOC_ID,
+        type: 'session',
+        currentConversationId: activeConversationId.value,
+        lastOutAt: Date.now(),
+      })
+    },
+  })
+
   async function initialize(): Promise<void> {
     settings.value = await loadSettings()
     applyAppearance({
@@ -132,12 +150,10 @@ export function useChatApp() {
       return
     }
 
-    registerLifecycleHooks()
+    hostLifecycle.register()
     await restoreSession()
-    const initialPayload = initialPluginEnterPayload
-    initialPluginEnterPayload = null
     initialized.value = true
-    composerFocusPosition.value = applyAskDsPayload(initialPayload) ? 'start' : 'end'
+    await hostLifecycle.flushPendingEnter()
   }
 
   async function sendMessage(): Promise<void> {
@@ -244,46 +260,6 @@ export function useChatApp() {
     await activateConversation(target)
   }
 
-  function registerLifecycleHooks(): void {
-    if (lifecycleRegistered) {
-      return
-    }
-
-    lifecycleRegistered = true
-    window.utools?.onPluginEnter(async (payload) => {
-      if (!initialized.value) {
-        initialPluginEnterPayload = payload
-        return
-      }
-
-      try {
-        await restoreSession()
-        composerFocusPosition.value = applyAskDsPayload(payload) ? 'start' : 'end'
-      } finally {
-        pluginEnterSignal.value += 1
-      }
-    })
-
-    window.utools?.onPluginOut(async () => {
-      await replyLifecycle.interrupt(INTERRUPTED_RESPONSE_MESSAGE)
-      await saveSession({
-        _id: SESSION_DOC_ID,
-        type: 'session',
-        currentConversationId: activeConversationId.value,
-        lastOutAt: Date.now(),
-      })
-    })
-  }
-
-  function applyAskDsPayload(payload: PluginEnterPayload | null): boolean {
-    if (payload?.code !== 'ask-ds' || typeof payload.payload !== 'string' || !payload.payload.trim()) {
-      return false
-    }
-
-    draftMessage.value = `\n\`\`\`\n${payload.payload}\n\`\`\``
-    return true
-  }
-
   async function activateConversation(conversation: ConversationDoc): Promise<void> {
     const conversationConfigId = resolveConversationConfigId(conversation)
     if (conversationConfigId && settings.value.activeConfigId !== conversationConfigId) {
@@ -361,7 +337,7 @@ export function useChatApp() {
     modelOptions,
     openSettings: settingsActions.openSettings,
     pendingAttachments,
-    pluginEnterSignal,
+    pluginEnterSignal: hostLifecycle.enterSignal,
     retryLastAssistantMessage: replyLifecycle.retry,
     retryableAssistantMessageId,
     thinkingLevel,

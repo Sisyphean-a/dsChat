@@ -1,4 +1,4 @@
-import type { MessageAttachment, ProcessTimelineItem, ToolTraceRecord } from '../../types/chat'
+import type { ProcessTimelineItem, ToolTraceRecord } from '../../types/chat'
 import { ProviderStreamStoppedError } from './providerStream'
 import type { ReplyStreamEvent } from './replyStreamEvents'
 import { ToolFlowError, isToolFlowError, toToolFlowError } from './toolFlowErrors'
@@ -13,7 +13,7 @@ import {
   safeParseJson,
 } from './toolTraceRuntime'
 import { createToolTimelineItem } from './toolTimelineNarration'
-import type { AiTool, NormalizedToolCall, ToolSettings } from './toolTypes'
+import type { AiTool, NormalizedToolCall, ToolExecutionContext } from './toolTypes'
 
 export const TOOL_EXECUTION_TIMEOUT_MS = 20000
 export const QWEN_IMAGE_TOOL_TIMEOUT_MS = 60000
@@ -23,10 +23,9 @@ export function getToolExecutionTimeoutMs(tool: Pick<AiTool, 'executionTimeoutMs
 }
 
 export async function* executeToolCall(options: {
-  attachments?: MessageAttachment[]
   call: NormalizedToolCall
+  context: ToolExecutionContext
   round: number
-  settings: ToolSettings
   signal?: AbortSignal
   timeoutCode?: ToolFlowError['code']
   timeoutMessage?: string
@@ -50,8 +49,7 @@ export async function* executeToolCall(options: {
     const timeoutMessage = options.timeoutMessage ?? `工具调用超时（${options.call.name}，${timeoutMs}ms）。`
     const result = await runWithAbortTimeout({
       operation: (signal) => tool.execute(args, {
-        attachments: options.attachments,
-        settings: options.settings,
+        ...options.context,
         signal,
       }),
       parentSignal: options.signal,

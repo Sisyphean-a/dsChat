@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { buildDefaultSettings } from '../constants/providers'
 import type { ChatMessage, MessageAttachment } from '../types/chat'
 import { messageMapping } from '../services/ai/messageMapping'
+import { getTurnTools } from '../services/tools/toolRegistry'
 import { createReplyLifecycle } from './chatAppReplyLifecycle'
 
 describe('ReplyLifecycle', () => {
@@ -157,6 +158,7 @@ describe('ReplyLifecycle', () => {
       notifyNewConversation: vi.fn(),
       openSettings: vi.fn(),
       providerStream: { async *stream() { throw new Error('unexpected provider stream') } },
+      resolveTools: () => [stubTool('get_current_time')],
       setAbortController: (controller) => { state.controller.value = controller },
       toolOrchestrator,
     })
@@ -228,17 +230,11 @@ describe('ReplyLifecycle', () => {
     state.pendingAttachments.value = [attachment]
     state.settings.value.deepseek.capabilities.imageInput = true
     state.settings.value.toolSettings.enabled = true
+    state.settings.value.toolSettings.builtinTools.currentTime.enabled = false
+    state.settings.value.toolSettings.builtinTools.tavilySearch.enabled = false
     state.settings.value.toolSettings.builtinTools.qwenImage.enabled = true
     state.settings.value.toolSettings.builtinTools.qwenImage.apiKey = 'qwen-key'
     const toolOrchestrator = {
-      getEnabledTools: () => [{
-        requiresImageAttachment: true,
-        definition: {
-          type: 'function' as const,
-          function: { description: '分析图片', name: 'qwen_analyze_image', parameters: {} },
-        },
-        execute: async () => ({ content: '图片结果' }),
-      }],
       stream: vi.fn(async function* (_request: unknown) {
         yield { type: 'content' as const, content: '已完成' }
       }),
@@ -250,6 +246,7 @@ describe('ReplyLifecycle', () => {
       notifyNewConversation: vi.fn(),
       openSettings: vi.fn(),
       providerStream: { async *stream() { throw new Error('unexpected provider stream') } },
+      resolveTools: getTurnTools,
       setAbortController: (controller) => { state.controller.value = controller },
       toolOrchestrator,
     })
@@ -258,10 +255,10 @@ describe('ReplyLifecycle', () => {
     await lifecycle.send()
 
     const request = toolOrchestrator.stream.mock.calls[0]?.[0] as {
-      attachments?: MessageAttachment[]
       messages: Array<{ attachments?: MessageAttachment[]; content: string }>
+      toolContext?: { attachments?: MessageAttachment[] }
     } | undefined
-    expect(request?.attachments).toEqual([attachment])
+    expect(request?.toolContext?.attachments).toEqual([attachment])
     expect(request?.messages.at(-1)?.attachments).toBeUndefined()
     expect(request?.messages.at(-1)?.content).toBe('请分析这张图')
   })
@@ -279,14 +276,6 @@ describe('ReplyLifecycle', () => {
       }),
     }
     const toolOrchestrator = {
-      getEnabledTools: () => [{
-        requiresImageAttachment: true,
-        definition: {
-          type: 'function' as const,
-          function: { description: '分析图片', name: 'qwen_analyze_image', parameters: {} },
-        },
-        execute: async () => ({ content: '图片结果' }),
-      }],
       stream: vi.fn(async function* () {
         yield { type: 'content' as const, content: '不应进入工具轮次' }
       }),
@@ -298,6 +287,7 @@ describe('ReplyLifecycle', () => {
       notifyNewConversation: vi.fn(),
       openSettings: vi.fn(),
       providerStream,
+      resolveTools: getTurnTools,
       setAbortController: (controller) => { state.controller.value = controller },
       toolOrchestrator,
     })
@@ -378,7 +368,18 @@ function createState() {
     messages: ref<ChatMessage[]>([]),
     pendingAttachments: ref<MessageAttachment[]>([]),
     persistConversation: vi.fn(async () => undefined),
+    resolveTools: vi.fn(() => []),
     settings: ref({ ...settings, deepseek: { ...settings.deepseek, apiKey: 'sk-test' } }),
     stoppedResponseMessage: '已停止生成。',
+  }
+}
+
+function stubTool(name: string) {
+  return {
+    definition: {
+      function: { description: name, name, parameters: {} },
+      type: 'function' as const,
+    },
+    execute: async () => ({ content: '' }),
   }
 }

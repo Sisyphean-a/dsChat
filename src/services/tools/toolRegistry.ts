@@ -1,3 +1,4 @@
+import type { MessageAttachment } from '../../types/chat'
 import type { AiTool, ToolSettings } from '../ai/toolTypes'
 import { currentTimeTool } from './currentTimeTool'
 import { tavilySearchTool } from './tavilySearchTool'
@@ -37,6 +38,22 @@ export function getEnabledTools(settings: ToolSettings): AiTool[] {
   }
 
   return tools
+}
+
+/**
+ * Flow: 解析已启用工具，再按本回合附件筛选需要图片的工具。
+ * Rule: 依赖图片的工具只在当前回合带图时提供；筛选依据工具元数据而不是名称。
+ */
+export function getTurnTools(
+  settings: ToolSettings,
+  attachments: MessageAttachment[],
+): AiTool[] {
+  const tools = getEnabledTools(structuredClone(settings))
+  if (attachments.length) {
+    return tools
+  }
+
+  return tools.filter((tool) => !tool.requiresImageAttachment)
 }
 
 function assertCustomToolsAreNotEnabled(settings: ToolSettings): void {

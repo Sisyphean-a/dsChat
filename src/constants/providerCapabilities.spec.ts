@@ -11,6 +11,7 @@ import {
   resolveProviderRequestTemperature,
   shouldIncludeProviderRequestTemperature,
   supportsOpenAiNativeWebSearchModel,
+  applyCapabilityEdit,
 } from './providerCapabilities'
 
 describe('providerCapabilities', () => {
@@ -138,6 +139,23 @@ describe('providerCapabilities', () => {
     expect(supportsOpenAiNativeWebSearchModel('gpt-5.6-terra')).toBe(true)
     expect(supportsOpenAiNativeWebSearchModel('gpt-5.6-luna')).toBe(true)
     expect(supportsOpenAiNativeWebSearchModel('gpt-4.1')).toBe(false)
+  })
+
+  it('closes protocol-dependent capabilities when the protocol changes', () => {
+    const responses = { ...getDefaultProviderCapabilities('openai'), toolCalling: true }
+
+    const chatCompletions = applyCapabilityEdit(responses, 'protocol', 'chat_completions')
+    expect(chatCompletions).toMatchObject({
+      nativeWebSearch: false,
+      protocol: 'chat_completions',
+      toolCalling: true,
+    })
+
+    const backToResponses = applyCapabilityEdit(chatCompletions, 'protocol', 'responses')
+    expect(backToResponses).toMatchObject({ protocol: 'responses', toolCalling: false })
+
+    const untouched = applyCapabilityEdit(responses, 'imageInput', false)
+    expect(untouched).toMatchObject({ imageInput: false, nativeWebSearch: true, toolCalling: true })
   })
 })
 

@@ -17,7 +17,7 @@ import {
   type ReplyMessageState,
 } from './chatAppReplyMessages'
 import { prepareRetryRequest } from './chatAppRetry'
-import { buildReplyRequestPlan } from './chatAppReplyPlan'
+import { createTurnPlan, type TurnToolResolver } from './chatAppTurnPlan'
 import { prepareSendRequest, type SendPreparation } from './chatAppSendHelpers'
 
 interface ReplyLifecycleOptions {
@@ -39,6 +39,7 @@ interface ReplyLifecycleOptions {
   pendingAttachments: Ref<MessageAttachment[]>
   persistConversation: () => Promise<void>
   providerStream: ProviderStream
+  resolveTools: TurnToolResolver
   setAbortController: (controller: AbortController | null) => void
   settings: Ref<SettingsForm>
   stoppedResponseMessage: string
@@ -227,18 +228,19 @@ function chooseReplyStream(
   request: ReplyRequest,
   signal: AbortSignal,
 ): AsyncIterable<ReplyStreamEvent> {
-  const plan = buildReplyRequestPlan({
+  const plan = createTurnPlan({
     messageMapping: state.options.messageMapping,
     messages: state.options.messages.value,
     request,
-    toolOrchestrator: state.options.toolOrchestrator,
+    resolveTools: state.options.resolveTools,
   })
   if (plan.useToolOrchestrator) {
     return state.options.toolOrchestrator.stream({
       ...request,
-      attachments: plan.attachments,
       messages: plan.messages,
       signal,
+      toolContext: { attachments: plan.attachments, settings: request.toolSettings },
+      tools: plan.tools,
     })
   }
   return streamDirectReply(state.options.providerStream, { ...request, messages: plan.messages, signal })

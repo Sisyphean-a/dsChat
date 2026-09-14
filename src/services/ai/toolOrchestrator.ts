@@ -1,13 +1,13 @@
-import type { ActiveProviderSettings, MessageAttachment, ThinkingLevel } from '../../types/chat'
+import type { ActiveProviderSettings, ThinkingLevel } from '../../types/chat'
 import type { MessageMapping } from './messageMapping'
 import type { ProviderConversationMessage } from './providerAdapter'
 import { ProviderRequestError, type ProviderStream } from './providerStream'
 import type { ReplyStreamEvent } from './replyStreamEvents'
-import { ToolFlowError, toToolFlowError } from './toolFlowErrors'
+import { ToolFlowError } from './toolFlowErrors'
 import { executeToolCall, getToolExecutionTimeoutMs } from './toolExecution'
 import { createToolCallSignature } from './toolTraceRuntime'
 import { createReasoningTimelineItem } from './toolTimelineNarration'
-import type { AiTool, NormalizedToolCall, ToolSettings } from './toolTypes'
+import type { AiTool, NormalizedToolCall, ToolExecutionContext } from './toolTypes'
 
 const ORCHESTRATOR_TIMEOUT_MS = 150000
 const PROVIDER_ROUND_TIMEOUT_MS = 45000
@@ -16,43 +16,23 @@ const TOOL_STATUS_CONTINUING = '已获得工具结果，正在整理回答...'
 export type { ReplyStreamEvent } from './replyStreamEvents'
 
 export interface ToolOrchestratorRequest {
-  attachments?: MessageAttachment[]
   messages: ProviderConversationMessage[]
   settings: ActiveProviderSettings
   signal?: AbortSignal
   thinkingLevel: ThinkingLevel
-  toolSettings: ToolSettings
+  /** 本回合可调用的工具，由回合计划解析。 */
+  tools: AiTool[]
+  /** 工具执行上下文：当前回合附件与工具设置。 */
+  toolContext: ToolExecutionContext
 }
 
 export interface ToolOrchestrator {
-  getEnabledTools?: (settings: ToolSettings) => AiTool[]
   stream: (request: ToolOrchestratorRequest) => AsyncIterable<ReplyStreamEvent>
 }
 
 export interface ToolOrchestratorOptions {
-  getEnabledTools: (settings: ToolSettings) => AiTool[]
   messageMapping: MessageMapping
   providerStream: ProviderStream
-}
-
-export function getEnabledToolsForAttachments(
-  getEnabledTools: ToolOrchestratorOptions['getEnabledTools'],
-  settings: ToolSettings,
-  attachments: MessageAttachment[] = [],
-): AiTool[] {
-  return filterToolsForAttachments(
-    resolveEnabledTools(getEnabledTools, structuredClone(settings)),
-    attachments,
-  )
-}
-
-export function getToolDefinitions(
-  getEnabledTools: ToolOrchestratorOptions['getEnabledTools'],
-  settings: ToolSettings,
-  attachments: MessageAttachment[] = [],
-): AiTool['definition'][] {
-  return getEnabledToolsForAttachments(getEnabledTools, settings, attachments)
-    .map((tool) => tool.definition)
 }
 
 interface RoundOutcome {
@@ -63,7 +43,6 @@ interface RoundOutcome {
 
 export function createToolOrchestrator(options: ToolOrchestratorOptions): ToolOrchestrator {
   return {
-    getEnabledTools: options.getEnabledTools,
     stream: (request) => streamToolReply(options, request),
   }
 }
@@ -72,14 +51,6 @@ async function* streamToolReply(
   options: ToolOrchestratorOptions,
   request: ToolOrchestratorRequest,
 ): AsyncGenerator<ReplyStreamEvent> {
-  const settings = structuredClone(request.toolSettings)
-  const tools = getEnabledToolsForAttachments(
-    options.getEnabledTools,
-    settings,
-    request.attachments ?? [],
-  )
-  assertToolsAvailable(settings, tools)
-
   const context = request.messages.map(cloneConversationMessage)
   const startedAt = Date.now()
   let previousCallSignatures = new Set<string>()
@@ -92,7 +63,6 @@ async function* streamToolReply(
       options.providerStream,
       context,
       request,
-      tools,
       round,
       roundTimeoutMs,
     )
@@ -110,10 +80,9 @@ async function* streamToolReply(
     yield* executeBatch(
       options.messageMapping,
       context,
-      tools,
-      settings,
+      request.tools,
+      request.toolContext,
       request.signal,
-      request.attachments,
       outcome.toolCalls,
       round,
       startedAt,
@@ -127,7 +96,6 @@ async function* streamProviderRound(
   providerStream: ProviderStream,
   messages: ProviderConversationMessage[],
   request: ToolOrchestratorRequest,
-  tools: AiTool[],
   round: number,
   timeoutMs: number,
 ): AsyncGenerator<ReplyStreamEvent, RoundOutcome> {
@@ -141,7 +109,7 @@ async function* streamProviderRound(
       settings: request.settings,
       signal: timeout.signal,
       thinkingLevel: request.thinkingLevel,
-      tools: tools.map((tool) => tool.definition),
+      tools: request.tools.map((tool) => tool.definition),
     })) {
       if (event.type === 'content') content += event.content
       if (event.type === 'reasoning') reasoningContent += event.content
@@ -178,9 +146,8 @@ async function* executeBatch(
   mapping: MessageMapping,
   context: ProviderConversationMessage[],
   tools: AiTool[],
-  settings: ToolSettings,
+  toolContext: ToolExecutionContext,
   signal: AbortSignal | undefined,
-  attachments: MessageAttachment[] | undefined,
   calls: NormalizedToolCall[],
   round: number,
   startedAt: number,
@@ -191,10 +158,9 @@ async function* executeBatch(
     const timeoutMs = Math.min(toolTimeoutMs, getRemainingTime(startedAt))
     const orchestratorTimedOut = timeoutMs < toolTimeoutMs
     const result = yield* executeToolCall({
-      attachments,
       call,
+      context: toolContext,
       round,
-      settings,
       signal,
       timeoutCode: orchestratorTimedOut ? 'tool_orchestrator_timeout' : 'tool_execute_timeout',
       timeoutMessage: orchestratorTimedOut
@@ -204,22 +170,6 @@ async function* executeBatch(
       tools,
     })
     context.push(mapping.createToolResultMessage(call.id, result))
-  }
-}
-
-function filterToolsForAttachments(tools: AiTool[], attachments: MessageAttachment[]): AiTool[] {
-  if (attachments.length) {
-    return tools
-  }
-
-  return tools.filter((tool) => !tool.requiresImageAttachment)
-}
-
-function resolveEnabledTools(getTools: ToolOrchestratorOptions['getEnabledTools'], settings: ToolSettings): AiTool[] {
-  try {
-    return getTools(settings)
-  } catch (error) {
-    throw toToolFlowError(error, 'tool_config', '工具配置无效。')
   }
 }
 
@@ -234,12 +184,6 @@ function assertNoRepeatedCalls(
     throw new ToolFlowError('tool_duplicate_call', `检测到重复工具调用：${call?.name ?? ''}`)
   }
   return current
-}
-
-function assertToolsAvailable(settings: ToolSettings, tools: AiTool[]): void {
-  if (!settings.enabled || !tools.length) {
-    throw new ToolFlowError('tool_config', '请至少启用一个工具。')
-  }
 }
 
 function assertWithinTimeBudget(startedAt: number): void {

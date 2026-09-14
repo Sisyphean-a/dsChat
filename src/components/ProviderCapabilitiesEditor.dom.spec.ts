@@ -27,7 +27,7 @@ describe('ProviderCapabilitiesEditor', () => {
     expect(toolInput?.element.checked).toBe(false)
   })
 
-  it('clears native web search when switching to Chat Completions', async () => {
+  it('emits only the protocol edit when switching to Chat Completions', async () => {
     const wrapper = mount(ProviderCapabilitiesEditor, {
       props: {
         expanded: true,
@@ -38,8 +38,7 @@ describe('ProviderCapabilitiesEditor', () => {
 
     await wrapper.get('select').setValue('chat_completions')
 
-    expect(wrapper.emitted('updateCapability')).toContainEqual(['protocol', 'chat_completions'])
-    expect(wrapper.emitted('updateCapability')).toContainEqual(['nativeWebSearch', false])
+    expect(wrapper.emitted('updateCapability')).toEqual([['protocol', 'chat_completions']])
   })
 
   it('hides the fixed DeepSeek protocol', () => {

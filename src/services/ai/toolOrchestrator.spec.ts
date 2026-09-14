@@ -1,33 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { getDefaultProviderCapabilities } from '../../constants/providerCapabilities'
-import { createToolOrchestrator, getToolDefinitions } from './toolOrchestrator'
+import { createToolOrchestrator } from './toolOrchestrator'
 import { getToolExecutionTimeoutMs, QWEN_IMAGE_TOOL_TIMEOUT_MS, TOOL_EXECUTION_TIMEOUT_MS } from './toolExecution'
 import { messageMapping } from './messageMapping'
 import type { ProviderStream } from './providerStream'
+import type { AiTool, ToolExecutionContext } from './toolTypes'
 
 describe('ToolOrchestrator', () => {
   it('uses tool metadata for execution timeouts', () => {
     expect(getToolExecutionTimeoutMs({})).toBe(TOOL_EXECUTION_TIMEOUT_MS)
     expect(getToolExecutionTimeoutMs({ executionTimeoutMs: QWEN_IMAGE_TOOL_TIMEOUT_MS })).toBe(QWEN_IMAGE_TOOL_TIMEOUT_MS)
-  })
-
-  it('surfaces tool configuration failures while building definitions', () => {
-    expect(() => getToolDefinitions(() => {
-      throw new Error('缺少工具密钥')
-    }, request().toolSettings)).toThrow('缺少工具密钥')
-  })
-
-  it('filters attachment-dependent tools by metadata instead of their names', () => {
-    const definitions = getToolDefinitions(() => [{
-      requiresImageAttachment: true,
-      definition: {
-        type: 'function' as const,
-        function: { description: '图片工具', name: 'image_reader', parameters: {} },
-      },
-      execute: async () => ({ content: '图片结果' }),
-    }], request().toolSettings)
-
-    expect(definitions).toEqual([])
   })
 
   it('executes a tool batch serially and forwards the final text', async () => {
@@ -39,16 +21,12 @@ describe('ToolOrchestrator', () => {
       ] }],
       [{ type: 'content', content: '最终回答' }],
     ])
-    const orchestrator = createToolOrchestrator({
-      getEnabledTools: () => [
-        tool('first', async () => { calls.push('first'); return { content: 'one' } }),
-        tool('second', async () => { calls.push('second'); return { content: 'two' } }),
-      ],
-      messageMapping,
-      providerStream,
-    })
+    const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
 
-    const events = await collect(orchestrator.stream(request()))
+    const events = await collect(orchestrator.stream(request([
+      tool('first', async () => { calls.push('first'); return { content: 'one' } }),
+      tool('second', async () => { calls.push('second'); return { content: 'two' } }),
+    ])))
 
     expect(calls).toEqual(['first', 'second'])
     expect(events).toContainEqual({ type: 'content', content: '最终回答' })
@@ -63,13 +41,9 @@ describe('ToolOrchestrator', () => {
       { type: 'reasoning', content: '布局' },
       { type: 'content', content: '最终回答' },
     ]])
-    const orchestrator = createToolOrchestrator({
-      getEnabledTools: () => [tool('first', async () => ({ content: 'one' }))],
-      messageMapping,
-      providerStream,
-    })
+    const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
 
-    const events = await collect(orchestrator.stream(request()))
+    const events = await collect(orchestrator.stream(request([tool('first', async () => ({ content: 'one' }))])))
     const reasoningTimeline = events.filter((event) => {
       return event.type === 'timeline' && event.item.type === 'reasoning'
     })
@@ -100,13 +74,9 @@ describe('ToolOrchestrator', () => {
         yield { type: 'content', content: '最终回答' }
       },
     }
-    const orchestrator = createToolOrchestrator({
-      getEnabledTools: () => [tool('first', async () => ({ content: 'one' }))],
-      messageMapping,
-      providerStream,
-    })
+    const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
 
-    await collect(orchestrator.stream(request()))
+    await collect(orchestrator.stream(request([tool('first', async () => ({ content: 'one' }))])))
 
     expect(levels).toEqual(['high', 'high'])
   })
@@ -115,12 +85,8 @@ describe('ToolOrchestrator', () => {
     const providerStream = scriptedProviderStream([[{
       type: 'tool-calls', calls: [{ id: 'call-1', name: 'broken', argumentsJson: '{}' }],
     }]])
-    const orchestrator = createToolOrchestrator({
-      getEnabledTools: () => [tool('broken', async () => { throw new Error('boom') })],
-      messageMapping,
-      providerStream,
-    })
-    const iterator = orchestrator.stream(request())[Symbol.asyncIterator]()
+    const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
+    const iterator = orchestrator.stream(request([tool('broken', async () => { throw new Error('boom') })]))[Symbol.asyncIterator]()
     const events: unknown[] = []
     await expect((async () => {
       while (true) {
@@ -140,12 +106,9 @@ describe('ToolOrchestrator', () => {
     const providerStream = scriptedProviderStream([[{
       type: 'tool-calls', calls: [{ id: 'call-1', name: 'slow', argumentsJson: '{}' }],
     }]])
-    const orchestrator = createToolOrchestrator({
-      getEnabledTools: () => [tool('slow', async () => new Promise(() => undefined))],
-      messageMapping,
-      providerStream,
-    })
-    const iterator = orchestrator.stream({ ...request(), signal: controller.signal })[Symbol.asyncIterator]()
+    const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
+    const iterator = orchestrator
+      .stream({ ...request([tool('slow', async () => new Promise(() => undefined))]), signal: controller.signal })[Symbol.asyncIterator]()
     const events: unknown[] = []
     const consume = (async () => {
       while (true) {
@@ -168,17 +131,14 @@ describe('ToolOrchestrator', () => {
       [{ type: 'tool-calls', calls: [{ id: 'call-1', name: 'first', argumentsJson: '{}' }] }],
       [{ type: 'status', status: 'done' }],
     ])
-    const orchestrator = createToolOrchestrator({
-      getEnabledTools: () => [tool('first', async () => ({ content: 'one' }))],
-      messageMapping,
-      providerStream,
-    })
+    const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
 
-    await expect(collect(orchestrator.stream(request()))).rejects.toMatchObject({ code: 'empty-result' })
+    await expect(collect(orchestrator.stream(request([tool('first', async () => ({ content: 'one' }))]))))
+      .rejects.toMatchObject({ code: 'empty-result' })
   })
 })
 
-function request() {
+function request(tools: AiTool[] = []) {
   return {
     messages: [{ content: '查资料', role: 'user' as const }],
     settings: {
@@ -187,7 +147,15 @@ function request() {
       model: 'deepseek-flash', modelOptions: ['deepseek-flash'], provider: 'deepseek' as const, reasoningLevel: 'high' as const, temperature: 1,
     },
     thinkingLevel: 'high' as const,
-    toolSettings: {
+    toolContext: toolContext(),
+    tools,
+  }
+}
+
+function toolContext(): ToolExecutionContext {
+  return {
+    attachments: undefined,
+    settings: {
       enabled: true,
       builtinTools: { currentTime: { enabled: true }, tavilySearch: { apiKey: 'key', baseUrl: 'https://example.com', enabled: false } },
       customTools: [],

@@ -3,7 +3,6 @@ import type {
   AddedModelConfig,
   FontSizeMode,
   ProviderId,
-  ProviderCapabilities,
   ProviderSettings,
   SettingsForm,
   ToolSettings,
@@ -19,17 +18,13 @@ import {
   DEFAULT_QWEN_IMAGE_MODEL,
 } from './tools'
 import { getDefaultThinkingLevel } from './thinking'
+import { getDefaultProviderCapabilities } from './providerCapabilities'
+import { getPresetModels, getProviderProfile } from './providerProfiles'
 
 export interface ProviderModelOption {
   supportsImageInput: boolean
   supportsTemperature: boolean
   value: string
-}
-
-interface TemperatureRange {
-  defaultValue: number
-  max: number
-  min: number
 }
 
 export interface ProviderDefinition {
@@ -41,7 +36,6 @@ export interface ProviderDefinition {
   baseUrlDefault: string
   baseUrlPlaceholder: string
   defaultModels: ProviderModelOption[]
-  temperature: TemperatureRange
 }
 
 const THEME_DEFAULT: ThemeMode = 'light'
@@ -66,20 +60,9 @@ const DEFAULT_TOOL_SETTINGS: ToolSettings = {
   },
   customTools: [],
 }
-const STANDARD_TEMPERATURE: TemperatureRange = { min: 0, max: 2, defaultValue: 1 }
-const MINIMAX_TEMPERATURE: TemperatureRange = { min: 0.1, max: 1, defaultValue: 1 }
 
 export const DEFAULT_CONFIG_ID = 'deepseek'
-export const PROVIDER_IDS: ProviderId[] = ['deepseek', 'openai', 'minimax', 'kimi', 'custom']
 export const ADDABLE_PROVIDER_IDS: AddableProviderId[] = ['openai', 'minimax', 'kimi', 'custom']
-
-// Rule: DeepSeek 旧 Flash 别名仍可调用，能力按当前 deepseek-flash 解析。
-const PROVIDER_MODEL_ALIASES: Partial<Record<ProviderId, Record<string, string>>> = {
-  deepseek: {
-    'deepseek-v4-flash': 'deepseek-flash',
-    'deepseek-v4-flash-vision-exp': 'deepseek-flash',
-  },
-}
 
 export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
   custom: {
@@ -91,7 +74,6 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     baseUrlDefault: '',
     baseUrlPlaceholder: 'https://your-api.example.com/v1',
     defaultModels: [],
-    temperature: STANDARD_TEMPERATURE,
   },
   deepseek: {
     id: 'deepseek',
@@ -101,11 +83,7 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     apiKeyPlaceholder: 'sk-...',
     baseUrlDefault: 'https://api.deepseek.com',
     baseUrlPlaceholder: 'https://api.deepseek.com',
-    defaultModels: [
-      createModelOption('deepseek-v4-pro', true, false),
-      createModelOption('deepseek-flash', true, true),
-    ],
-    temperature: STANDARD_TEMPERATURE,
+    defaultModels: createDefaultModels('deepseek'),
   },
   kimi: {
     id: 'kimi',
@@ -115,13 +93,7 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     apiKeyPlaceholder: 'sk-...',
     baseUrlDefault: 'https://api.moonshot.cn/v1',
     baseUrlPlaceholder: 'https://api.moonshot.cn/v1',
-    defaultModels: [
-      createModelOption('kimi-k3', true, true),
-      createModelOption('kimi-k2.7-code', true, false),
-      createModelOption('kimi-k2.7-code-highspeed', true, false),
-      createModelOption('kimi-k2.6', true, true),
-    ],
-    temperature: STANDARD_TEMPERATURE,
+    defaultModels: createDefaultModels('kimi'),
   },
   minimax: {
     id: 'minimax',
@@ -131,14 +103,7 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     apiKeyPlaceholder: 'sk-...',
     baseUrlDefault: 'https://api.minimaxi.com/v1',
     baseUrlPlaceholder: 'https://api.minimaxi.com/v1',
-    defaultModels: [
-      createModelOption('MiniMax-M3', true, true),
-      createModelOption('MiniMax-M2.7', true, false),
-      createModelOption('MiniMax-M2.7-highspeed', true, false),
-      createModelOption('MiniMax-M2.5', true, false),
-      createModelOption('MiniMax-M2.5-highspeed', true, false),
-    ],
-    temperature: MINIMAX_TEMPERATURE,
+    defaultModels: createDefaultModels('minimax'),
   },
   openai: {
     id: 'openai',
@@ -148,19 +113,8 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     apiKeyPlaceholder: 'sk-...',
     baseUrlDefault: 'https://api.openai.com/v1',
     baseUrlPlaceholder: 'https://api.openai.com/v1',
-    defaultModels: [
-      createModelOption('gpt-6-astra', true, true),
-      createModelOption('gpt-5.6-sol', true, true),
-      createModelOption('gpt-5.6', true, true),
-      createModelOption('gpt-5.6-terra', true, true),
-      createModelOption('gpt-5.6-luna', true, true),
-    ],
-    temperature: STANDARD_TEMPERATURE,
+    defaultModels: createDefaultModels('openai'),
   },
-}
-
-export function isProviderId(value: string): value is ProviderId {
-  return PROVIDER_IDS.includes(value as ProviderId)
 }
 
 export function isAddableProviderId(value: string): value is AddableProviderId {
@@ -175,35 +129,8 @@ export function getAddableProviderDefinitions(): ProviderDefinition[] {
   return ADDABLE_PROVIDER_IDS.map((provider) => PROVIDER_REGISTRY[provider])
 }
 
-export function getProviderModelOptions(provider: ProviderId): ProviderModelOption[] {
-  return PROVIDER_REGISTRY[provider].defaultModels
-}
-
 export function getProviderDefaultModelValues(provider: ProviderId): string[] {
   return PROVIDER_REGISTRY[provider].defaultModels.map((option) => option.value)
-}
-
-export function findProviderModel(
-  provider: ProviderId,
-  model: string,
-): ProviderModelOption | undefined {
-  const normalizedModel = model.trim()
-  const canonicalModel = PROVIDER_MODEL_ALIASES[provider]?.[normalizedModel] ?? normalizedModel
-  return PROVIDER_REGISTRY[provider].defaultModels.find((option) => option.value === canonicalModel)
-}
-
-export function providerModelSupportsTemperature(provider: ProviderId, model: string): boolean {
-  const matched = findProviderModel(provider, model)
-  return matched?.supportsTemperature ?? true
-}
-
-export function providerModelSupportsImageInput(provider: ProviderId, model: string): boolean {
-  const matched = findProviderModel(provider, model)
-  return matched?.supportsImageInput ?? (provider !== 'deepseek' && provider !== 'minimax')
-}
-
-export function getProviderTemperatureRange(provider: ProviderId): TemperatureRange {
-  return PROVIDER_REGISTRY[provider].temperature
 }
 
 export function buildDefaultProviderSettings(provider: ProviderId): ProviderSettings {
@@ -212,41 +139,11 @@ export function buildDefaultProviderSettings(provider: ProviderId): ProviderSett
   return {
     apiKey: '',
     baseUrl: definition.baseUrlDefault,
-    capabilities: createDefaultProviderCapabilities(provider, model),
+    capabilities: getDefaultProviderCapabilities(provider, model),
     model,
     modelOptions: getProviderDefaultModelValues(provider),
     reasoningLevel: getDefaultThinkingLevel(provider, model),
-    temperature: definition.temperature.defaultValue,
-  }
-}
-
-function createDefaultProviderCapabilities(provider: ProviderId, model: string): ProviderCapabilities {
-  if (provider === 'openai') {
-    return {
-      imageInput: true,
-      nativeWebSearch: true,
-      protocol: 'responses',
-      reasoning: true,
-      toolCalling: false,
-    }
-  }
-
-  if (provider === 'custom' || provider === 'kimi') {
-    return {
-      imageInput: providerModelSupportsImageInput(provider, model),
-      nativeWebSearch: false,
-      protocol: 'chat_completions',
-      reasoning: provider === 'kimi',
-      toolCalling: true,
-    }
-  }
-
-  return {
-    imageInput: providerModelSupportsImageInput(provider, model),
-    nativeWebSearch: false,
-    protocol: 'chat_completions',
-    reasoning: true,
-    toolCalling: true,
+    temperature: getProviderProfile(provider).temperatureRange.defaultValue,
   }
 }
 
@@ -278,6 +175,14 @@ export function createAddedModelDraft(
   }
 }
 
+function createDefaultModels(provider: ProviderId): ProviderModelOption[] {
+  return getPresetModels(provider).map((model) => ({
+    supportsImageInput: model.supportsImageInput,
+    supportsTemperature: model.supportsTemperature,
+    value: model.value,
+  }))
+}
+
 function createAddedModelId(provider: AddableProviderId): string {
   const suffix = Math.random().toString(36).slice(2, 8)
   return `model-${provider}-${Date.now().toString(36)}-${suffix}`
@@ -299,12 +204,4 @@ function createAddedModelName(
   }
 
   return `${baseName} ${index}`
-}
-
-function createModelOption(value: string, supportsTemperature: boolean, supportsImageInput: boolean): ProviderModelOption {
-  return {
-    supportsImageInput,
-    supportsTemperature,
-    value,
-  }
 }

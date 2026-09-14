@@ -66,12 +66,6 @@ function resolveCapabilityTitle(key: keyof typeof CAPABILITY_LABELS): string {
 
 function updateProtocol(protocol: ProviderCapabilities['protocol']): void {
   emit('updateCapability', 'protocol', protocol)
-  if (protocol === 'responses' && props.settings.capabilities.toolCalling) {
-    emit('updateCapability', 'toolCalling', false)
-  }
-  if (protocol === 'chat_completions' && props.settings.capabilities.nativeWebSearch) {
-    emit('updateCapability', 'nativeWebSearch', false)
-  }
 }
 
 function updateCapability(

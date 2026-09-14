@@ -3,14 +3,13 @@ import {
   buildDefaultProviderSettings,
   DEFAULT_CONFIG_ID,
   getProviderDefinition,
-  providerModelSupportsTemperature,
-  getProviderTemperatureRange,
   isAddableProviderId,
 } from '../constants/providers'
 import {
   normalizeProviderCapabilities,
 } from '../constants/providerCapabilities'
 import { normalizeThinkingLevel } from '../constants/thinking'
+import { findModelProfile, getProviderProfile } from '../constants/providerProfiles'
 import {
   DEFAULT_UTOOLS_SESSION_IDLE_TIMEOUT_MINUTES,
   DEFAULT_UTOOLS_UPLOAD_MODE,
@@ -165,8 +164,8 @@ export function normalizeModelOptions(
   return normalized
 }
 
-export function modelSupportsTemperature(provider: ProviderId, model: string): boolean {
-  return providerModelSupportsTemperature(provider, model)
+function modelSupportsTemperature(provider: ProviderId, model: string): boolean {
+  return findModelProfile(provider, model)?.supportsTemperature ?? true
 }
 
 function normalizeCustomModels(incomingModels: SettingsForm['customModels'] | undefined): AddedModelConfig[] {
@@ -279,7 +278,7 @@ function normalizeTemperature(
   model: string,
   temperature: number | undefined,
 ): number {
-  const range = getProviderTemperatureRange(provider)
+  const range = getProviderProfile(provider).temperatureRange
 
   if (typeof temperature !== 'number' || !Number.isFinite(temperature)) {
     return range.defaultValue
