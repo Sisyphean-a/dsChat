@@ -84,27 +84,46 @@ describe('providerCapabilities', () => {
   })
 
   it('returns provider-specific image unsupported message when available', () => {
-    expect(createImageInputUnsupportedMessage('deepseek', 'DeepSeek')).toContain('仅支持文本输入')
+    expect(createImageInputUnsupportedMessage('deepseek', 'DeepSeek')).toContain('deepseek-flash')
     expect(createImageInputUnsupportedMessage('custom', '自定义模型')).toContain('自定义模型 当前模型不支持图片输入')
   })
 
-  it('blocks image input for Kimi text-only presets', () => {
-    expect(providerSupportsImageInput(createProviderSettings('kimi', {}, 'kimi-k3'))).toBe(false)
+  it('distinguishes Kimi visual and text-only presets', () => {
+    expect(providerSupportsImageInput(createProviderSettings('kimi', {}, 'kimi-k3'))).toBe(true)
+    expect(providerSupportsImageInput(createProviderSettings('kimi', {}, 'kimi-k2.7-code'))).toBe(false)
+    expect(providerSupportsImageInput(createProviderSettings('kimi', {}, 'kimi-k2.7-code-highspeed'))).toBe(false)
     expect(providerSupportsImageInput(createProviderSettings('kimi', {}, 'kimi-k2.6'))).toBe(true)
   })
 
-  it('enables direct image input for the DeepSeek vision preset', () => {
-    const vision = createProviderSettings('deepseek', {}, 'deepseek-v4-flash-vision-exp')
-    const text = createProviderSettings('deepseek', { imageInput: true }, 'deepseek-v4-flash')
+  it('enables direct image input for the DeepSeek Flash preset', () => {
+    const flash = createProviderSettings('deepseek', {}, 'deepseek-flash')
+    const pro = createProviderSettings('deepseek', { imageInput: true }, 'deepseek-v4-pro')
 
-    expect(vision.capabilities.imageInput).toBe(true)
-    expect(providerSupportsImageInput(vision)).toBe(true)
-    expect(text.capabilities.imageInput).toBe(false)
-    expect(providerSupportsImageInput(text)).toBe(false)
+    expect(flash.capabilities.imageInput).toBe(true)
+    expect(providerSupportsImageInput(flash)).toBe(true)
+    expect(pro.capabilities.imageInput).toBe(false)
+    expect(providerSupportsImageInput(pro)).toBe(false)
+  })
+
+  it('keeps the retired DeepSeek Flash aliases aligned with the current model capabilities', () => {
+    const legacyVision = createProviderSettings('deepseek', {}, 'deepseek-v4-flash-vision-exp')
+
+    expect(legacyVision.capabilities.imageInput).toBe(true)
+    expect(providerSupportsImageInput(legacyVision)).toBe(true)
+  })
+
+  it('enables direct image input for the MiniMax M3 multimodal preset', () => {
+    const m3 = createProviderSettings('minimax', {}, 'MiniMax-M3')
+    const m27 = createProviderSettings('minimax', {}, 'MiniMax-M2.7')
+
+    expect(m3.capabilities.imageInput).toBe(true)
+    expect(providerSupportsImageInput(m3)).toBe(true)
+    expect(m27.capabilities.imageInput).toBe(false)
+    expect(providerSupportsImageInput(m27)).toBe(false)
   })
 
   it('keeps temperature out of active DeepSeek thinking requests', () => {
-    const settings = createProviderSettings('deepseek', {}, 'deepseek-v4-flash')
+    const settings = createProviderSettings('deepseek', {}, 'deepseek-flash')
 
     expect(shouldIncludeProviderRequestTemperature('deepseek', settings, 'high')).toBe(false)
     expect(shouldIncludeProviderRequestTemperature('deepseek', settings, 'off')).toBe(true)
@@ -113,6 +132,7 @@ describe('providerCapabilities', () => {
   })
 
   it('checks OpenAI native web search model compatibility from one list', () => {
+    expect(supportsOpenAiNativeWebSearchModel('gpt-6-astra')).toBe(true)
     expect(supportsOpenAiNativeWebSearchModel('gpt-5.5')).toBe(true)
     expect(supportsOpenAiNativeWebSearchModel('gpt-5.6-sol')).toBe(true)
     expect(supportsOpenAiNativeWebSearchModel('gpt-5.6-terra')).toBe(true)

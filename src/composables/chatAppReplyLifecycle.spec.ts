@@ -172,9 +172,9 @@ describe('ReplyLifecycle', () => {
     }))
   })
 
-  it('passes attachments to DeepSeek vision models', async () => {
+  it('passes attachments to the DeepSeek Flash vision model', async () => {
     const state = createState()
-    state.settings.value.deepseek.model = 'deepseek-v4-flash-vision-exp'
+    state.settings.value.deepseek.model = 'deepseek-flash'
     const attachment: MessageAttachment = {
       dataUrl: 'data:image/png;base64,aW1hZ2U=',
       height: 10,

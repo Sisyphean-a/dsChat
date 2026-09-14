@@ -13,6 +13,7 @@ interface ProviderCapabilityProfile {
   supportsReasoningControl: boolean
 }
 const OPENAI_NATIVE_WEB_SEARCH_MODELS = [
+  'gpt-6-astra',
   'gpt-5.6',
   'gpt-5.6-sol',
   'gpt-5.6-terra',
@@ -26,8 +27,8 @@ const OPENAI_NATIVE_WEB_SEARCH_MODELS = [
   'gpt-5-nano',
 ] as const
 const PROVIDER_IMAGE_INPUT_ERRORS: Partial<Record<ProviderId, string>> = {
-  deepseek: 'DeepSeek 当前模型仅支持文本输入，不支持图片。请切换支持图片的供应商后再发送。',
-  minimax: 'MiniMax 当前文本模型不支持图片输入。请切换支持图片的供应商后再发送。',
+  deepseek: 'DeepSeek 当前模型不支持图片输入，请切换到 deepseek-flash 或其他支持图片的模型后再发送。',
+  minimax: 'MiniMax 当前模型不支持图片输入，请切换到 MiniMax-M3 或其他支持图片的模型后再发送。',
 }
 
 const PROVIDER_PROTOCOLS: Record<ProviderId, ProviderCapabilities['protocol'][]> = {

@@ -73,6 +73,14 @@ export const DEFAULT_CONFIG_ID = 'deepseek'
 export const PROVIDER_IDS: ProviderId[] = ['deepseek', 'openai', 'minimax', 'kimi', 'custom']
 export const ADDABLE_PROVIDER_IDS: AddableProviderId[] = ['openai', 'minimax', 'kimi', 'custom']
 
+// Rule: DeepSeek 旧 Flash 别名仍可调用，能力按当前 deepseek-flash 解析。
+const PROVIDER_MODEL_ALIASES: Partial<Record<ProviderId, Record<string, string>>> = {
+  deepseek: {
+    'deepseek-v4-flash': 'deepseek-flash',
+    'deepseek-v4-flash-vision-exp': 'deepseek-flash',
+  },
+}
+
 export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
   custom: {
     id: 'custom',
@@ -95,8 +103,7 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     baseUrlPlaceholder: 'https://api.deepseek.com',
     defaultModels: [
       createModelOption('deepseek-v4-pro', true, false),
-      createModelOption('deepseek-v4-flash', true, false),
-      createModelOption('deepseek-v4-flash-vision-exp', true, true),
+      createModelOption('deepseek-flash', true, true),
     ],
     temperature: STANDARD_TEMPERATURE,
   },
@@ -109,7 +116,7 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     baseUrlDefault: 'https://api.moonshot.cn/v1',
     baseUrlPlaceholder: 'https://api.moonshot.cn/v1',
     defaultModels: [
-      createModelOption('kimi-k3', true, false),
+      createModelOption('kimi-k3', true, true),
       createModelOption('kimi-k2.7-code', true, false),
       createModelOption('kimi-k2.7-code-highspeed', true, false),
       createModelOption('kimi-k2.6', true, true),
@@ -125,7 +132,7 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     baseUrlDefault: 'https://api.minimaxi.com/v1',
     baseUrlPlaceholder: 'https://api.minimaxi.com/v1',
     defaultModels: [
-      createModelOption('MiniMax-M3', true, false),
+      createModelOption('MiniMax-M3', true, true),
       createModelOption('MiniMax-M2.7', true, false),
       createModelOption('MiniMax-M2.7-highspeed', true, false),
       createModelOption('MiniMax-M2.5', true, false),
@@ -142,6 +149,7 @@ export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
     baseUrlDefault: 'https://api.openai.com/v1',
     baseUrlPlaceholder: 'https://api.openai.com/v1',
     defaultModels: [
+      createModelOption('gpt-6-astra', true, true),
       createModelOption('gpt-5.6-sol', true, true),
       createModelOption('gpt-5.6', true, true),
       createModelOption('gpt-5.6-terra', true, true),
@@ -179,7 +187,9 @@ export function findProviderModel(
   provider: ProviderId,
   model: string,
 ): ProviderModelOption | undefined {
-  return PROVIDER_REGISTRY[provider].defaultModels.find((option) => option.value === model.trim())
+  const normalizedModel = model.trim()
+  const canonicalModel = PROVIDER_MODEL_ALIASES[provider]?.[normalizedModel] ?? normalizedModel
+  return PROVIDER_REGISTRY[provider].defaultModels.find((option) => option.value === canonicalModel)
 }
 
 export function providerModelSupportsTemperature(provider: ProviderId, model: string): boolean {

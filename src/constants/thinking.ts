@@ -8,16 +8,17 @@ export interface ThinkingOption {
 type ThinkingSettings = Pick<ProviderSettings, 'capabilities' | 'model'>
 
 const DEEPSEEK_THINKING_MODELS = new Set([
+  'deepseek-flash',
   'deepseek-v4-flash',
   'deepseek-v4-flash-vision-exp',
   'deepseek-v4-pro',
-  'deepseek-chat',
 ])
 interface OpenAiReasoningProfile {
   maxEffort: 'max' | 'xhigh'
 }
 
 const OPENAI_REASONING_PROFILES = new Map<string, OpenAiReasoningProfile>([
+  ['gpt-6-astra', { maxEffort: 'max' }],
   ['gpt-5.4', { maxEffort: 'xhigh' }],
   ['gpt-5.6', { maxEffort: 'max' }],
   ['gpt-5.6-sol', { maxEffort: 'max' }],

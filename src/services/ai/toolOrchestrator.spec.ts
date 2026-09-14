@@ -184,7 +184,7 @@ function request() {
     settings: {
       apiKey: 'sk-test', baseUrl: 'https://api.deepseek.com',
       capabilities: getDefaultProviderCapabilities('deepseek'), configId: 'deepseek', label: 'DeepSeek',
-      model: 'deepseek-v4-flash', modelOptions: ['deepseek-v4-flash'], provider: 'deepseek' as const, reasoningLevel: 'high' as const, temperature: 1,
+      model: 'deepseek-flash', modelOptions: ['deepseek-flash'], provider: 'deepseek' as const, reasoningLevel: 'high' as const, temperature: 1,
     },
     thinkingLevel: 'high' as const,
     toolSettings: {

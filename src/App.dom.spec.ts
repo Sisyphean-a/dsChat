@@ -23,7 +23,7 @@ vi.mock('./composables/useMessageListAutoScroll', () => ({
 
 vi.mock('./composables/useChatApp', () => ({
   useChatApp: vi.fn(() => ({
-    activeChatConfig: computed(() => ({ label: 'DeepSeek', model: 'deepseek-v4-flash' })),
+    activeChatConfig: computed(() => ({ label: 'DeepSeek', model: 'deepseek-flash' })),
     thinkingLevel: computed(() => 'high'),
     thinkingOptions: computed(() => []),
     activeConversationId: ref<string | null>(null),
@@ -78,8 +78,8 @@ vi.mock('./composables/useChatApp', () => ({
           reasoning: true,
           toolCalling: true,
         },
-        model: 'deepseek-v4-flash',
-        modelOptions: ['deepseek-v4-flash'],
+        model: 'deepseek-flash',
+        modelOptions: ['deepseek-flash'],
         reasoningLevel: 'high',
         temperature: 1,
       },
