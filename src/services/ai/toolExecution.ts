@@ -74,8 +74,23 @@ export async function* executeToolCall(options: {
     trace = markToolTraceFailed(trace, typed.code, typed.message, Date.now())
     yield { type: 'tool-trace', trace }
     yield { type: 'timeline', item: createFailedTimeline(timelineId, options.round, options.call.name, args, trace, typed.message) }
-    throw typed
+    if (isProtectiveToolFailure(typed)) throw typed
+    return createToolFailureResultContent(options.call.name, typed)
   }
+}
+
+// Rule: 单次工具执行失败不终止回合，而是把失败作为工具结果回传给模型；
+// 超时属于保护性失败，仍必须终止，避免整轮无限延长。
+function isProtectiveToolFailure(error: ToolFlowError): boolean {
+  return error.code === 'tool_execute_timeout' || error.code === 'tool_orchestrator_timeout'
+}
+
+function createToolFailureResultContent(toolName: string, error: ToolFlowError): string {
+  return [
+    `工具 ${toolName} 本次调用失败，没有取得任何结果。`,
+    `失败原因：${error.message}`,
+    '不要编造、补全或假设该工具的结果；请如实说明该信息未能取得，或调整参数后重新调用该工具。',
+  ].join('\n')
 }
 
 export function createToolBatchSignature(calls: NormalizedToolCall[]): string {

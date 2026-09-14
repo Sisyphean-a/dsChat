@@ -79,7 +79,7 @@ Provider 与模型事实集中在 `constants/providerProfiles.ts`；新增或调
 - `providerCompletion.ts`：只用于非流式标题生成。
 - `providerAdapters/chatCompletionsAdapter.ts`：处理兼容 Chat Completions 的文本、推理、图片和函数工具调用；请求地址和图片附件在序列化边界再次校验。
 - `providerAdapters/openAiResponsesAdapter.ts`：处理 Responses 事件和 OpenAI 原生 `web_search` 状态；它不参与本地工具轮次，且复用 HTTPS endpoint 与图片附件校验。
-- `toolOrchestrator.ts`：只执行工具轮次——接收本回合工具与执行上下文，创建多轮上下文，追加 assistant tool-call 与 tool result 消息，阻止重复调用，并让最终回答缺失显式失败；不再解析工具配置。
+- `toolOrchestrator.ts`：只执行工具轮次——接收本回合工具与执行上下文，创建多轮上下文，追加 assistant tool-call 与 tool result 消息，把单次工具执行失败作为工具结果交回模型继续本轮，阻止重复调用，并让最终回答缺失显式失败；不再解析工具配置。
 - `services/ai/systemPrompt.ts`：在每次回复启动时根据原生联网、直接图片输入、当前工具定义和当前附件动态组装默认系统提示词，再追加用户自定义规则。
 - `services/conversationTitle.ts`：标题请求只使用首条用户文字和“是否带图片”提示，不把图片 Data URL 发给标题模型；模型返回请求补充内容等非标题文本时回退到用户问题或“图片分析”。
 - `services/tools/toolRegistry.ts`：登记 `get_current_time`、`tavily_search` 以及三个受控阿里云 Qwen 图片工具，并用 `getTurnTools` 解析本回合可用工具（凭据校验加按附件元数据筛选图片工具）。Qwen 工具只接收模型给出的 `attachment_id` 和任务参数，由运行时从当前附件解析图片，不接受模型提供的 URL、路径或 Base64；它们仅在支持本地 Chat Completions 工具轮次的配置中启用。`customTools` 是预留数据形状，设置规范化会清空它；执行引擎仍会拒绝任何非空且启用的自定义工具，因为没有执行实现。
@@ -94,8 +94,8 @@ Provider 与模型事实集中在 `constants/providerProfiles.ts`；新增或调
 - 回复启动时快照 Provider 配置、思考等级、工具设置与全局系统提示词；后续编辑设置不能改变正在进行的回复。动态提示词不得暴露图片 Data URL 或其他内部附件内容。
 - 工具总开关开启时，必须至少有一个内置工具，且当前配置必须支持本地工具调用，或是支持原生联网的 Responses 配置；不支持时在发送前报错。实际本地工具轮次只在前者运行。
 - 所有 Provider、Tavily 和阿里云 Qwen 外部服务地址必须使用 HTTPS，且不得在 URL 中携带用户名或密码；Qwen 图片工具基础地址可填写至 `/compatible-mode/v1`，运行时自动追加 `/chat/completions`，也兼容完整 endpoint；图片 Data URL 在 Qwen 工具和 Provider 序列化边界都要校验类型、Base64 格式和大小。
-- 当前 Provider 不支持直接图片输入时，Provider 消息必须剥离图片附件；若当前回合提供了阿里云 Qwen 图片工具，则优先走 Qwen 工具轮次并始终剥离 Provider 图片附件，原始附件仅通过工具执行上下文保留。Qwen 请求使用 HTTPS、非流式 `qwen3-vl-flash` 视觉接口；图片工具单次执行允许 60 秒，普通工具仍为 20 秒，失败、超时和空结果必须显式失败。
-- 本地工具调用按照单轮顺序执行；同一签名重复出现、超时、参数错误、未知工具或空最终回答均应显式失败。
+- 当前 Provider 不支持直接图片输入时，Provider 消息必须剥离图片附件；若当前回合提供了阿里云 Qwen 图片工具，则优先走 Qwen 工具轮次并始终剥离 Provider 图片附件，原始附件仅通过工具执行上下文保留。Qwen 请求使用 HTTPS、非流式 `qwen3-vl-flash` 视觉接口；图片工具单次执行允许 60 秒，普通工具仍为 20 秒，执行失败按统一工具失败规则作为工具结果回传模型，超时仍终止本轮。
+- 本地工具调用按照单轮顺序执行；单次工具执行失败（外部服务、传输错误或工具自身参数校验失败）不终止本轮，失败原因作为工具结果回传模型并保留失败轨迹；超时、模型给出的工具参数无法解析、同一签名重复出现、未知工具或空最终回答均应显式失败。
 - 仅最终文本回答是成功回复；工具或推理阶段本身不是成功结果。
 
 ## 验证

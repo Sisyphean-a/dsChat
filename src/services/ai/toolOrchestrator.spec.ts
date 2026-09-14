@@ -81,24 +81,81 @@ describe('ToolOrchestrator', () => {
     expect(levels).toEqual(['high', 'high'])
   })
 
-  it('emits a failed trace before propagating a tool error', async () => {
-    const providerStream = scriptedProviderStream([[{
-      type: 'tool-calls', calls: [{ id: 'call-1', name: 'broken', argumentsJson: '{}' }],
-    }]])
+  it('returns a failed tool result to the model and keeps the reply alive', async () => {
+    const contextMessages: Array<{ content: string; role: string; toolCallId?: string }> = []
+    let round = 0
+    const providerStream: ProviderStream = {
+      async *stream(request) {
+        round += 1
+        if (round === 1) {
+          yield { type: 'tool-calls', calls: [{ id: 'call-1', name: 'broken', argumentsJson: '{}' }] }
+          return
+        }
+        contextMessages.push(...request.messages as typeof contextMessages)
+        yield { type: 'content', content: '搜索服务不可用，未能取得最新信息。' }
+      },
+    }
     const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
-    const iterator = orchestrator.stream(request([tool('broken', async () => { throw new Error('boom') })]))[Symbol.asyncIterator]()
-    const events: unknown[] = []
-    await expect((async () => {
-      while (true) {
-        const next = await iterator.next()
-        if (next.done) return
-        events.push(next.value)
-      }
-    })()).rejects.toThrow('boom')
 
+    const events = await collect(orchestrator.stream(request([
+      tool('broken', async () => { throw new Error('Tavily 搜索失败：HTTP 554') }),
+    ])))
+
+    const toolResult = contextMessages.find((message) => message.role === 'tool')
+    expect(toolResult).toMatchObject({ role: 'tool', toolCallId: 'call-1' })
+    expect(toolResult?.content).toContain('Tavily 搜索失败：HTTP 554')
+    expect(toolResult?.content).toContain('不要编造')
     expect(events).toContainEqual(expect.objectContaining({
       type: 'tool-trace', trace: expect.objectContaining({ status: 'failed' }),
     }))
+    expect(events).toContainEqual({ type: 'content', content: '搜索服务不可用，未能取得最新信息。' })
+  })
+
+  it('keeps the rest of the batch running after one call fails', async () => {
+    const executed: string[] = []
+    const contextMessages: Array<{ content: string; role: string; toolCallId?: string }> = []
+    let round = 0
+    const providerStream: ProviderStream = {
+      async *stream(request) {
+        round += 1
+        if (round === 1) {
+          yield {
+            type: 'tool-calls',
+            calls: [
+              { id: 'call-1', name: 'broken', argumentsJson: '{}' },
+              { id: 'call-2', name: 'working', argumentsJson: '{}' },
+            ],
+          }
+          return
+        }
+        contextMessages.push(...request.messages as typeof contextMessages)
+        yield { type: 'content', content: '最终回答' }
+      },
+    }
+    const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
+
+    await collect(orchestrator.stream(request([
+      tool('broken', async () => { executed.push('broken'); throw new Error('boom') }),
+      tool('working', async () => { executed.push('working'); return { content: 'ok' } }),
+    ])))
+
+    expect(executed).toEqual(['broken', 'working'])
+    expect(contextMessages.filter((message) => message.role === 'tool')).toMatchObject([
+      { toolCallId: 'call-1', content: expect.stringContaining('boom') },
+      { toolCallId: 'call-2', content: 'ok' },
+    ])
+  })
+
+  it('still terminates the reply when a tool execution times out', async () => {
+    const providerStream = scriptedProviderStream([[
+      { type: 'tool-calls', calls: [{ id: 'call-1', name: 'slow', argumentsJson: '{}' }] },
+      { type: 'content', content: '不应到达的回答' },
+    ]])
+    const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
+    const slow = { ...tool('slow', async () => new Promise<{ content: string }>(() => undefined)), executionTimeoutMs: 5 }
+
+    await expect(collect(orchestrator.stream(request([slow]))))
+      .rejects.toMatchObject({ code: 'tool_execute_timeout' })
   })
 
   it('marks a running tool as stopped when its signal aborts', async () => {
