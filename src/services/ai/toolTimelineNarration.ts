@@ -1,21 +1,19 @@
 import type { ProcessTimelineItem, ProcessTimelineItemStatus } from '../../types/chat'
 
-const REASONING_SUMMARY_MAX_LENGTH = 180
-
 export function createReasoningTimelineItem(options: {
   content: string
   id: string
   round: number
 }): ProcessTimelineItem | null {
-  const summary = summarizeReasoning(options.content)
-  if (!summary) {
+  const text = options.content.trim()
+  if (!text) {
     return null
   }
 
   return {
     id: options.id,
     type: 'reasoning',
-    text: summary,
+    text,
     status: 'done',
     round: options.round,
   }
@@ -39,24 +37,6 @@ export function createToolTimelineItem(options: {
     round: options.round,
     durationMs: options.durationMs,
   }
-}
-
-function summarizeReasoning(content: string): string {
-  const normalized = content
-    .split('\n')
-    .map((line) => line.trim().replace(/^[-*]\s+/, ''))
-    .filter(Boolean)
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  if (!normalized) {
-    return ''
-  }
-
-  return normalized.length > REASONING_SUMMARY_MAX_LENGTH
-    ? `${normalized.slice(0, REASONING_SUMMARY_MAX_LENGTH)}...`
-    : normalized
 }
 
 function buildToolTimelineText(options: {

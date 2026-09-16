@@ -58,6 +58,26 @@ describe('ToolOrchestrator', () => {
     ])
   })
 
+  it('keeps the full reasoning text in the timeline item', async () => {
+    const reasoning = '第一段推理。'.repeat(40)
+    const providerStream = scriptedProviderStream([[
+      { type: 'reasoning', content: reasoning },
+      { type: 'content', content: '最终回答' },
+    ]])
+    const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
+
+    const events = await collect(orchestrator.stream(request([])))
+    const reasoningTimeline = events.filter((event) => {
+      return event.type === 'timeline' && event.item.type === 'reasoning'
+    })
+
+    expect(reasoningTimeline).toEqual([
+      expect.objectContaining({
+        item: expect.objectContaining({ id: 'reasoning-1', text: reasoning }),
+      }),
+    ])
+  })
+
   it('keeps the initial reasoning level through every tool round', async () => {
     const levels: string[] = []
     let round = 0

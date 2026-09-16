@@ -304,11 +304,13 @@ watch(
         </svg>
       </button>
       <div class="process-panel" :class="{ expanded: isProcessExpanded }">
-        <ul class="process-list">
-          <li v-for="item in processTimeline" :key="item.id" class="process-item" :class="[`is-${item.type}`, `is-${item.status}`]">
-            <p class="process-text">{{ item.text }}</p>
-          </li>
-        </ul>
+        <div class="process-inner">
+          <ul class="process-list">
+            <li v-for="item in processTimeline" :key="item.id" class="process-item" :class="[`is-${item.type}`, `is-${item.status}`]">
+              <p class="process-text">{{ item.text }}</p>
+            </li>
+          </ul>
+        </div>
       </div>
     </section>
 

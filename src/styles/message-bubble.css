@@ -120,22 +120,27 @@
 }
 
 .process-panel {
-  max-height: 0;
-  overflow: hidden;
+  display: grid;
+  grid-template-rows: 0fr;
   opacity: 0;
-  transition: max-height 180ms ease, opacity 180ms ease;
+  transform: translateY(-2px);
+  transition: grid-template-rows 180ms ease, opacity 180ms ease, transform 180ms ease;
 }
 
 .process-panel.expanded {
-  max-height: 520px;
+  grid-template-rows: 1fr;
   opacity: 1;
+  transform: translateY(0);
+}
+
+.process-inner {
+  overflow: hidden;
 }
 
 .process-list {
   margin: 0;
   padding: 0 8px 8px;
   list-style: none;
-  overflow: hidden;
 }
 
 .process-item + .process-item {
@@ -157,6 +162,7 @@
 .process-item.is-reasoning .process-text {
   color: var(--text-muted);
   background: var(--bg);
+  white-space: pre-wrap;
 }
 
 .process-item.is-tool .process-text {

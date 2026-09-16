@@ -39,6 +39,7 @@ src/
 - 发送期间或已有消息时禁止切换 Provider 配置，避免同一会话的请求上下文和配置混用。
 - 首个用户消息创建会话；标题先使用默认值，随后由独立的非流式请求异步更新。
 - `useMessageListAutoScroll.ts` 用显式状态机处理用户上滚后的自动滚动锁定；不要在组件中临时滚动到底部。
+- 推理只在消息的「过程」面板展示：推理条目保存完整推理文本，不得压缩成摘要或截断；展开态按内容自然展开（`process-panel` 用 `grid-template-rows` 动画），不加固定高度上限或内部滚动。工具条目仍只展示阶段状态、工具名和结果条数这类摘要文本（`toolTimelineNarration.ts`），不展示原始参数与工具结果原文。
 - 设置面板的各领域子页面只发结构化 `SettingsEdit`；`SettingsPanel.vue` 统一转发一个 `edit` 事件，`useChatApp.ts` 只暴露 `applySettingsEdit`，设置动作模块负责按领域分发，避免字段级事件穿过组合根。
 
 ### 会话与持久化

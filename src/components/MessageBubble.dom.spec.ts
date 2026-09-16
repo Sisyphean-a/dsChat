@@ -191,11 +191,32 @@ describe('MessageBubble', () => {
 
     expect(wrapper.text()).toContain('过程（1）')
     expect(wrapper.find('.process-panel').classes()).not.toContain('expanded')
+    expect(wrapper.find('.process-inner').exists()).toBe(true)
 
     await wrapper.get('.process-toggle').trigger('click')
 
     expect(wrapper.find('.process-panel').classes()).toContain('expanded')
     expect(wrapper.text()).toContain('查询条件：关键词“AI 新闻”，时间范围 day；结果条数：5')
+  })
+
+  it('shows the full reasoning text when the process panel expands', async () => {
+    const reasoning = '第一段推理。'.repeat(40)
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: {
+          id: 'assistant-long-reasoning',
+          content: '这是最终回答。',
+          createdAt: 4,
+          reasoningContent: reasoning,
+          role: 'assistant',
+          status: 'done',
+        },
+      },
+    })
+
+    await wrapper.get('.process-toggle').trigger('click')
+
+    expect(wrapper.text()).toContain(reasoning)
   })
 
   it('auto-collapses process timeline when streaming finishes', async () => {

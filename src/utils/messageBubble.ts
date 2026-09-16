@@ -19,13 +19,14 @@ export function buildFallbackTimeline(
   traces: ToolTraceRecord[],
 ): ProcessTimelineItem[] {
   const items: ProcessTimelineItem[] = []
-  if (reasoningContent.trim()) {
+  const reasoningText = reasoningContent.trim()
+  if (reasoningText) {
     items.push({
       id: 'fallback-reasoning',
       type: 'reasoning',
       round: 1,
       status: 'done',
-      text: summarizeReasoning(reasoningContent),
+      text: reasoningText,
     })
   }
 
@@ -76,19 +77,4 @@ function resolveToolDisplayName(toolName: string): string {
   }
 
   return `工具 ${toolName}`
-}
-
-function summarizeReasoning(content: string): string {
-  const normalized = content
-    .split('\n')
-    .map((line) => line.trim().replace(/^[-*]\s+/, ''))
-    .filter(Boolean)
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  if (!normalized) {
-    return ''
-  }
-
-  return normalized.length > 180 ? `${normalized.slice(0, 180)}...` : normalized
 }
