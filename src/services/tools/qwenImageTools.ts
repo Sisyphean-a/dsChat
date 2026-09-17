@@ -1,5 +1,4 @@
 import type { MessageAttachment } from '../../types/chat'
-import { QWEN_IMAGE_TOOL_TIMEOUT_MS } from '../ai/toolExecution'
 import type { AiTool, ToolExecutionContext } from '../ai/toolTypes'
 import { validateImageAttachment } from '../imageAttachmentValidation'
 import { analyzeImageWithQwen } from './qwenClient'
@@ -25,7 +24,6 @@ const IMAGE_ATTACHMENT_ID_PROPERTY = {
 }
 
 export const qwenExtractTextFromScreenshotTool: AiTool = {
-  executionTimeoutMs: QWEN_IMAGE_TOOL_TIMEOUT_MS,
   requiresImageAttachment: true,
   definition: {
     type: 'function',
@@ -56,7 +54,6 @@ export const qwenExtractTextFromScreenshotTool: AiTool = {
 }
 
 export const qwenDiagnoseErrorScreenshotTool: AiTool = {
-  executionTimeoutMs: QWEN_IMAGE_TOOL_TIMEOUT_MS,
   requiresImageAttachment: true,
   definition: {
     type: 'function',
@@ -87,7 +84,6 @@ export const qwenDiagnoseErrorScreenshotTool: AiTool = {
 }
 
 export const qwenAnalyzeImageTool: AiTool = {
-  executionTimeoutMs: QWEN_IMAGE_TOOL_TIMEOUT_MS,
   requiresImageAttachment: true,
   definition: {
     type: 'function',

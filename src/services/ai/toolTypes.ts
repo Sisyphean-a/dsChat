@@ -62,7 +62,6 @@ export interface ToolResult {
 export interface AiTool {
   definition: AiToolDefinition
   execute: (args: unknown, context: ToolExecutionContext) => Promise<ToolResult>
-  executionTimeoutMs?: number
   requiresImageAttachment?: boolean
 }
 

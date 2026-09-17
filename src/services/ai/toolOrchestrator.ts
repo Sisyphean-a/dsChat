@@ -4,13 +4,11 @@ import type { ProviderConversationMessage } from './providerAdapter'
 import { ProviderRequestError, type ProviderStream } from './providerStream'
 import type { ReplyStreamEvent } from './replyStreamEvents'
 import { ToolFlowError } from './toolFlowErrors'
-import { executeToolCall, getToolExecutionTimeoutMs } from './toolExecution'
+import { executeToolCall } from './toolExecution'
 import { createToolCallSignature } from './toolTraceRuntime'
 import { createReasoningTimelineItem } from './toolTimelineNarration'
 import type { AiTool, NormalizedToolCall, ToolExecutionContext } from './toolTypes'
 
-const ORCHESTRATOR_TIMEOUT_MS = 150000
-const PROVIDER_ROUND_TIMEOUT_MS = 45000
 const TOOL_STATUS_CONTINUING = '已获得工具结果，正在整理回答...'
 
 export type { ReplyStreamEvent } from './replyStreamEvents'
@@ -52,21 +50,17 @@ async function* streamToolReply(
   request: ToolOrchestratorRequest,
 ): AsyncGenerator<ReplyStreamEvent> {
   const context = request.messages.map(cloneConversationMessage)
-  const startedAt = Date.now()
   let previousCallSignatures = new Set<string>()
   let round = 1
   let usedTools = false
 
   while (true) {
-    const roundTimeoutMs = Math.min(PROVIDER_ROUND_TIMEOUT_MS, getRemainingTime(startedAt))
     const outcome = yield* streamProviderRound(
       options.providerStream,
       context,
       request,
       round,
-      roundTimeoutMs,
     )
-    assertWithinTimeBudget(startedAt)
     if (!outcome.toolCalls.length) {
       if (usedTools && !outcome.content.trim()) {
         throw new ProviderRequestError('empty-result', `${request.settings.label} 未返回最终回答。`)
@@ -85,7 +79,6 @@ async function* streamToolReply(
       request.signal,
       outcome.toolCalls,
       round,
-      startedAt,
     )
     yield { type: 'status', status: TOOL_STATUS_CONTINUING }
     round += 1
@@ -97,47 +90,29 @@ async function* streamProviderRound(
   messages: ProviderConversationMessage[],
   request: ToolOrchestratorRequest,
   round: number,
-  timeoutMs: number,
 ): AsyncGenerator<ReplyStreamEvent, RoundOutcome> {
-  const timeout = createTimedSignal(request.signal, timeoutMs)
   let content = ''
   let reasoningContent = ''
   let toolCalls: NormalizedToolCall[] = []
-  try {
-    for await (const event of providerStream.stream({
-      messages,
-      settings: request.settings,
-      signal: timeout.signal,
-      thinkingLevel: request.thinkingLevel,
-      tools: request.tools.map((tool) => tool.definition),
-    })) {
-      if (event.type === 'content') content += event.content
-      if (event.type === 'reasoning') reasoningContent += event.content
-      if (event.type === 'tool-calls') toolCalls = event.calls
-      yield event
-      if (event.type === 'reasoning') {
-        const timeline = createReasoningTimelineItem({
-          content: reasoningContent,
-          id: `reasoning-${round}`,
-          round,
-        })
-        if (timeline) yield { type: 'timeline', item: timeline }
-      }
+  for await (const event of providerStream.stream({
+    messages,
+    settings: request.settings,
+    signal: request.signal,
+    thinkingLevel: request.thinkingLevel,
+    tools: request.tools.map((tool) => tool.definition),
+  })) {
+    if (event.type === 'content') content += event.content
+    if (event.type === 'reasoning') reasoningContent += event.content
+    if (event.type === 'tool-calls') toolCalls = event.calls
+    yield event
+    if (event.type === 'reasoning') {
+      const timeline = createReasoningTimelineItem({
+        content: reasoningContent,
+        id: `reasoning-${round}`,
+        round,
+      })
+      if (timeline) yield { type: 'timeline', item: timeline }
     }
-  } catch (error) {
-    if (timeout.timedOut()) {
-      const orchestratorTimedOut = timeoutMs < PROVIDER_ROUND_TIMEOUT_MS
-      throw new ToolFlowError(
-        orchestratorTimedOut ? 'tool_orchestrator_timeout' : 'provider_round_timeout',
-        orchestratorTimedOut
-          ? `工具总流程超时（${ORCHESTRATOR_TIMEOUT_MS}ms）。`
-          : `${request.settings.label} 模型请求超时（${PROVIDER_ROUND_TIMEOUT_MS}ms）。`,
-        error,
-      )
-    }
-    throw error
-  } finally {
-    timeout.clear()
   }
   return { content, reasoningContent, toolCalls }
 }
@@ -150,23 +125,13 @@ async function* executeBatch(
   signal: AbortSignal | undefined,
   calls: NormalizedToolCall[],
   round: number,
-  startedAt: number,
 ): AsyncGenerator<ReplyStreamEvent> {
   for (const call of calls) {
-    const tool = tools.find((item) => item.definition.function.name === call.name)
-    const toolTimeoutMs = getToolExecutionTimeoutMs(tool ?? {})
-    const timeoutMs = Math.min(toolTimeoutMs, getRemainingTime(startedAt))
-    const orchestratorTimedOut = timeoutMs < toolTimeoutMs
     const result = yield* executeToolCall({
       call,
       context: toolContext,
       round,
       signal,
-      timeoutCode: orchestratorTimedOut ? 'tool_orchestrator_timeout' : 'tool_execute_timeout',
-      timeoutMessage: orchestratorTimedOut
-        ? `工具总流程超时（${ORCHESTRATOR_TIMEOUT_MS}ms）。`
-        : `工具调用超时（${call.name}，${toolTimeoutMs}ms）。`,
-      timeoutMs,
       tools,
     })
     context.push(mapping.createToolResultMessage(call.id, result))
@@ -186,46 +151,10 @@ function assertNoRepeatedCalls(
   return current
 }
 
-function assertWithinTimeBudget(startedAt: number): void {
-  getRemainingTime(startedAt)
-}
-
-function getRemainingTime(startedAt: number): number {
-  const remaining = ORCHESTRATOR_TIMEOUT_MS - (Date.now() - startedAt)
-  if (remaining <= 0) {
-    throw new ToolFlowError('tool_orchestrator_timeout', `工具总流程超时（${ORCHESTRATOR_TIMEOUT_MS}ms）。`)
-  }
-  return remaining
-}
-
 function cloneConversationMessage(message: ProviderConversationMessage): ProviderConversationMessage {
   return {
     ...message,
     attachments: message.attachments?.map((attachment) => ({ ...attachment })),
     toolCalls: message.toolCalls?.map((call) => ({ ...call })),
-  }
-}
-
-function createTimedSignal(parent: AbortSignal | undefined, timeoutMs: number): {
-  clear: () => void
-  signal: AbortSignal
-  timedOut: () => boolean
-} {
-  const controller = new AbortController()
-  let timedOut = false
-  const timer = setTimeout(() => {
-    timedOut = true
-    controller.abort()
-  }, timeoutMs)
-  const onAbort = () => controller.abort()
-  parent?.addEventListener('abort', onAbort, { once: true })
-  if (parent?.aborted) controller.abort()
-  return {
-    clear: () => {
-      clearTimeout(timer)
-      parent?.removeEventListener('abort', onAbort)
-    },
-    signal: controller.signal,
-    timedOut: () => timedOut,
   }
 }

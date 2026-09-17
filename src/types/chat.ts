@@ -8,6 +8,7 @@ export type ProviderProtocol = 'chat_completions' | 'responses'
 export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'max'
 export type UtoolsUploadMode = 'local-only' | 'settings-only' | 'all-data'
 export type ToolTraceStatus = 'planned' | 'running' | 'succeeded' | 'failed' | 'stopped'
+// Legacy timeout codes remain readable for persisted traces; runtime no longer emits them.
 export type ToolTraceErrorCode =
   | 'tool_args_parse'
   | 'tool_config'

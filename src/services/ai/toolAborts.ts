@@ -1,31 +1,20 @@
-import { ToolFlowError } from './toolFlowErrors'
-
 interface AbortScope {
   clear: () => void
-  isTimedOut: () => boolean
   signal: AbortSignal
 }
 
-interface RunWithAbortTimeoutOptions<T> {
+interface RunWithAbortOptions<T> {
   operation: (signal: AbortSignal) => Promise<T>
   parentSignal?: AbortSignal
-  timeoutMs: number
-  timeoutMessage: string
-  timeoutCode: ToolFlowError['code']
 }
 
-export async function runWithAbortTimeout<T>(options: RunWithAbortTimeoutOptions<T>): Promise<T> {
-  const scope = createAbortScope(options.parentSignal, options.timeoutMs)
+export async function runWithAbort<T>(options: RunWithAbortOptions<T>): Promise<T> {
+  const scope = createAbortScope(options.parentSignal)
   try {
     if (scope.signal.aborted) {
       throw createAbortError()
     }
     return await raceWithAbort(options.operation(scope.signal), scope.signal)
-  } catch (error) {
-    if (scope.isTimedOut()) {
-      throw new ToolFlowError(options.timeoutCode, options.timeoutMessage, error)
-    }
-    throw error
   } finally {
     scope.clear()
   }
@@ -63,14 +52,8 @@ function raceWithAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T
   })
 }
 
-function createAbortScope(parentSignal: AbortSignal | undefined, timeoutMs: number): AbortScope {
+function createAbortScope(parentSignal: AbortSignal | undefined): AbortScope {
   const controller = new AbortController()
-  let timedOut = false
-  const timer = setTimeout(() => {
-    timedOut = true
-    controller.abort()
-  }, timeoutMs)
-
   const onParentAbort = () => controller.abort()
   if (parentSignal?.aborted) {
     controller.abort()
@@ -80,10 +63,8 @@ function createAbortScope(parentSignal: AbortSignal | undefined, timeoutMs: numb
 
   return {
     clear() {
-      clearTimeout(timer)
       parentSignal?.removeEventListener('abort', onParentAbort)
     },
-    isTimedOut: () => timedOut,
     signal: controller.signal,
   }
 }

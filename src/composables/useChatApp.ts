@@ -169,6 +169,10 @@ export function useChatApp() {
     await replyLifecycle.send()
   }
 
+  function clearLastError(): void {
+    lastError.value = null
+  }
+
   function startFreshConversation(): void {
     if (isSending.value) {
       return
@@ -177,7 +181,7 @@ export function useChatApp() {
     activeConversationId.value = null
     messages.value = []
     pendingAttachments.value = []
-    lastError.value = null
+    clearLastError()
   }
 
   function selectConversation(id: string): void {
@@ -319,6 +323,7 @@ export function useChatApp() {
     addPendingImages,
     applySettingsEdit: settingsActions.applySettingsEdit,
     canSendMessage,
+    clearLastError,
     closeSettings: settingsActions.closeSettings,
     composerFocusPosition,
     conversations,

@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const pluginEnterCallbacks: Array<() => void> = []
 const pluginEnterSignal = ref(0)
+const lastError = ref<string | null>(null)
+const clearLastError = vi.fn(() => {
+  lastError.value = null
+})
 const initialize = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('./composables/chatAppSettings', () => ({
@@ -46,7 +50,8 @@ vi.mock('./composables/useChatApp', () => ({
     isProviderSwitchLocked: computed(() => false),
     isSettingsOpen: ref(false),
     isSidebarCollapsed: ref(true),
-    lastError: ref<string | null>(null),
+    lastError,
+    clearLastError,
     messages: ref([]),
     modelOptions: computed(() => []),
     openSettings: vi.fn(),
@@ -176,6 +181,8 @@ import App from './App.vue'
 describe('App', () => {
   beforeEach(() => {
     initialize.mockClear()
+    clearLastError.mockClear()
+    lastError.value = null
     pluginEnterCallbacks.length = 0
     pluginEnterSignal.value = 0
     Object.defineProperty(window, 'utools', {
@@ -190,6 +197,17 @@ describe('App', () => {
 
   afterEach(() => {
     delete window.utools
+  })
+
+  it('dismisses the visible error banner', async () => {
+    lastError.value = '请求失败'
+    const wrapper = mount(App)
+
+    expect(wrapper.get('.error-banner').text()).toContain('请求失败')
+    await wrapper.get('.error-banner-close').trigger('click')
+
+    expect(clearLastError).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('.error-banner').exists()).toBe(false)
   })
 
   it('requests composer focus on mount and every plugin re-entry', async () => {

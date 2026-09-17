@@ -1,17 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { getDefaultProviderCapabilities } from '../../constants/providerCapabilities'
 import { createToolOrchestrator } from './toolOrchestrator'
-import { getToolExecutionTimeoutMs, QWEN_IMAGE_TOOL_TIMEOUT_MS, TOOL_EXECUTION_TIMEOUT_MS } from './toolExecution'
 import { messageMapping } from './messageMapping'
 import type { ProviderStream } from './providerStream'
 import type { AiTool, ToolExecutionContext } from './toolTypes'
 
 describe('ToolOrchestrator', () => {
-  it('uses tool metadata for execution timeouts', () => {
-    expect(getToolExecutionTimeoutMs({})).toBe(TOOL_EXECUTION_TIMEOUT_MS)
-    expect(getToolExecutionTimeoutMs({ executionTimeoutMs: QWEN_IMAGE_TOOL_TIMEOUT_MS })).toBe(QWEN_IMAGE_TOOL_TIMEOUT_MS)
-  })
-
   it('executes a tool batch serially and forwards the final text', async () => {
     const calls: string[] = []
     const providerStream = scriptedProviderStream([
@@ -33,6 +27,55 @@ describe('ToolOrchestrator', () => {
     expect(events.filter((event) => event.type === 'tool-trace').map((event) => event.trace.status)).toEqual([
       'planned', 'running', 'succeeded', 'planned', 'running', 'succeeded',
     ])
+  })
+
+  it('waits for a slow tool until it resolves without an automatic timeout', async () => {
+    vi.useFakeTimers()
+    try {
+      let resolveTool!: (result: { content: string }) => void
+      let resolveStarted!: () => void
+      let round = 0
+      let settled = false
+      const started = new Promise<void>((resolve) => {
+        resolveStarted = resolve
+      })
+      const slowResult = new Promise<{ content: string }>((resolve) => {
+        resolveTool = resolve
+      })
+      const providerStream: ProviderStream = {
+        async *stream() {
+          if (round++ === 0) {
+            yield { type: 'tool-calls', calls: [{ id: 'call-1', name: 'slow', argumentsJson: '{}' }] }
+            return
+          }
+          yield { type: 'content', content: '最终回答' }
+        },
+      }
+      const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
+      const resultPromise = collect(orchestrator.stream(request([
+        tool('slow', async () => {
+          resolveStarted()
+          return slowResult
+        }),
+      ]))).then((events) => {
+        settled = true
+        return events
+      }, (error) => {
+        settled = true
+        throw error
+      })
+
+      await started
+
+      await vi.advanceTimersByTimeAsync(120_000)
+      expect(settled).toBe(false)
+
+      resolveTool({ content: '工具结果' })
+      const events = await resultPromise
+      expect(events).toContainEqual({ type: 'content', content: '最终回答' })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('updates one reasoning timeline item instead of adding one item per streamed delta', async () => {
@@ -164,18 +207,6 @@ describe('ToolOrchestrator', () => {
       { toolCallId: 'call-1', content: expect.stringContaining('boom') },
       { toolCallId: 'call-2', content: 'ok' },
     ])
-  })
-
-  it('still terminates the reply when a tool execution times out', async () => {
-    const providerStream = scriptedProviderStream([[
-      { type: 'tool-calls', calls: [{ id: 'call-1', name: 'slow', argumentsJson: '{}' }] },
-      { type: 'content', content: '不应到达的回答' },
-    ]])
-    const orchestrator = createToolOrchestrator({ messageMapping, providerStream })
-    const slow = { ...tool('slow', async () => new Promise<{ content: string }>(() => undefined)), executionTimeoutMs: 5 }
-
-    await expect(collect(orchestrator.stream(request([slow]))))
-      .rejects.toMatchObject({ code: 'tool_execute_timeout' })
   })
 
   it('marks a running tool as stopped when its signal aborts', async () => {

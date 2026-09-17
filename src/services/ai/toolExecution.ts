@@ -2,7 +2,7 @@ import type { ProcessTimelineItem, ToolTraceRecord } from '../../types/chat'
 import { ProviderStreamStoppedError } from './providerStream'
 import type { ReplyStreamEvent } from './replyStreamEvents'
 import { ToolFlowError, isToolFlowError, toToolFlowError } from './toolFlowErrors'
-import { runWithAbortTimeout } from './toolTimeouts'
+import { runWithAbort } from './toolAborts'
 import {
   createPlannedToolTrace,
   createToolCallSignature,
@@ -15,21 +15,11 @@ import {
 import { createToolTimelineItem } from './toolTimelineNarration'
 import type { AiTool, NormalizedToolCall, ToolExecutionContext } from './toolTypes'
 
-export const TOOL_EXECUTION_TIMEOUT_MS = 20000
-export const QWEN_IMAGE_TOOL_TIMEOUT_MS = 60000
-
-export function getToolExecutionTimeoutMs(tool: Pick<AiTool, 'executionTimeoutMs'>): number {
-  return tool.executionTimeoutMs ?? TOOL_EXECUTION_TIMEOUT_MS
-}
-
 export async function* executeToolCall(options: {
   call: NormalizedToolCall
   context: ToolExecutionContext
   round: number
   signal?: AbortSignal
-  timeoutCode?: ToolFlowError['code']
-  timeoutMessage?: string
-  timeoutMs?: number
   tools: AiTool[]
 }): AsyncGenerator<ReplyStreamEvent, string> {
   const args = parseToolArguments(options.call.argumentsJson)
@@ -44,18 +34,12 @@ export async function* executeToolCall(options: {
   yield { type: 'status', status: buildToolCallingStatusText(options.call.name, args) }
 
   try {
-    const timeoutMs = options.timeoutMs ?? TOOL_EXECUTION_TIMEOUT_MS
-    const timeoutCode = options.timeoutCode ?? 'tool_execute_timeout'
-    const timeoutMessage = options.timeoutMessage ?? `工具调用超时（${options.call.name}，${timeoutMs}ms）。`
-    const result = await runWithAbortTimeout({
+    const result = await runWithAbort({
       operation: (signal) => tool.execute(args, {
         ...options.context,
         signal,
       }),
       parentSignal: options.signal,
-      timeoutCode,
-      timeoutMessage,
-      timeoutMs,
     })
     if (options.signal?.aborted) throw new ProviderStreamStoppedError()
 
@@ -74,17 +58,12 @@ export async function* executeToolCall(options: {
     trace = markToolTraceFailed(trace, typed.code, typed.message, Date.now())
     yield { type: 'tool-trace', trace }
     yield { type: 'timeline', item: createFailedTimeline(timelineId, options.round, options.call.name, args, trace, typed.message) }
-    if (isProtectiveToolFailure(typed)) throw typed
     return createToolFailureResultContent(options.call.name, typed)
   }
 }
 
 // Rule: 单次工具执行失败不终止回合，而是把失败作为工具结果回传给模型；
-// 超时属于保护性失败，仍必须终止，避免整轮无限延长。
-function isProtectiveToolFailure(error: ToolFlowError): boolean {
-  return error.code === 'tool_execute_timeout' || error.code === 'tool_orchestrator_timeout'
-}
-
+// 用户停止通过同一个 AbortSignal 终止当前工具和回复。
 function createToolFailureResultContent(toolName: string, error: ToolFlowError): string {
   return [
     `工具 ${toolName} 本次调用失败，没有取得任何结果。`,

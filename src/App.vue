@@ -125,8 +125,17 @@ watch(app.pluginEnterSignal, () => {
       <div v-if="app.environmentNotice.value" class="environment-banner">
         {{ app.environmentNotice.value }}
       </div>
-      <div v-if="app.lastError.value" class="error-banner">
-        {{ app.lastError.value }}
+      <div v-if="app.lastError.value" class="error-banner" role="alert">
+        <span class="error-banner-message">{{ app.lastError.value }}</span>
+        <button
+          aria-label="关闭错误提示"
+          class="error-banner-close"
+          title="关闭错误提示"
+          type="button"
+          @click="app.clearLastError"
+        >
+          ×
+        </button>
       </div>
 
       <section
