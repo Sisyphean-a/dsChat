@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue'
+import { createUsageStatisticsStore, type UsageStatistics } from '../services/usageStatistics'
 import {
   DEFAULT_SETTINGS,
   INTERRUPTED_RESPONSE_MESSAGE,
@@ -45,6 +46,14 @@ import { resolveRetryableAssistantReply } from './chatAppRetry'
 
 export function useChatApp() {
   const settings = ref<SettingsForm>(structuredClone(DEFAULT_SETTINGS))
+  const usageStatistics = ref<UsageStatistics | null>(null)
+  const usageStatisticsError = ref<string | null>(null)
+  const usageStore = createUsageStatisticsStore({
+    onChange: value => { usageStatistics.value = value },
+  })
+  function reportUsageError(error: unknown): void {
+    usageStatisticsError.value = getErrorMessage(error, '使用统计保存失败。')
+  }
   const conversations = ref<ConversationDoc[]>([])
   const activeConversationId = ref<string | null>(null)
   const messages = ref<ChatMessage[]>([])
@@ -98,6 +107,12 @@ export function useChatApp() {
   })
 
   const replyLifecycle = createChatAppProduction({
+    onProviderUsage(provider, usage) {
+      void usageStore.recordProvider(provider, usage).catch(reportUsageError)
+    },
+    onToolCall(name) {
+      void usageStore.recordTool(name).catch(reportUsageError)
+    },
     activeConversationId,
     conversationPersistence,
     conversations,
@@ -134,6 +149,7 @@ export function useChatApp() {
   })
 
   async function initialize(): Promise<void> {
+    await usageStore.initialize().catch(reportUsageError)
     settings.value = await loadSettings()
     applyAppearance({
       fontSize: settings.value.fontSize,
@@ -359,5 +375,7 @@ export function useChatApp() {
     startFreshConversation,
     toggleSidebar: settingsActions.toggleSidebar,
     updateActiveThinkingLevel,
+    usageStatistics,
+    usageStatisticsError,
   }
 }

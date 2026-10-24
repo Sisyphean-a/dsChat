@@ -6,6 +6,29 @@ import type { ProviderStream } from './providerStream'
 import type { AiTool, ToolExecutionContext } from './toolTypes'
 
 describe('ToolOrchestrator', () => {
+  it('counts each actually executed tool once, including failures, but not unknown tools', async () => {
+    const onToolCall = vi.fn()
+    const orchestrator = createToolOrchestrator({
+      messageMapping, onToolCall,
+      providerStream: scriptedProviderStream([
+        [{ type: 'tool-calls', calls: [
+          { id: 'a', name: 'ok', argumentsJson: '{}' }, { id: 'b', name: 'broken', argumentsJson: '{}' },
+        ] }],
+        [{ type: 'content', content: '回答' }],
+      ]),
+    })
+    await collect(orchestrator.stream(request([
+      tool('ok', async () => ({ content: 'ok' })),
+      tool('broken', async () => { throw new Error('failed') }),
+    ])))
+    expect(onToolCall.mock.calls).toEqual([['ok'], ['broken']])
+    const unknown = createToolOrchestrator({ messageMapping, onToolCall, providerStream: scriptedProviderStream([
+      [{ type: 'tool-calls', calls: [{ id: 'c', name: 'unknown', argumentsJson: '{}' }] }],
+    ]) })
+    await expect(collect(unknown.stream(request([])))).rejects.toThrow('未知工具')
+    expect(onToolCall).toHaveBeenCalledTimes(2)
+  })
+
   it('executes a tool batch serially and forwards the final text', async () => {
     const calls: string[] = []
     const providerStream = scriptedProviderStream([

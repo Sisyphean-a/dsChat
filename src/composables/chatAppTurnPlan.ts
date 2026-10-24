@@ -1,4 +1,5 @@
-import type { ActiveProviderSettings, ChatMessage, MessageAttachment, ToolSettings } from '../types/chat'
+import type { ActiveProviderSettings, ChatMessage, MessageAttachment } from '../types/chat'
+import type { ToolSettings } from '../services/ai/toolTypes'
 import {
   providerSupportsImageInput,
   providerSupportsNativeWebSearch,

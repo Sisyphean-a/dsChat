@@ -265,6 +265,7 @@ describe('ReplyLifecycle', () => {
 
   it('does not expose Qwen tools when the current request has no image', async () => {
     const state = createState()
+    state.settings.value.toolSettings.builtinTools.deepseekWeb = { enabled: false }
     state.settings.value.toolSettings.enabled = true
     state.settings.value.toolSettings.builtinTools.currentTime.enabled = false
     state.settings.value.toolSettings.builtinTools.tavilySearch.enabled = false

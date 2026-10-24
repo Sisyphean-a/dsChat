@@ -13,7 +13,7 @@ dsChat 同时需要兼容 OpenAI 风格的 Chat Completions、OpenAI Responses�
 2. `ProviderStream` 只处理一次请求的 HTTP/SSE 生命周期，`ProviderCompletion` 只处理非流式标题请求。两者都不维护会话状态或执行工具。
 3. `ToolOrchestrator` 只在启用了本地工具且当前配置支持 Chat Completions 工具调用时运行。它追加 assistant tool-call 和 tool result 上下文，顺序执行调用，并把最终文本交给回复生命周期。
 4. OpenAI Responses 的 `web_search` 是 Provider 原生联网：由 Responses 适配器放进请求并转成状态事件，不进入本地工具注册表和工具轮次。
-5. 内置工具从 `services/tools/toolRegistry.ts` 显式登记。当前支持当前时间和 Tavily；`customTools` 是预留数据形状，当前规范化会清空它，执行引擎对任何非空且启用的配置仍必须显式拒绝，不能静默忽略。
+5. 内置工具从 `services/tools/toolRegistry.ts` 显式登记。当前工具清单见[包架构](../../architecture/packages/ds-chat.md#回复provider-与工具)；`customTools` 是预留数据形状，当前规范化会清空它，执行引擎对任何非空且启用的配置仍必须显式拒绝，不能静默忽略。
 
 ## 备选方案
 

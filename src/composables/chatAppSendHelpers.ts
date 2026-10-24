@@ -3,8 +3,8 @@ import type {
   ActiveProviderSettings,
   MessageAttachment,
   SettingsForm,
-  ToolSettings,
 } from '../types/chat'
+import type { ToolSettings } from '../services/ai/toolTypes'
 import { cloneMessageAttachments } from '../utils/chat'
 import { prepareRequestContext } from './chatAppRequestPreparation'
 

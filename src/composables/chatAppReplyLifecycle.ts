@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
-import type { ActiveProviderSettings, ChatMessage, MessageAttachment, SettingsForm, ToolSettings } from '../types/chat'
+import type { ActiveProviderSettings, ChatMessage, MessageAttachment, SettingsForm } from '../types/chat'
+import type { ToolSettings } from '../services/ai/toolTypes'
 import { type MessageMapping } from '../services/ai/messageMapping'
 import { ProviderStreamStoppedError, type ProviderStream } from '../services/ai/providerStream'
 import type { ProviderConversationMessage } from '../services/ai/providerAdapter'

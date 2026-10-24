@@ -1,3 +1,4 @@
+import type { UsageObserver } from '../usageStatistics'
 import type { ActiveProviderSettings, ThinkingLevel } from '../../types/chat'
 import type { AiToolDefinition, NormalizedToolCall } from './toolTypes'
 import type { HttpAdapter, HttpResponse } from './httpAdapter'
@@ -49,7 +50,7 @@ export interface ProviderStream {
   stream: (request: ProviderStreamRequest) => AsyncIterable<ProviderStreamEvent>
 }
 
-interface ProviderStreamOptions {
+interface ProviderStreamOptions extends UsageObserver {
   httpAdapter: HttpAdapter
   providerAdapters: ProviderAdapterRegistry
 }
@@ -67,18 +68,24 @@ async function* streamProviderReply(
   options: ProviderStreamOptions,
   request: ProviderStreamRequest,
 ): AsyncGenerator<ProviderStreamEvent> {
+  const tracking: { sent: boolean; state?: ProviderStreamState } = { sent: false }
   try {
-    const { adapter, body } = await openProviderResponse(options, request)
-    const outcome = yield* consumeProviderResponse({ adapter, body, request })
+    const { adapter, body } = await openProviderResponse(options, request, tracking)
+    const state = adapter.createStreamState(request.settings)
+    tracking.state = state
+    const outcome = yield* consumeProviderResponse({ adapter, body, request, state })
     assertNonEmptyResult(outcome, request.settings.label)
   } catch (error) {
     throw normalizeProviderError(request, error)
+  } finally {
+    if (tracking.sent) options.onProviderUsage?.(request.settings.provider, tracking.state?.usage)
   }
 }
 
 async function openProviderResponse(
   options: ProviderStreamOptions,
   request: ProviderStreamRequest,
+  tracking: { sent: boolean },
 ): Promise<{ adapter: ProviderAdapter; body: ReadableStream<Uint8Array> }> {
   assertNotStopped(request.signal)
   const adapter = selectProviderAdapter(options.providerAdapters, request.settings)
@@ -90,6 +97,7 @@ async function openProviderResponse(
   }
 
   const providerRequest = adapter.createRequest({ ...request, stream: true })
+  tracking.sent = true
   const response = await options.httpAdapter.send({
     body: JSON.stringify(providerRequest.body),
     headers: providerRequest.headers,
@@ -108,8 +116,9 @@ async function* consumeProviderResponse(options: {
   adapter: ProviderAdapter
   body: ReadableStream<Uint8Array>
   request: ProviderStreamRequest
+  state: ProviderStreamState
 }): AsyncGenerator<ProviderStreamEvent, StreamOutcome> {
-  const state = options.adapter.createStreamState(options.request.settings)
+  const state = options.state
   const outcome: StreamOutcome = { hasContent: false, hasToolCalls: false }
 
   for await (const rawEvent of decodeSseEvents(options.body, options.request.signal)) {
@@ -188,7 +197,8 @@ function collectEvents(
     if (delta.type === 'done') return { events, terminal: true }
     if (delta.type === 'tool-calls') {
       validateToolCalls(delta.calls, acceptsTools)
-      return { events: [...events, delta], terminal: true }
+      // Rule: DeepSeek 工具轮次继续消费尾部用量块，不能在 tool_calls 处提前关闭流。
+      if (state.provider !== 'deepseek') return { events: [...events, delta], terminal: true }
     }
     events.push(delta)
   }

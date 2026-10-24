@@ -55,6 +55,23 @@ function openQwenOfficialSite(): void {
           <section class="builtin-tool-item">
             <div class="builtin-tool-row">
               <p class="builtin-tool-meta">
+                <span class="builtin-tool-name">DeepSeek 网页搜索与抓取</span>
+                <span class="builtin-tool-desc">复用 DeepSeek 模型设置的 API Key，无需重复配置。启用后优先替代 Tavily。</span>
+              </p>
+              <label class="switch-row">
+                <input
+                  :checked="props.settings.toolSettings.builtinTools.deepseekWeb?.enabled ?? false"
+                  type="checkbox"
+                  aria-label="DeepSeek 网页搜索与抓取"
+                  @change="emit('edit', { domain: 'tools', action: 'toggleBuiltin', tool: 'deepseekWeb', enabled: ($event.target as HTMLInputElement).checked })"
+                />
+                <span>启用</span>
+              </label>
+            </div>
+          </section>
+          <section class="builtin-tool-item">
+            <div class="builtin-tool-row">
+              <p class="builtin-tool-meta">
                 <span class="builtin-tool-name">get_current_time</span>
                 <span class="builtin-tool-desc">用来获取当前的日期时间</span>
               </p>

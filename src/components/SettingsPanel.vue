@@ -5,6 +5,8 @@ import SettingsConversationSection from './SettingsConversationSection.vue'
 import SettingsGeneralSection from './SettingsGeneralSection.vue'
 import SettingsProvidersSection from './SettingsProvidersSection.vue'
 import SettingsToolsSection from './SettingsToolsSection.vue'
+import SettingsStatisticsSection from './SettingsStatisticsSection.vue'
+import type { UsageStatistics } from '../services/usageStatistics'
 import type { SettingsForm } from '../types/chat'
 import type { SettingsEdit, SettingsSectionId } from '../types/settingsPanel'
 
@@ -14,6 +16,8 @@ const props = defineProps<{
   open: boolean
   saving: boolean
   settings: SettingsForm
+  statistics?: UsageStatistics | null
+  statisticsError?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -26,8 +30,8 @@ const activeSection = ref<SettingsSectionId>('general')
 const closeButtonRef = ref<HTMLButtonElement | null>(null)
 const dialogRef = ref<HTMLElement | null>(null)
 const enabledBuiltinToolCount = computed(() => {
-  const { currentTime, tavilySearch, qwenImage } = props.settings.toolSettings.builtinTools
-  return Number(currentTime.enabled) + Number(tavilySearch.enabled) + Number(qwenImage.enabled)
+  const { currentTime, tavilySearch, qwenImage, deepseekWeb } = props.settings.toolSettings.builtinTools
+  return Number(currentTime.enabled) + Number(deepseekWeb?.enabled || tavilySearch.enabled) + Number(qwenImage.enabled)
 })
 const navItems = computed(() => [
   {
@@ -50,6 +54,7 @@ const navItems = computed(() => [
     label: '工具',
     badge: props.settings.toolSettings.enabled ? `${enabledBuiltinToolCount.value} 启用` : '关闭',
   },
+  { id: 'statistics' as const, label: '统计', badge: '' },
 ])
 
 watch(() => props.open, (open) => {
@@ -144,9 +149,14 @@ const { handleModalKeydown } = useModalFocus({
               @edit="emit('edit', $event)"
             />
             <SettingsToolsSection
-              v-else
+              v-else-if="activeSection === 'tools'"
               :settings="props.settings"
               @edit="emit('edit', $event)"
+            />
+            <SettingsStatisticsSection
+              v-else
+              :statistics="props.statistics"
+              :error="props.statisticsError"
             />
           </main>
         </div>

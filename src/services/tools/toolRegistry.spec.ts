@@ -8,6 +8,8 @@ describe('toolRegistry', () => {
     expect(names).toEqual([
       'get_current_time',
       'tavily_search',
+      'deepseek_search',
+      'deepseek_fetch',
       'qwen_extract_text_from_screenshot',
       'qwen_diagnose_error_screenshot',
       'qwen_analyze_image',

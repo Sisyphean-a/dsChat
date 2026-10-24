@@ -27,6 +27,7 @@ export interface RuntimeQwenImageToolSettings {
 }
 
 export interface RuntimeBuiltinToolSettings {
+  deepseekWeb?: { enabled: boolean }
   currentTime: RuntimeCurrentTimeToolSettings
   tavilySearch: RuntimeTavilySearchToolSettings
   qwenImage?: RuntimeQwenImageToolSettings
@@ -43,6 +44,7 @@ export interface RuntimeCustomToolSettings {
 }
 
 export interface ToolSettings {
+  deepseekApiKey?: string
   enabled: boolean
   builtinTools: RuntimeBuiltinToolSettings
   customTools: RuntimeCustomToolSettings[]

@@ -36,6 +36,8 @@ describe('migrateSettingsDoc', () => {
       temperature: 1.5,
     })
     expect(settings.customModels).toEqual([])
+    expect(settings.toolSettings.enabled).toBe(false)
+    expect(settings.toolSettings.builtinTools.deepseekWeb?.enabled).toBe(false)
   })
 
   it('migrates legacy provider thinking switches into each provider configuration', () => {
@@ -78,6 +80,7 @@ describe('migrateSettingsDoc', () => {
       type: 'settings',
     } as unknown as Parameters<typeof migrateSettingsDoc>[0], 'local-only')
 
+    expect(settings.toolSettings.builtinTools.deepseekWeb?.enabled).toBe(false)
     expect(settings.toolSettings.builtinTools.qwenImage).toEqual({
       enabled: false,
       apiKey: '',

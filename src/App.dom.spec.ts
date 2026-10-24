@@ -66,6 +66,8 @@ vi.mock('./composables/useChatApp', () => ({
     retryableAssistantMessageId: computed(() => null),
     saveSettings: vi.fn(),
     settingsSaveError: ref<string | null>(null),
+    usageStatistics: ref(null),
+    usageStatisticsError: ref(null),
     selectActiveConfig: vi.fn(),
     selectActiveModel: vi.fn(),
     selectConversation: vi.fn(),

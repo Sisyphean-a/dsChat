@@ -1,3 +1,4 @@
+import type { UsageObserver } from '../services/usageStatistics'
 import type { Ref } from 'vue'
 import type { ChatMessage, ConversationDoc, MessageAttachment, SettingsForm } from '../types/chat'
 import { createConversationTitleRequester } from '../services/conversationTitle'
@@ -11,7 +12,7 @@ import { getTurnTools } from '../services/tools/toolRegistry'
 import { createConversationTitleManager, type ChatAppConversationPersistenceActions } from './chatAppConversationPersistence'
 import { createReplyLifecycle, type ReplyLifecycle } from './chatAppReplyLifecycle'
 
-interface ChatAppProductionOptions {
+interface ChatAppProductionOptions extends UsageObserver {
   activeConversationId: Ref<string | null>
   conversationPersistence: ChatAppConversationPersistenceActions
   conversations: Ref<ConversationDoc[]>
@@ -28,15 +29,18 @@ interface ChatAppProductionOptions {
 
 export function createChatAppProduction(options: ChatAppProductionOptions): ReplyLifecycle {
   const providerStream = createProviderStream({
+    onProviderUsage: options.onProviderUsage,
     httpAdapter: fetchHttpAdapter,
     providerAdapters: defaultProviderAdapterRegistry,
   })
   const completion = createProviderCompletion({
+    onProviderUsage: options.onProviderUsage,
     httpAdapter: fetchHttpAdapter,
     providerAdapters: defaultProviderAdapterRegistry,
   })
   const titleRequester = createConversationTitleRequester(completion)
   const toolOrchestrator = createToolOrchestrator({
+    onToolCall: options.onToolCall,
     messageMapping,
     providerStream,
   })

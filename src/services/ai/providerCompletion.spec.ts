@@ -1,9 +1,27 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { buildDefaultSettings } from '../../constants/providers'
+import { getActiveProviderSettings } from '../../composables/chatAppSettings'
 import { getDefaultProviderCapabilities } from '../../constants/providerCapabilities'
 import { createProviderCompletion } from './providerCompletion'
 import { defaultProviderAdapterRegistry } from './providerAdapter'
 
 describe('ProviderCompletion', () => {
+  it('records title completion tokens including cache without enabling stream options', async () => {
+    const onProviderUsage = vi.fn()
+    const completion = createProviderCompletion({
+      httpAdapter: { send: async request => {
+        expect(JSON.parse(request.body).stream_options).toBeUndefined()
+        return response(JSON.stringify({
+          choices: [{ message: { content: '标题' } }],
+          usage: { prompt_tokens: 15, completion_tokens: 5, prompt_cache_hit_tokens: 10, prompt_cache_miss_tokens: 5 },
+        }))
+      } },
+      providerAdapters: defaultProviderAdapterRegistry, onProviderUsage,
+    })
+    expect(await completion.complete({ messages: [], settings: getActiveProviderSettings(buildDefaultSettings()), thinkingLevel: 'off' })).toBe('标题')
+    expect(onProviderUsage.mock.calls).toEqual([['deepseek', { inputTokens: 15, outputTokens: 5, cacheHitTokens: 10, cacheMissTokens: 5 }]])
+  })
+
   it('reads a non-streaming Responses completion through the HTTP adapter', async () => {
     const completion = createProviderCompletion({
       httpAdapter: {

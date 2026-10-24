@@ -17,6 +17,7 @@ import type { AiTool, NormalizedToolCall, ToolExecutionContext } from './toolTyp
 
 export async function* executeToolCall(options: {
   call: NormalizedToolCall
+  onToolCall?: (name: string) => void
   context: ToolExecutionContext
   round: number
   signal?: AbortSignal
@@ -35,10 +36,10 @@ export async function* executeToolCall(options: {
 
   try {
     const result = await runWithAbort({
-      operation: (signal) => tool.execute(args, {
-        ...options.context,
-        signal,
-      }),
+      operation: (signal) => {
+        options.onToolCall?.(options.call.name)
+        return tool.execute(args, { ...options.context, signal })
+      },
       parentSignal: options.signal,
     })
     if (options.signal?.aborted) throw new ProviderStreamStoppedError()

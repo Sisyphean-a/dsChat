@@ -1,3 +1,4 @@
+import type { TokenUsage } from '../usageStatistics'
 import type { ActiveProviderSettings, MessageAttachment, ThinkingLevel } from '../../types/chat'
 import { resolveProviderProtocol } from '../../constants/providerCapabilities'
 import type { AiToolDefinition, NormalizedToolCall } from './toolTypes'
@@ -28,6 +29,7 @@ export interface ProviderRequest {
 }
 
 export interface ProviderStreamState {
+  usage?: TokenUsage
   lastContent: string
   lastReasoning: string
   provider: ActiveProviderSettings['provider']

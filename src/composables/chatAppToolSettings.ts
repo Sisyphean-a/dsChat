@@ -22,7 +22,7 @@ export function normalizeToolSettings(
       }
     }
   }>
-  const builtinTools = normalizeBuiltinToolSettings(toolSettings, legacy.tavilyApiKey, legacy.builtinTools?.zaiImage?.enabled)
+  const builtinTools = normalizeBuiltinToolSettings(toolSettings, legacy?.tavilyApiKey, legacy?.builtinTools?.zaiImage?.enabled)
   return {
     enabled: toolSettings?.enabled ?? false,
     builtinTools,
@@ -33,6 +33,7 @@ export function normalizeToolSettings(
 export function getToolSettingsError(
   activeSettings: ActiveProviderSettings,
   toolSettings: SettingsForm['toolSettings'],
+  deepseekApiKey = '',
 ): string | null {
   if (!toolSettings.enabled) {
     return null
@@ -47,6 +48,10 @@ export function getToolSettingsError(
   }
 
   const supportsLocalTools = configSupportsToolCalling(activeSettings)
+  if (toolSettings.builtinTools.deepseekWeb?.enabled) {
+    if (!supportsLocalTools) return 'DeepSeek 网页工具需要支持 Chat Completions 工具调用的配置。'
+    if (!deepseekApiKey.trim()) return '请先在 DeepSeek 模型设置中填写 API Key，网页工具会直接复用。'
+  }
   if (hasEnabledQwenImageTool(toolSettings) && !supportsLocalTools) {
     return `${activeSettings.label} 当前配置暂不支持本地图片工具，请切换支持 Chat Completions 工具调用的配置。`
   }
@@ -83,7 +88,11 @@ export function canUseBuiltinQwenImageTool(
 export function canActiveSettingsSearchWeb(
   activeSettings: ActiveProviderSettings,
   toolSettings: SettingsForm['toolSettings'],
+  deepseekApiKey = '',
 ): boolean {
+  if (toolSettings.enabled && toolSettings.builtinTools.deepseekWeb?.enabled) {
+    return configSupportsToolCalling(activeSettings) && Boolean(deepseekApiKey.trim()) && !hasEnabledCustomTool(toolSettings)
+  }
   if (canUseOpenAiNativeWebSearch(activeSettings)) {
     return true
   }
@@ -100,6 +109,7 @@ function normalizeBuiltinToolSettings(
   const builtinTavilyBaseUrl = normalizeTavilySearchBaseUrl(toolSettings?.builtinTools?.tavilySearch?.baseUrl)
   const normalizedLegacyTavilyApiKey = legacyTavilyApiKey?.trim() ?? ''
   return {
+    deepseekWeb: { enabled: toolSettings?.builtinTools?.deepseekWeb?.enabled ?? false },
     currentTime: {
       enabled: toolSettings?.builtinTools?.currentTime?.enabled ?? true,
     },
@@ -169,7 +179,7 @@ function normalizeQwenImageBaseUrl(value: string | undefined): string {
 
 function hasEnabledBuiltinTool(toolSettings: SettingsForm['toolSettings']): boolean {
   const { currentTime, tavilySearch, qwenImage } = toolSettings.builtinTools
-  return currentTime.enabled || tavilySearch.enabled || qwenImage.enabled
+  return currentTime.enabled || tavilySearch.enabled || qwenImage.enabled || Boolean(toolSettings.builtinTools.deepseekWeb?.enabled)
 }
 
 function hasEnabledQwenImageTool(toolSettings: SettingsForm['toolSettings']): boolean {

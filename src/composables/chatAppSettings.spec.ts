@@ -15,6 +15,7 @@ describe('getSendSettingsError', () => {
 
   it('allows openai when native web_search compatibility is enabled', () => {
     const settings = buildDefaultSettings()
+    settings.toolSettings.builtinTools.deepseekWeb = { enabled: false }
     const openai = createAddedModelDraft('openai', [])
     openai.apiKey = 'sk-openai'
     settings.customModels = [openai]
@@ -28,6 +29,7 @@ describe('getSendSettingsError', () => {
 
   it('allows OpenAI-compatible chat completions gateways to use local tools when capabilities are overridden', () => {
     const settings = buildDefaultSettings()
+    settings.toolSettings.builtinTools.deepseekWeb = { enabled: false }
     const openai = createAddedModelDraft('openai', [])
     openai.apiKey = 'sk-openai'
     openai.baseUrl = 'https://proxy.example.com/v1'
@@ -48,6 +50,7 @@ describe('getSendSettingsError', () => {
 
   it('rejects local tools when the provider is still configured for responses protocol', () => {
     const settings = buildDefaultSettings()
+    settings.toolSettings.builtinTools.deepseekWeb = { enabled: false }
     const openai = createAddedModelDraft('openai', [])
     openai.apiKey = 'sk-openai'
     openai.baseUrl = 'https://proxy.example.com/v1'
@@ -68,6 +71,7 @@ describe('getSendSettingsError', () => {
 
   it('requires at least one enabled builtin tool when tool calling is enabled', () => {
     const settings = buildDefaultSettings()
+    settings.toolSettings.builtinTools.deepseekWeb = { enabled: false }
     settings.deepseek.apiKey = 'sk-test'
     settings.toolSettings.enabled = true
     settings.toolSettings.builtinTools.currentTime.enabled = false
@@ -94,7 +98,7 @@ describe('getSendSettingsError', () => {
     const normalized = normalizeSettings(settings)
     expect(normalized.toolSettings.customTools).toEqual([])
     const error = getSendSettingsError(normalized)
-    expect(error).toBe('请至少启用一个内置工具。')
+    expect(error).toBeNull()
   })
 })
 
@@ -254,6 +258,7 @@ describe('canActiveConversationSearchWeb', () => {
 
   it('returns true when tavily search is enabled with api key on tool orchestrator providers', () => {
     const settings = buildDefaultSettings()
+    settings.toolSettings.builtinTools.deepseekWeb = { enabled: false }
     settings.toolSettings.enabled = true
     settings.toolSettings.builtinTools.tavilySearch.enabled = true
     settings.toolSettings.builtinTools.tavilySearch.apiKey = 'tvly-key'
@@ -263,6 +268,7 @@ describe('canActiveConversationSearchWeb', () => {
 
   it('returns false when tavily key is missing even if search tool is enabled', () => {
     const settings = buildDefaultSettings()
+    settings.toolSettings.builtinTools.deepseekWeb = { enabled: false }
     settings.toolSettings.enabled = true
     settings.toolSettings.builtinTools.tavilySearch.enabled = true
     settings.toolSettings.builtinTools.tavilySearch.apiKey = ''

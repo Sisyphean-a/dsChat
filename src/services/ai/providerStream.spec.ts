@@ -5,6 +5,48 @@ import { createProviderStream, ProviderStreamStoppedError } from './providerStre
 import { defaultProviderAdapterRegistry } from './providerAdapter'
 
 describe('ProviderStream', () => {
+  it.each(['stop', 'tool_calls'])('records the last usage once, including after %s', async finish => {
+    const onProviderUsage = vi.fn()
+    const tool = { type: 'function' as const, function: { name: 'get_current_time', description: '', parameters: {} } }
+    const delta = finish === 'stop' ? { content: 'answer' } : { tool_calls: [{ index: 0, id: 'call-1', function: { name: 'get_current_time', arguments: '{}' } }] }
+    const usage = { prompt_tokens: 100, completion_tokens: 20, prompt_cache_hit_tokens: 60, prompt_cache_miss_tokens: 40 }
+    const httpAdapter = memoryHttp([
+      'data: ' + JSON.stringify({ choices: [{ delta }] }) + '\n\n',
+      'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: finish }], usage }) + '\n\n',
+      'data: ' + JSON.stringify({ choices: [], usage }) + '\n\ndata: [DONE]\n\n',
+    ])
+    const stream = createProviderStream({ httpAdapter, providerAdapters: defaultProviderAdapterRegistry, onProviderUsage })
+    await collect(stream.stream(request({ tools: [tool] })))
+    expect(JSON.parse(httpAdapter.send.mock.calls[0]![0].body).stream_options).toEqual({ include_usage: true })
+    expect(onProviderUsage.mock.calls).toEqual([['deepseek', { inputTokens: 100, outputTokens: 20, cacheHitTokens: 60, cacheMissTokens: 40 }]])
+  })
+
+  it('records HTTP failures without inventing token usage', async () => {
+    const onProviderUsage = vi.fn()
+    const stream = createProviderStream({
+      httpAdapter: { send: async () => ({ body: null, status: 402, statusText: 'Payment Required' }) },
+      providerAdapters: defaultProviderAdapterRegistry, onProviderUsage,
+    })
+    await expect(collect(stream.stream(request()))).rejects.toMatchObject({ code: 'http' })
+    expect(onProviderUsage.mock.calls).toEqual([['deepseek', undefined]])
+  })
+
+  it('does not count pre-aborted requests and counts an in-flight stop as missing usage', async () => {
+    const onProviderUsage = vi.fn()
+    const controller = new AbortController()
+    controller.abort()
+    const stream = createProviderStream({ httpAdapter: memoryHttp([]), providerAdapters: defaultProviderAdapterRegistry, onProviderUsage })
+    await expect(collect(stream.stream(request({ signal: controller.signal })))).rejects.toBeInstanceOf(ProviderStreamStoppedError)
+    expect(onProviderUsage).not.toHaveBeenCalled()
+    const active = new AbortController()
+    const stoppedStream = createProviderStream({
+      httpAdapter: { send: async () => { active.abort(); throw new Error('aborted') } },
+      providerAdapters: defaultProviderAdapterRegistry, onProviderUsage,
+    })
+    await expect(collect(stoppedStream.stream(request({ signal: active.signal })))).rejects.toBeInstanceOf(ProviderStreamStoppedError)
+    expect(onProviderUsage.mock.calls).toEqual([['deepseek', undefined]])
+  })
+
   it('preserves status, reasoning, and text order across split SSE chunks', async () => {
     const stream = createProviderStream({
       httpAdapter: memoryHttp([

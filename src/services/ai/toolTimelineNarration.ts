@@ -46,7 +46,7 @@ function buildToolTimelineText(options: {
   errorMessage?: string
   resultContent?: string
 }): string {
-  if (options.toolName === 'tavily_search') {
+  if (options.toolName === 'tavily_search' || options.toolName === 'deepseek_search') {
     return buildSearchTimelineText(options)
   }
 
@@ -100,6 +100,7 @@ function toolRunningLabel(toolName: string): string {
     return '正在获取当前时间信息'
   }
 
+  if (toolName === 'deepseek_fetch') return '正在读取网页正文'
   return `正在调用工具 ${toolName}`
 }
 
@@ -112,6 +113,7 @@ function toolDoneLabel(toolName: string): string {
     return '时间查询'
   }
 
+  if (toolName === 'deepseek_fetch') return '网页读取'
   return `工具 ${toolName}`
 }
 

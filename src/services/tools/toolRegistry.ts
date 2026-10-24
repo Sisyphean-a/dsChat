@@ -4,7 +4,9 @@ import { currentTimeTool } from './currentTimeTool'
 import { tavilySearchTool } from './tavilySearchTool'
 import { qwenImageTools } from './qwenImageTools'
 
-const TOOL_REGISTRY: AiTool[] = [currentTimeTool, tavilySearchTool, ...qwenImageTools]
+import { deepseekWebTools } from './deepseekWebTools'
+
+const TOOL_REGISTRY: AiTool[] = [currentTimeTool, tavilySearchTool, ...deepseekWebTools, ...qwenImageTools]
 
 export function getRegisteredTools(): AiTool[] {
   return [...TOOL_REGISTRY]
@@ -22,7 +24,10 @@ export function getEnabledTools(settings: ToolSettings): AiTool[] {
     tools.push(currentTimeTool)
   }
 
-  if (settings.builtinTools.tavilySearch.enabled) {
+  if (settings.builtinTools.deepseekWeb?.enabled) {
+    if (!settings.deepseekApiKey?.trim()) throw new Error('请先在 DeepSeek 模型设置中填写 API Key。')
+    tools.push(...deepseekWebTools)
+  } else if (settings.builtinTools.tavilySearch.enabled) {
     if (!settings.builtinTools.tavilySearch.apiKey.trim()) {
       throw new Error('请先填写 Tavily API Key。')
     }

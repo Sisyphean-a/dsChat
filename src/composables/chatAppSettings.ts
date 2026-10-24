@@ -75,14 +75,14 @@ export function getSendSettingsError(currentSettings: SettingsForm): string | nu
     return `请先在设置面板中选择 ${activeSettings.label} 模型。`
   }
 
-  return getToolSettingsError(activeSettings, currentSettings.toolSettings)
+  return getToolSettingsError(activeSettings, currentSettings.toolSettings, currentSettings.deepseek.apiKey)
 }
 
 export function canActiveConversationSearchWeb(currentSettings: SettingsForm): boolean {
   const normalizedSettings = normalizeSettings(currentSettings)
   const activeSettings = getActiveProviderSettings(normalizedSettings)
 
-  return canActiveSettingsSearchWeb(activeSettings, normalizedSettings.toolSettings)
+  return canActiveSettingsSearchWeb(activeSettings, normalizedSettings.toolSettings, normalizedSettings.deepseek.apiKey)
 }
 
 export function getActiveProviderSettings(settings: SettingsForm): ActiveProviderSettings {

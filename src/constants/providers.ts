@@ -41,8 +41,9 @@ export interface ProviderDefinition {
 const THEME_DEFAULT: ThemeMode = 'light'
 const FONT_SIZE_DEFAULT: FontSizeMode = 'medium'
 const DEFAULT_TOOL_SETTINGS: ToolSettings = {
-  enabled: false,
+  enabled: true,
   builtinTools: {
+    deepseekWeb: { enabled: true },
     currentTime: {
       enabled: true,
     },
@@ -154,9 +155,7 @@ export function buildDefaultSettings(): SettingsForm {
     deepseek: buildDefaultProviderSettings('deepseek'),
     fontSize: FONT_SIZE_DEFAULT,
     systemPrompt: '',
-    toolSettings: {
-      ...DEFAULT_TOOL_SETTINGS,
-    },
+    toolSettings: structuredClone(DEFAULT_TOOL_SETTINGS),
     theme: THEME_DEFAULT,
     utoolsSessionIdleTimeoutMinutes: DEFAULT_UTOOLS_SESSION_IDLE_TIMEOUT_MINUTES,
     utoolsUploadMode: DEFAULT_UTOOLS_UPLOAD_MODE,

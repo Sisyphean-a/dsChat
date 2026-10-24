@@ -1,3 +1,4 @@
+import { parseDeepseekUsage } from '../../usageStatistics'
 import type { ProviderId } from '../../../types/chat'
 import {
   resolveProviderRequestTemperature,
@@ -28,6 +29,7 @@ interface StreamDeltaPayload {
 }
 
 interface ChatCompletionChunk {
+  usage?: unknown
   choices?: Array<{
     delta?: StreamDeltaPayload
     finish_reason?: string | null
@@ -73,6 +75,9 @@ export const chatCompletionsAdapter: ProviderAdapter = {
     }
 
     const chunk = JSON.parse(event) as ChatCompletionChunk
+    if (state.provider === 'deepseek' && chunk.usage != null) {
+      state.usage = parseDeepseekUsage(chunk.usage)
+    }
     const choice = chunk.choices?.[0]
     if (!choice) {
       return []
@@ -108,6 +113,10 @@ function createPayload(input: ProviderRequestInput): Record<string, unknown> {
     messages: input.messages.map((message) => createMessagePayload(message, input.settings.provider)),
     model: input.settings.model,
     stream: input.stream,
+  }
+
+  if (input.stream && input.settings.provider === 'deepseek') {
+    payload.stream_options = { include_usage: true }
   }
 
   if (shouldIncludeProviderRequestTemperature(input.settings.provider, input.settings, input.thinkingLevel)) {

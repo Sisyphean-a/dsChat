@@ -23,7 +23,7 @@ src/
 ├── constants/                    默认配置、Provider/模型画像、能力和存储策略
 ├── services/
 │   ├── ai/                       HTTP、协议适配、SSE、流式/非流式请求、工具编排
-│   ├── tools/                    当前时间、Tavily、工具注册表与本回合工具解析
+│   ├── tools/                    当前时间、Tavily、DeepSeek 网页工具、工具注册表与本回合工具解析
 │   ├── utools.ts                 本地/远端文档的选择与同步策略
 │   └── *.ts                      Markdown、主题、附件、链接等独立服务
 ├── types/                        聊天和 uTools 边界类型
@@ -54,6 +54,10 @@ src/
 
 `utoolsHostLifecycle.ts` 只在 uTools 环境注册宿主回调：初始化完成前收到的进入事件先缓存、就绪后补发；进入时恢复上次会话，并把 `ask-ds` 划词写成草稿代码块（`utils/askDsPayload.ts`）；离开时中断进行中的回复并记录离开时间。再次进入时仅在“对话”设置的会话恢复时长内恢复上次会话，超时后从新会话开始。
 
+### 使用统计
+
+`services/usageStatistics.ts` 解析 DeepSeek usage、校验累计文档并串行写入 `localDocStorage`，不经过云同步服务。`providerStream.ts` 与 `providerCompletion.ts` 每次请求结束通知用量，工具轮继续消费尾部 usage；`toolExecution.ts` 在实际执行前通知工具名。`useChatApp.ts` 接线到统计存储，将状态与错误传给设置统计页。统计口径见[本机使用统计](../../requirements/CONTEXT.md#本机使用统计)。
+
 ### 设置与 Provider
 
 `SettingsForm` 由 `chatAppSettings.ts` 规范化，旧持久化形状通过 `settingsDocMigration.ts` 迁移。全局系统提示词属于设置，不从属于单一 Provider。DeepSeek 是内置默认配置；OpenAI、Kimi、MiniMax 与 custom 作为可添加配置。每份 Provider 设置都包含模型、地址、密钥、温度、思考等级与能力开关。
@@ -74,7 +78,7 @@ Provider 与模型事实集中在 `constants/providerProfiles.ts`；新增或调
 
 - `chatAppReplyLifecycle.ts` 是发送、重试、停止和中断的唯一回复生命周期；先持久化占位助手消息，再消费事件，最后写入终态。停止通过同一个 `AbortController` 传播到网络或工具调用；失败不会伪装为成功。
 - `chatAppTurnPlan.ts` 在每次请求开始时消费已解析工具，形成本回合的附件去向、Provider 消息、系统提示词和编排判断；生命周期只消费计划。`AiTool` 通过元数据声明图片附件要求，不再用工具名称前缀承载路由规则。
-- 时效性 Tavily 查询依靠工具说明要求模型先调用 `get_current_time`，再用时间结果构造搜索条件；普通问题不调用时间工具，也不引入时间信息。
+- 时效性网页搜索依靠工具说明要求模型先调用 `get_current_time`，再用时间结果构造搜索条件；普通问题不调用时间工具，也不引入时间信息。
 
 - `providerStream.ts`：负责 HTTP 状态、SSE 缓冲、协议错误和空结果判断，不理解会话 UI。
 - `providerCompletion.ts`：只用于非流式标题生成。
@@ -83,7 +87,9 @@ Provider 与模型事实集中在 `constants/providerProfiles.ts`；新增或调
 - `toolOrchestrator.ts`：只执行工具轮次——接收本回合工具与执行上下文，创建多轮上下文，追加 assistant tool-call 与 tool result 消息，把单次工具执行失败作为工具结果交回模型继续本轮，阻止重复调用，并让最终回答缺失显式失败；不再解析工具配置。
 - `services/ai/systemPrompt.ts`：在每次回复启动时根据原生联网、直接图片输入、当前工具定义和当前附件动态组装默认系统提示词，再追加用户自定义规则。
 - `services/conversationTitle.ts`：标题请求只使用首条用户文字和“是否带图片”提示，不把图片 Data URL 发给标题模型；模型返回请求补充内容等非标题文本时回退到用户问题或“图片分析”。
-- `services/tools/toolRegistry.ts`：登记 `get_current_time`、`tavily_search` 以及三个受控阿里云 Qwen 图片工具，并用 `getTurnTools` 解析本回合可用工具（凭据校验加按附件元数据筛选图片工具）。Qwen 工具只接收模型给出的 `attachment_id` 和任务参数，由运行时从当前附件解析图片，不接受模型提供的 URL、路径或 Base64；它们仅在支持本地 Chat Completions 工具轮次的配置中启用。`customTools` 是预留数据形状，设置规范化会清空它；执行引擎仍会拒绝任何非空且启用的自定义工具，因为没有执行实现。
+- `services/tools/toolRegistry.ts`：登记 `get_current_time`、`tavily_search`、`deepseek_search`、`deepseek_fetch` 以及三个受控阿里云 Qwen 图片工具，并用 `getTurnTools` 解析本回合可用工具（凭据校验加按附件元数据筛选图片工具）。Qwen 工具只接收模型给出的 `attachment_id` 和任务参数，由运行时从当前附件解析图片，不接受模型提供的 URL、路径或 Base64；它们仅在支持本地 Chat Completions 工具轮次的配置中启用。`customTools` 是预留数据形状，设置规范化会清空它；执行引擎仍会拒绝任何非空且启用的自定义工具，因为没有执行实现。
+
+DeepSeek 网页工具的密钥复用、搜索优先级及官方接口边界见[回复与工具](../../requirements/CONTEXT.md#回复与工具)。`chatAppRequestPreparation.ts` 将所需密钥加入运行时工具快照，持久化设置只增加启用状态；`deepseekWebTools.ts` 集中负责参数、HTTP 和结果校验，继续复用现有停止、轨迹和失败回传机制。
 
 ## 关键不变量
 

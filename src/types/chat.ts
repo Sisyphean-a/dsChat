@@ -125,6 +125,7 @@ export interface BuiltinQwenImageToolSettings {
 }
 
 export interface BuiltinToolSettings {
+  deepseekWeb?: { enabled: boolean }
   currentTime: BuiltinCurrentTimeToolSettings
   tavilySearch: BuiltinTavilySearchToolSettings
   qwenImage: BuiltinQwenImageToolSettings

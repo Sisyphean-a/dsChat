@@ -1,3 +1,4 @@
+import type { UsageObserver } from '../usageStatistics'
 import type { ActiveProviderSettings, ThinkingLevel } from '../../types/chat'
 import type { MessageMapping } from './messageMapping'
 import type { ProviderConversationMessage } from './providerAdapter'
@@ -28,7 +29,7 @@ export interface ToolOrchestrator {
   stream: (request: ToolOrchestratorRequest) => AsyncIterable<ReplyStreamEvent>
 }
 
-export interface ToolOrchestratorOptions {
+export interface ToolOrchestratorOptions extends UsageObserver {
   messageMapping: MessageMapping
   providerStream: ProviderStream
 }
@@ -79,6 +80,7 @@ async function* streamToolReply(
       request.signal,
       outcome.toolCalls,
       round,
+      options.onToolCall,
     )
     yield { type: 'status', status: TOOL_STATUS_CONTINUING }
     round += 1
@@ -125,9 +127,11 @@ async function* executeBatch(
   signal: AbortSignal | undefined,
   calls: NormalizedToolCall[],
   round: number,
+  onToolCall: UsageObserver['onToolCall'],
 ): AsyncGenerator<ReplyStreamEvent> {
   for (const call of calls) {
     const result = yield* executeToolCall({
+      onToolCall,
       call,
       context: toolContext,
       round,

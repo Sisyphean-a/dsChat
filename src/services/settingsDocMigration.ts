@@ -94,7 +94,7 @@ export function migrateSettingsDoc(
     fontSize: doc.fontSize ?? DEFAULT_SETTINGS.fontSize,
     systemPrompt: '',
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
-    toolSettings: { ...DEFAULT_SETTINGS.toolSettings },
+    toolSettings: normalizeToolSettings(undefined),
     utoolsSessionIdleTimeoutMinutes: DEFAULT_SETTINGS.utoolsSessionIdleTimeoutMinutes,
     utoolsUploadMode: legacyUploadModeFallback,
   }
@@ -125,7 +125,7 @@ function migrateLegacyMultiProviderDoc(
     fontSize: doc.fontSize ?? DEFAULT_SETTINGS.fontSize,
     systemPrompt: '',
     theme: doc.theme ?? DEFAULT_SETTINGS.theme,
-    toolSettings: { ...DEFAULT_SETTINGS.toolSettings },
+    toolSettings: normalizeToolSettings(undefined),
     utoolsSessionIdleTimeoutMinutes: DEFAULT_SETTINGS.utoolsSessionIdleTimeoutMinutes,
     utoolsUploadMode: legacyUploadModeFallback,
   }

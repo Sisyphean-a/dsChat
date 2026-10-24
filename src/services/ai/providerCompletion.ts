@@ -1,10 +1,11 @@
+import { parseDeepseekUsage, type TokenUsage, type UsageObserver } from '../usageStatistics'
 import type { ActiveProviderSettings, ThinkingLevel } from '../../types/chat'
 import type { HttpAdapter } from './httpAdapter'
 import type { ProviderAdapterRegistry, ProviderConversationMessage } from './providerAdapter'
 import { selectProviderAdapter } from './providerAdapter'
 import { ProviderRequestError } from './providerStream'
 
-interface ProviderCompletionOptions {
+interface ProviderCompletionOptions extends UsageObserver {
   httpAdapter: HttpAdapter
   providerAdapters: ProviderAdapterRegistry
 }
@@ -31,20 +32,29 @@ export function createProviderCompletion(options: ProviderCompletionOptions): Pr
         thinkingLevel: request.thinkingLevel,
         tools: [],
       })
-      const response = await options.httpAdapter.send({
-        body: JSON.stringify(providerRequest.body),
-        headers: providerRequest.headers,
-        url: providerRequest.url,
-      })
-      const text = await readResponseText(response.body)
-      if (response.status < 200 || response.status >= 300) {
-        throw new ProviderRequestError('http', `${request.settings.label} 请求失败：${response.status} ${text}`.trim())
+      let usage: TokenUsage | undefined
+      try {
+        const response = await options.httpAdapter.send({
+          body: JSON.stringify(providerRequest.body),
+          headers: providerRequest.headers,
+          url: providerRequest.url,
+        })
+        const text = await readResponseText(response.body)
+        if (response.status < 200 || response.status >= 300) {
+          throw new ProviderRequestError('http', `${request.settings.label} 请求失败：${response.status} ${text}`.trim())
+        }
+        if (request.settings.provider === 'deepseek') {
+          const payload = JSON.parse(text) as { usage?: unknown }
+          usage = parseDeepseekUsage(payload?.usage)
+        }
+        const content = extractCompletionText(text).trim()
+        if (!content) {
+          throw new ProviderRequestError('empty-result', `${request.settings.label} 未返回可用内容。`)
+        }
+        return content
+      } finally {
+        options.onProviderUsage?.(request.settings.provider, usage)
       }
-      const content = extractCompletionText(text).trim()
-      if (!content) {
-        throw new ProviderRequestError('empty-result', `${request.settings.label} 未返回可用内容。`)
-      }
-      return content
     },
   }
 }

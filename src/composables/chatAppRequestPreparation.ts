@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
-import type { ActiveProviderSettings, MessageAttachment, SettingsForm, ToolSettings } from '../types/chat'
+import type { ActiveProviderSettings, MessageAttachment, SettingsForm } from '../types/chat'
+import type { ToolSettings } from '../services/ai/toolTypes'
 import {
   createImageInputUnsupportedMessage,
   providerSupportsImageInput,
@@ -50,14 +51,18 @@ export function prepareRequestContext(
     activeSettings,
     systemPrompt: normalizedSettings.systemPrompt,
     thinkingLevel: activeSettings.reasoningLevel,
-    toolSettings: normalizedSettings.toolSettings,
+    toolSettings: {
+      ...normalizedSettings.toolSettings,
+      deepseekApiKey: normalizedSettings.toolSettings.enabled && normalizedSettings.toolSettings.builtinTools.deepseekWeb?.enabled
+        ? normalizedSettings.deepseek.apiKey : undefined,
+    },
   }
 }
 
 function getImageInputSupportError(
   settings: ActiveProviderSettings,
   attachments: MessageAttachment[],
-  toolSettings: ToolSettings,
+  toolSettings: SettingsForm['toolSettings'],
 ): string | null {
   if (!attachments.length) {
     return null
