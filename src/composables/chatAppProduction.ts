@@ -23,6 +23,8 @@ interface ChatAppProductionOptions extends UsageObserver {
   messages: Ref<ChatMessage[]>
   openSettings: () => void
   pendingAttachments: Ref<MessageAttachment[]>
+  resolveMemorySection?: (query: string) => Promise<string>
+  onTurnCompleted?: (conversationId: string) => void
   settings: Ref<SettingsForm>
   stoppedResponseMessage: string
 }
@@ -68,7 +70,9 @@ export function createChatAppProduction(options: ChatAppProductionOptions): Repl
     pendingAttachments: options.pendingAttachments,
     persistConversation: options.conversationPersistence.persistConversation,
     providerStream,
+    resolveMemorySection: options.resolveMemorySection,
     resolveTools: getTurnTools,
+    onTurnCompleted: options.onTurnCompleted,
     setAbortController(controller) {
       activeAbortController = controller
     },

@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { createUsageStatisticsStore, type UsageStatistics } from '../services/usageStatistics'
 import {
   DEFAULT_SETTINGS,
@@ -43,6 +43,10 @@ import {
   normalizeSettings,
 } from './chatAppSettings'
 import { resolveRetryableAssistantReply } from './chatAppRetry'
+import { createProviderCompletion } from '../services/ai/providerCompletion'
+import { fetchHttpAdapter } from '../services/ai/httpAdapter'
+import { defaultProviderAdapterRegistry } from '../services/ai/providerAdapter'
+import { createMemoryStore } from './useMemory'
 
 export function useChatApp() {
   const settings = ref<SettingsForm>(structuredClone(DEFAULT_SETTINGS))
@@ -105,6 +109,16 @@ export function useChatApp() {
     saveConversation,
     saveSession,
   })
+  const memory = createMemoryStore({
+    settings,
+    conversations,
+    completion: createProviderCompletion({
+      httpAdapter: fetchHttpAdapter,
+      providerAdapters: defaultProviderAdapterRegistry,
+    }),
+    resolveActiveSettings: () => getActiveProviderSettings(settings.value),
+  })
+  watch(() => settings.value.memory.enabled, () => memory.applySettings())
 
   const replyLifecycle = createChatAppProduction({
     onProviderUsage(provider, usage) {
@@ -123,6 +137,10 @@ export function useChatApp() {
     messages,
     openSettings: settingsActions.openSettings,
     pendingAttachments,
+    resolveMemorySection: (query) => memory.buildPromptSection(query),
+    onTurnCompleted: (conversationId) => {
+      void memory.observeTurn(conversationId)
+    },
     settings,
     stoppedResponseMessage: STOPPED_RESPONSE_MESSAGE,
   })
@@ -159,6 +177,8 @@ export function useChatApp() {
     messages.value = []
     pendingAttachments.value = []
     isSending.value = false
+    await memory.initialize().catch(() => {})
+    memory.applySettings()
 
     if (isBrowserMode.value) {
       // environmentNotice.value = '当前为浏览器预览模式：使用浏览器本地存储保存设置与对话，不接入 uTools 数据库。'
@@ -355,6 +375,7 @@ export function useChatApp() {
     isSidebarCollapsed,
     lastError,
     messages,
+    memory,
     modelOptions,
     openSettings: settingsActions.openSettings,
     pendingAttachments,

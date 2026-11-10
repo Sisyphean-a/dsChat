@@ -17,6 +17,7 @@ import {
   DEFAULT_QWEN_IMAGE_BASE_URL,
   DEFAULT_QWEN_IMAGE_MODEL,
 } from './tools'
+import { DEFAULT_MEMORY_SETTINGS } from './memory'
 import { getDefaultThinkingLevel } from './thinking'
 import { getDefaultProviderCapabilities } from './providerCapabilities'
 import { getPresetModels, getProviderProfile } from './providerProfiles'
@@ -154,6 +155,7 @@ export function buildDefaultSettings(): SettingsForm {
     customModels: [],
     deepseek: buildDefaultProviderSettings('deepseek'),
     fontSize: FONT_SIZE_DEFAULT,
+    memory: structuredClone(DEFAULT_MEMORY_SETTINGS),
     systemPrompt: '',
     toolSettings: structuredClone(DEFAULT_TOOL_SETTINGS),
     theme: THEME_DEFAULT,

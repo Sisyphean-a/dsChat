@@ -5,6 +5,7 @@ const BUILD_DIR = 'dist'
 const ENTRY_FILE = 'index.html'
 const LOGO_FILE = 'logo.png'
 const MANIFEST_FILE = 'plugin.json'
+const PRELOAD_FILE = 'preload.js'
 const PACKAGE_DIR = 'package'
 
 main()
@@ -15,6 +16,7 @@ function main() {
   const buildEntryPath = resolve(buildDir, ENTRY_FILE)
   const manifestPath = resolve(rootDir, MANIFEST_FILE)
   const logoPath = resolve(rootDir, LOGO_FILE)
+  const preloadPath = resolve(rootDir, PRELOAD_FILE)
   const packageDir = resolve(rootDir, PACKAGE_DIR)
 
   ensurePathExists(buildEntryPath, '缺少 dist/index.html，请先执行 npm run build。')
@@ -26,6 +28,10 @@ function main() {
   copyFileSync(logoPath, join(packageDir, LOGO_FILE))
 
   const manifest = readPluginManifest(manifestPath)
+  if (manifest.preload) {
+    ensurePathExists(preloadPath, 'plugin.json 声明了 preload，但根目录缺少 preload.js。')
+    copyFileSync(preloadPath, join(packageDir, PRELOAD_FILE))
+  }
   const offlineManifest = createOfflinePluginManifest(manifest)
   writeFileSync(join(packageDir, MANIFEST_FILE), `${JSON.stringify(offlineManifest, null, 2)}\n`)
 

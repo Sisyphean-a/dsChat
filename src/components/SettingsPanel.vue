@@ -6,13 +6,17 @@ import SettingsGeneralSection from './SettingsGeneralSection.vue'
 import SettingsProvidersSection from './SettingsProvidersSection.vue'
 import SettingsToolsSection from './SettingsToolsSection.vue'
 import SettingsStatisticsSection from './SettingsStatisticsSection.vue'
+import SettingsMemorySection from './SettingsMemorySection.vue'
 import type { UsageStatistics } from '../services/usageStatistics'
 import type { SettingsForm } from '../types/chat'
+import type { MemoryFact, MemoryStatus } from '../types/memory'
 import type { SettingsEdit, SettingsSectionId } from '../types/settingsPanel'
 
 const props = defineProps<{
   error?: string | null
   isBrowserMode: boolean
+  memoryFacts?: MemoryFact[]
+  memoryStatus?: MemoryStatus | null
   open: boolean
   saving: boolean
   settings: SettingsForm
@@ -23,6 +27,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   edit: [edit: SettingsEdit]
+  memoryClear: []
+  memoryForget: [id: string]
+  memoryPin: [id: string]
   save: []
 }>()
 
@@ -55,6 +62,13 @@ const navItems = computed(() => [
     badge: props.settings.toolSettings.enabled ? `${enabledBuiltinToolCount.value} 启用` : '关闭',
   },
   { id: 'statistics' as const, label: '统计', badge: '' },
+  {
+    id: 'memory' as const,
+    label: '记忆',
+    badge: props.memoryStatus?.enabled
+      ? `${props.memoryStatus.factCount} 条`
+      : '关闭',
+  },
 ])
 
 watch(() => props.open, (open) => {
@@ -154,9 +168,19 @@ const { handleModalKeydown } = useModalFocus({
               @edit="emit('edit', $event)"
             />
             <SettingsStatisticsSection
-              v-else
+              v-else-if="activeSection === 'statistics'"
               :statistics="props.statistics"
               :error="props.statisticsError"
+            />
+            <SettingsMemorySection
+              v-else
+              :facts="props.memoryFacts ?? []"
+              :settings="props.settings"
+              :status="props.memoryStatus ?? null"
+              @clear="emit('memoryClear')"
+              @edit="emit('edit', $event)"
+              @forget="emit('memoryForget', $event)"
+              @pin="emit('memoryPin', $event)"
             />
           </main>
         </div>

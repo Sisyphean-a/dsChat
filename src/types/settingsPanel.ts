@@ -12,7 +12,7 @@ export type ProviderEditableField = Exclude<keyof ProviderSettings, 'modelOption
 export type ProviderCapabilityField = keyof ProviderSettings['capabilities']
 export type CustomModelField = ProviderEditableField | 'name'
 export type CustomToolEditableField = Exclude<keyof CustomToolSettings, 'id'>
-export type SettingsSectionId = 'general' | 'conversation' | 'providers' | 'tools' | 'statistics'
+export type SettingsSectionId = 'general' | 'conversation' | 'providers' | 'tools' | 'statistics' | 'memory'
 
 export type SettingsEdit =
   | { domain: 'general'; field: 'fontSize'; value: FontSizeMode }
@@ -20,6 +20,8 @@ export type SettingsEdit =
   | { domain: 'general'; field: 'utoolsUploadMode'; value: UtoolsUploadMode }
   | { domain: 'conversation'; field: 'systemPrompt'; value: string }
   | { domain: 'conversation'; field: 'utoolsSessionIdleTimeoutMinutes'; value: number }
+  | { domain: 'memory'; action: 'toggle'; enabled: boolean }
+  | { domain: 'memory'; action: 'updateObserveEveryTurns'; value: number }
   | { domain: 'provider'; action: 'addModel'; provider: AddableProviderId }
   | { domain: 'provider'; action: 'removeModel'; id: string }
   | { domain: 'provider'; action: 'addModelOption'; id: string; option: string }

@@ -25,6 +25,7 @@ describe('prepare-offline-package', () => {
       JSON.stringify(
         {
           main: 'dist/index.html',
+          preload: 'preload.js',
           logo: 'logo.png',
           development: {
             main: 'http://127.0.0.1:5173/index.html',
@@ -42,6 +43,7 @@ describe('prepare-offline-package', () => {
       ),
     )
     writeFileSync(join(fixtureDir, 'logo.png'), 'fake-png-content')
+    writeFileSync(join(fixtureDir, 'preload.js'), 'window.__dsChatPreload = true')
 
     const result = spawnSync(process.execPath, [scriptPath], {
       cwd: fixtureDir,
@@ -52,6 +54,7 @@ describe('prepare-offline-package', () => {
     expect(existsSync(join(fixtureDir, 'package', 'plugin.json'))).toBe(true)
     expect(readFileSync(join(fixtureDir, 'package', 'index.html'), 'utf8')).toContain('dsChat')
     expect(readFileSync(join(fixtureDir, 'package', 'logo.png'), 'utf8')).toContain('fake-png-content')
+    expect(readFileSync(join(fixtureDir, 'package', 'preload.js'), 'utf8')).toContain('__dsChatPreload')
 
     const manifest = JSON.parse(
       readFileSync(join(fixtureDir, 'package', 'plugin.json'), 'utf8'),
@@ -59,6 +62,7 @@ describe('prepare-offline-package', () => {
 
     expect(manifest.main).toBe('index.html')
     expect(manifest.logo).toBe('logo.png')
+    expect(manifest.preload).toBe('preload.js')
     expect(manifest.development).toBeUndefined()
   })
 })

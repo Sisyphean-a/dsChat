@@ -72,4 +72,34 @@ describe('systemPrompt', () => {
     expect(result).toContain('没有可用的图片理解能力')
     expect(result).not.toContain('必须调用图片工具')
   })
+
+  it('places memory before custom rules and trims oversized sections', () => {
+    const result = buildSystemPrompt({
+      attachments: [],
+      customPrompt: '回答要简短',
+      directImageInput: false,
+      imageToolAvailable: false,
+      memorySection: `关于用户：\n- ${'很长的记忆'.repeat(400)}`,
+      nativeWebSearch: false,
+      tools: [],
+    })
+
+    expect(result).toContain('关于用户')
+    expect(result.indexOf('关于用户')).toBeLessThan(result.indexOf('回答要简短'))
+    expect(result.length).toBeLessThan(DEFAULT_SYSTEM_PROMPT.length + 1_400)
+  })
+
+  it('skips the memory section when it is empty', () => {
+    const result = buildSystemPrompt({
+      attachments: [],
+      customPrompt: '',
+      directImageInput: false,
+      imageToolAvailable: false,
+      memorySection: '   ',
+      nativeWebSearch: false,
+      tools: [],
+    })
+
+    expect(result).toBe(DEFAULT_SYSTEM_PROMPT)
+  })
 })

@@ -10,6 +10,7 @@ import {
   normalizeUtoolsUploadMode,
 } from '../composables/chatAppSettings'
 import { normalizeToolSettings } from '../composables/chatAppToolSettings'
+import { normalizeMemorySettings } from '../constants/memory'
 import { normalizeThinkingLevel } from '../constants/thinking'
 import type {
   AddableProviderId,
@@ -60,6 +61,7 @@ export function migrateSettingsDoc(
       customModels: doc.customModels.map((item) => withMigratedThinkingLevel(item.provider, item, legacyThinking)),
       deepseek: withMigratedThinkingLevel('deepseek', doc.deepseek, legacyThinking),
       fontSize: doc.fontSize,
+      memory: normalizeMemorySettings(doc.memory),
       systemPrompt: typeof doc.systemPrompt === 'string' ? doc.systemPrompt : '',
       theme: doc.theme,
       toolSettings: normalizeToolSettings(doc.toolSettings),
@@ -77,6 +79,7 @@ export function migrateSettingsDoc(
   return {
     activeConfigId: 'deepseek',
     customModels: [],
+    memory: normalizeMemorySettings(undefined),
     deepseek: withMigratedThinkingLevel('deepseek', {
       ...DEFAULT_SETTINGS.deepseek,
       apiKey: doc.apiKey ?? DEFAULT_SETTINGS.deepseek.apiKey,
@@ -121,6 +124,7 @@ function migrateLegacyMultiProviderDoc(
   return {
     activeConfigId: resolveLegacyActiveConfigId(doc.activeProvider, customModels),
     customModels,
+    memory: normalizeMemorySettings(undefined),
     deepseek: withMigratedThinkingLevel('deepseek', deepseek, doc.providerThinking, true),
     fontSize: doc.fontSize ?? DEFAULT_SETTINGS.fontSize,
     systemPrompt: '',

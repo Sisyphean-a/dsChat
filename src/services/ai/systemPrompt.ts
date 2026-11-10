@@ -27,6 +27,7 @@ export interface SystemPromptContext {
   customPrompt: string
   directImageInput: boolean
   imageToolAvailable: boolean
+  memorySection?: string
   nativeWebSearch: boolean
   tools: AiToolDefinition[]
 }
@@ -35,13 +36,20 @@ export function buildSystemPrompt(context: SystemPromptContext): string {
   const sections = [DEFAULT_SYSTEM_PROMPT]
   const capabilitySection = buildCapabilitySection(context)
   const toolSection = buildToolSection(context.tools)
+  const memorySection = buildMemorySection(context.memorySection)
   const customSection = buildCustomPromptSection(context.customPrompt)
 
   if (capabilitySection) sections.push(capabilitySection)
   if (toolSection) sections.push(toolSection)
+  if (memorySection) sections.push(memorySection)
   if (customSection) sections.push(customSection)
 
   return sections.join('\n\n')
+}
+
+function buildMemorySection(memorySection: string | undefined): string {
+  const trimmed = (memorySection ?? '').trim()
+  return trimmed ? trimmed.slice(0, 1_200) : ''
 }
 
 function buildCapabilitySection(context: SystemPromptContext): string {

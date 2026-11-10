@@ -10,6 +10,7 @@ import {
 } from '../constants/providerCapabilities'
 import { normalizeThinkingLevel } from '../constants/thinking'
 import { findModelProfile, getProviderProfile } from '../constants/providerProfiles'
+import { normalizeMemorySettings } from '../constants/memory'
 import {
   DEFAULT_UTOOLS_SESSION_IDLE_TIMEOUT_MINUTES,
   DEFAULT_UTOOLS_UPLOAD_MODE,
@@ -45,6 +46,7 @@ export function normalizeSettings(currentSettings: SettingsForm): SettingsForm {
     customModels,
     deepseek: normalizeProviderSettings('deepseek', currentSettings.deepseek),
     fontSize: normalizeFontSize(currentSettings.fontSize),
+    memory: normalizeMemorySettings(currentSettings.memory),
     systemPrompt: normalizeSystemPrompt(currentSettings.systemPrompt),
     toolSettings: normalizeToolSettings(currentSettings.toolSettings),
     theme: normalizeTheme(currentSettings.theme),

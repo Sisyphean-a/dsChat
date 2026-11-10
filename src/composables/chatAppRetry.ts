@@ -9,6 +9,7 @@ interface PrepareRetryRequestOptions {
   settings: Ref<SettingsForm>
   openSettings: () => void
   lastError: Ref<string | null>
+  resolveMemorySection?: (query: string) => Promise<string>
 }
 
 export interface RetryableAssistantReply {
@@ -16,7 +17,9 @@ export interface RetryableAssistantReply {
   assistantIndex: number
 }
 
-export interface PreparedRetryRequest extends PreparedRequestContext, RetryableAssistantReply {}
+export interface PreparedRetryRequest extends PreparedRequestContext, RetryableAssistantReply {
+  memorySection: string
+}
 
 export function resolveRetryableAssistantReply(messages: ChatMessage[]): RetryableAssistantReply | null {
   if (messages.length < 2) {
@@ -48,9 +51,9 @@ export function resolveRetryableAssistantReply(messages: ChatMessage[]): Retryab
   }
 }
 
-export function prepareRetryRequest(
+export async function prepareRetryRequest(
   options: PrepareRetryRequestOptions,
-): PreparedRetryRequest | null {
+): Promise<PreparedRetryRequest | null> {
   const {
     isSending,
     messages,
@@ -85,6 +88,19 @@ export function prepareRetryRequest(
   return {
     ...requestContext,
     ...retryableReply,
+    memorySection: await resolveRetryMemorySection(options.resolveMemorySection, previousUserMessage.content),
+  }
+}
+
+async function resolveRetryMemorySection(
+  resolver: ((query: string) => Promise<string>) | undefined,
+  query: string,
+): Promise<string> {
+  if (!resolver) return ''
+  try {
+    return await resolver(query)
+  } catch {
+    return ''
   }
 }
 

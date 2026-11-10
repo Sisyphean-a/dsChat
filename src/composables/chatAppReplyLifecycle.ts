@@ -40,11 +40,13 @@ interface ReplyLifecycleOptions {
   pendingAttachments: Ref<MessageAttachment[]>
   persistConversation: () => Promise<void>
   providerStream: ProviderStream
+  resolveMemorySection?: (query: string) => Promise<string>
   resolveTools: TurnToolResolver
   setAbortController: (controller: AbortController | null) => void
   settings: Ref<SettingsForm>
   stoppedResponseMessage: string
   toolOrchestrator: ToolOrchestrator
+  onTurnCompleted?: (conversationId: string) => void
 }
 
 export interface ReplyLifecycle {
@@ -64,6 +66,7 @@ interface ReplyRequest {
   assistantId: string
   settings: ActiveProviderSettings
   systemPrompt: string
+  memorySection: string
   thinkingLevel: ActiveProviderSettings['reasoningLevel']
   toolSettings: ToolSettings
 }
@@ -92,12 +95,13 @@ export function createReplyLifecycle(options: ReplyLifecycleOptions): ReplyLifec
 }
 
 async function sendReply(state: LifecycleState): Promise<void> {
-  const prepared = prepareSendRequest({
+  const prepared = await prepareSendRequest({
     draftMessage: state.options.draftMessage,
     isSending: state.options.isSending,
     lastError: state.options.lastError,
     openSettings: state.options.openSettings,
     pendingAttachments: state.options.pendingAttachments,
+    resolveMemorySection: state.options.resolveMemorySection,
     settings: state.options.settings,
   })
   if (!prepared) return
@@ -112,11 +116,12 @@ async function sendReply(state: LifecycleState): Promise<void> {
 }
 
 async function retryReply(state: LifecycleState): Promise<void> {
-  const prepared = prepareRetryRequest({
+  const prepared = await prepareRetryRequest({
     isSending: state.options.isSending,
     lastError: state.options.lastError,
     messages: state.options.messages,
     openSettings: state.options.openSettings,
+    resolveMemorySection: state.options.resolveMemorySection,
     settings: state.options.settings,
   })
   if (!prepared) return
@@ -151,7 +156,7 @@ function startNewReply(state: LifecycleState, prepared: SendPreparation): ReplyS
 
 function createReplyStart(
   assistantId: string,
-  prepared: Pick<SendPreparation, 'activeSettings' | 'systemPrompt' | 'thinkingLevel' | 'toolSettings'>,
+  prepared: Pick<SendPreparation, 'activeSettings' | 'memorySection' | 'systemPrompt' | 'thinkingLevel' | 'toolSettings'>,
 ): ReplyStart {
   return {
     controller: new AbortController(),
@@ -160,6 +165,7 @@ function createReplyStart(
       assistantId,
       settings: structuredClone(prepared.activeSettings),
       systemPrompt: prepared.systemPrompt,
+      memorySection: prepared.memorySection,
       thinkingLevel: prepared.thinkingLevel,
       toolSettings: structuredClone(prepared.toolSettings),
     },
@@ -217,6 +223,10 @@ async function consumeReply(
     }
     finishReply(state, request.assistantId)
     await persistTerminalReply(state, '会话记录写入失败。')
+    const conversationId = state.options.activeConversationId.value
+    if (conversationId) {
+      state.options.onTurnCompleted?.(conversationId)
+    }
   } catch (error) {
     await handleReplyError(state, request.assistantId, controller, error)
   } finally {

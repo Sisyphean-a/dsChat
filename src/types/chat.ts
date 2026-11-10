@@ -7,6 +7,12 @@ export type AddableProviderId = Exclude<ProviderId, 'deepseek'>
 export type ProviderProtocol = 'chat_completions' | 'responses'
 export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'max'
 export type UtoolsUploadMode = 'local-only' | 'settings-only' | 'all-data'
+
+export interface MemorySettings {
+  enabled: boolean
+  observeEveryTurns: number
+}
+
 export type ToolTraceStatus = 'planned' | 'running' | 'succeeded' | 'failed' | 'stopped'
 // Legacy timeout codes remain readable for persisted traces; runtime no longer emits them.
 export type ToolTraceErrorCode =
@@ -156,6 +162,7 @@ export interface SettingsDoc extends BaseDoc {
   systemPrompt: string
   theme: ThemeMode
   toolSettings: ToolSettings
+  memory: MemorySettings
   utoolsSessionIdleTimeoutMinutes: number
   utoolsUploadMode: UtoolsUploadMode
 }
@@ -185,6 +192,7 @@ export interface SettingsForm {
   systemPrompt: string
   theme: ThemeMode
   toolSettings: ToolSettings
+  memory: MemorySettings
   utoolsSessionIdleTimeoutMinutes: number
   utoolsUploadMode: UtoolsUploadMode
 }

@@ -12,6 +12,7 @@ export interface SendPreparation {
   activeSettings: ActiveProviderSettings
   attachments: MessageAttachment[]
   content: string
+  memorySection: string
   systemPrompt: string
   thinkingLevel: ActiveProviderSettings['reasoningLevel']
   toolSettings: ToolSettings
@@ -23,10 +24,13 @@ interface PrepareSendRequestOptions {
   lastError: Ref<string | null>
   openSettings: () => void
   pendingAttachments: Ref<MessageAttachment[]>
+  resolveMemorySection?: (query: string) => Promise<string>
   settings: Ref<SettingsForm>
 }
 
-export function prepareSendRequest(options: PrepareSendRequestOptions): SendPreparation | null {
+export async function prepareSendRequest(
+  options: PrepareSendRequestOptions,
+): Promise<SendPreparation | null> {
   const content = options.draftMessage.value.trim()
   const attachments = cloneMessageAttachments(options.pendingAttachments.value)
   if ((!content && !attachments.length) || options.isSending.value) {
@@ -47,8 +51,22 @@ export function prepareSendRequest(options: PrepareSendRequestOptions): SendPrep
     activeSettings: context.activeSettings,
     attachments,
     content,
+    memorySection: await resolveMemorySection(options.resolveMemorySection, content),
     systemPrompt: context.systemPrompt,
     thinkingLevel: context.thinkingLevel,
     toolSettings: context.toolSettings,
+  }
+}
+
+/** Rule: 记忆检索失败不能阻塞发送；失败时按“本轮没有记忆”继续。 */
+async function resolveMemorySection(
+  resolver: ((query: string) => Promise<string>) | undefined,
+  query: string,
+): Promise<string> {
+  if (!resolver) return ''
+  try {
+    return await resolver(query)
+  } catch {
+    return ''
   }
 }

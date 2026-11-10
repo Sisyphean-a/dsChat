@@ -313,6 +313,12 @@ export function createChatAppSettingsActions(
       systemPrompt,
     }
   }
+  function updateMemorySettings(change: Partial<SettingsForm['memory']>): void {
+    settings.value = {
+      ...settings.value,
+      memory: { ...settings.value.memory, ...change },
+    }
+  }
 
   function updateUtoolsSessionIdleTimeoutMinutes(minutes: number): void {
     settings.value = {
@@ -444,6 +450,10 @@ export function createChatAppSettingsActions(
       case 'conversation':
         if (edit.field === 'systemPrompt') updateSystemPrompt(edit.value)
         if (edit.field === 'utoolsSessionIdleTimeoutMinutes') updateUtoolsSessionIdleTimeoutMinutes(edit.value)
+        return
+      case 'memory':
+        if (edit.action === 'toggle') updateMemorySettings({ enabled: edit.enabled })
+        if (edit.action === 'updateObserveEveryTurns') updateMemorySettings({ observeEveryTurns: edit.value })
         return
       case 'provider':
         if (edit.action === 'addModel') addCustomModel(edit.provider)

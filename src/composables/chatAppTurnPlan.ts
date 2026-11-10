@@ -14,6 +14,7 @@ import { buildRequestMessages } from './chatAppRetry'
 export interface TurnPlanRequest {
   settings: ActiveProviderSettings
   systemPrompt: string
+  memorySection?: string
   thinkingLevel: ActiveProviderSettings['reasoningLevel']
   toolSettings: ToolSettings
 }
@@ -56,6 +57,7 @@ export function createTurnPlan(options: {
       customPrompt: options.request.systemPrompt,
       directImageInput,
       imageToolAvailable: tools.some((tool) => tool.requiresImageAttachment),
+      memorySection: options.request.memorySection,
       nativeWebSearch: providerSupportsNativeWebSearch(options.request.settings),
       tools: tools.map((tool) => tool.definition),
     }),

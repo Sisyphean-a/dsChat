@@ -58,6 +58,18 @@ src/
 
 `services/usageStatistics.ts` 解析 DeepSeek usage、校验累计文档并串行写入 `localDocStorage`，不经过云同步服务。`providerStream.ts` 与 `providerCompletion.ts` 每次请求结束通知用量，工具轮继续消费尾部 usage；`toolExecution.ts` 在实际执行前通知工具名。`useChatApp.ts` 接线到统计存储，将状态与错误传给设置统计页。统计口径见[本机使用统计](../../requirements/CONTEXT.md#本机使用统计)。
 
+### 长期记忆
+
+`services/memory/` 是独立的本地记忆层，不读写会话文档，也不进入 uTools 同步数据库：
+
+- `storage.ts`：优先写入 preload 暴露的 `utools.getPluginLocalDataPath()` 目录（`memory/events.jsonl`、`memory/state.json`、`memory/backup/`）；浏览器预览降级到 `localStorage`，再降级到内存。设置页“记忆”展示当前存储类型与路径。
+- `project.ts`：记忆事件是只增日志，事实视图由事件投影得到；同 `kind + subject` 去重，同键异文让旧值失效并保留历史，不做物理删除。
+- `extract.ts`：回合结束后按间隔调用非流式模型抽取，严格校验 JSON 并过滤密钥类内容；解析失败整批丢弃。
+- `retrieve.ts` / `prompt.ts`：按中文 2-gram 词法命中、重要度、新近度和使用次数打分，只注入命中项；钉住项最多补两条，渲染成 system prompt 段落。
+- `composables/useMemory.ts`：串行执行；失败只记录错误、不推进已观察位置。
+
+记忆开关与抽取间隔属于 `SettingsForm.memory`，随设置保存；`ChatMessage` 和 `ConversationDoc` 的形状不变。
+
 ### 设置与 Provider
 
 `SettingsForm` 由 `chatAppSettings.ts` 规范化，旧持久化形状通过 `settingsDocMigration.ts` 迁移。全局系统提示词属于设置，不从属于单一 Provider。DeepSeek 是内置默认配置；OpenAI、Kimi、MiniMax 与 custom 作为可添加配置。每份 Provider 设置都包含模型、地址、密钥、温度、思考等级与能力开关。

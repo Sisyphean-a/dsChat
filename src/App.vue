@@ -229,12 +229,17 @@ watch(app.pluginEnterSignal, () => {
     <SettingsPanel
       :error="app.settingsSaveError.value"
       :is-browser-mode="app.isBrowserMode.value"
+      :memory-facts="app.memory.facts.value"
+      :memory-status="app.memory.status.value"
       :open="app.isSettingsOpen.value"
       :saving="app.isSavingSettings.value"
       :settings="app.settings.value"
       :statistics="app.usageStatistics.value"
       :statistics-error="app.usageStatisticsError.value"
       @edit="app.applySettingsEdit"
+      @memory-clear="app.memory.clearAll()"
+      @memory-forget="app.memory.forgetFact($event)"
+      @memory-pin="app.memory.togglePin($event)"
       @close="app.closeSettings"
       @save="app.saveSettings"
     />
