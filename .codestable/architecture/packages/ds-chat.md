@@ -54,6 +54,8 @@ src/
 
 `utoolsHostLifecycle.ts` 只在 uTools 环境注册宿主回调：初始化完成前收到的进入事件先缓存、就绪后补发；进入时恢复上次会话，并把 `ask-ds` 划词写成草稿代码块（`utils/askDsPayload.ts`）；离开时中断进行中的回复并记录离开时间。再次进入时仅在“对话”设置的会话恢复时长内恢复上次会话，超时后从新会话开始。
 
+“对话”设置里的“恢复历史记录”是只读导入：`services/conversationRecovery.ts` 把 uTools 数据库中的 `conversation/*` 与本地按会话 id、消息 id 取并集，只写本地副本，不改变上传模式、不写远端；已有消息以本地为准，仅当本地还是流式而远端是终态时采用远端。
+
 ### 使用统计
 
 `services/usageStatistics.ts` 解析 DeepSeek usage、校验累计文档并串行写入 `localDocStorage`，不经过云同步服务。`providerStream.ts` 与 `providerCompletion.ts` 每次请求结束通知用量，工具轮继续消费尾部 usage；`toolExecution.ts` 在实际执行前通知工具名。`useChatApp.ts` 接线到统计存储，将状态与错误传给设置统计页。统计口径见[本机使用统计](../../requirements/CONTEXT.md#本机使用统计)。

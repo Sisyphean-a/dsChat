@@ -232,6 +232,7 @@ watch(app.pluginEnterSignal, () => {
       :memory-facts="app.memory.facts.value"
       :memory-status="app.memory.status.value"
       :open="app.isSettingsOpen.value"
+      :recovery="app.recoveryStatus.value"
       :saving="app.isSavingSettings.value"
       :settings="app.settings.value"
       :statistics="app.usageStatistics.value"
@@ -240,6 +241,7 @@ watch(app.pluginEnterSignal, () => {
       @memory-clear="app.memory.clearAll()"
       @memory-forget="app.memory.forgetFact($event)"
       @memory-pin="app.memory.togglePin($event)"
+      @recover="app.recoverHistory"
       @close="app.closeSettings"
       @save="app.saveSettings"
     />

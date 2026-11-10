@@ -11,12 +11,19 @@ import {
   deleteConversation as deleteConversationDoc,
   hasUtools,
   loadConversations,
+  loadRemoteConversations,
   loadSession,
   loadSettings,
   saveConversation,
   saveSession,
   saveSettings as saveSettingsDoc,
 } from '../services/utools'
+import { saveLocalDoc } from '../services/localDocStorage'
+import {
+  EMPTY_RECOVERY_STATE,
+  mergeRecoveredConversations,
+  type ConversationRecoveryState,
+} from '../services/conversationRecovery'
 import type {
   ChatMessage,
   ConversationDoc,
@@ -25,7 +32,7 @@ import type {
   ThinkingLevel,
 } from '../types/chat'
 import { shouldResetConversation } from '../utils/session'
-import { cloneMessages } from '../utils/chat'
+import { cloneMessages, sortConversations } from '../utils/chat'
 import { resolveComposerCommand } from '../utils/composerCommands'
 import { formatAskDsDraft } from '../utils/askDsPayload'
 import { preparePendingImages } from './chatAppAttachments'
@@ -59,6 +66,7 @@ export function useChatApp() {
     usageStatisticsError.value = getErrorMessage(error, '使用统计保存失败。')
   }
   const conversations = ref<ConversationDoc[]>([])
+  const recoveryStatus = ref<ConversationRecoveryState>({ ...EMPTY_RECOVERY_STATE })
   const activeConversationId = ref<string | null>(null)
   const messages = ref<ChatMessage[]>([])
   const draftMessage = ref('')
@@ -174,6 +182,7 @@ export function useChatApp() {
       theme: settings.value.theme,
     })
     conversations.value = await loadConversations()
+    void scanHistory().catch(() => {})
     messages.value = []
     pendingAttachments.value = []
     isSending.value = false
@@ -321,6 +330,58 @@ export function useChatApp() {
     }
   }
 
+  async function scanHistory(): Promise<void> {
+    if (!hasUtools()) return
+    recoveryStatus.value = { ...recoveryStatus.value, scanning: true, error: null }
+    try {
+      const remote = await loadRemoteConversations()
+      const result = mergeRecoveredConversations(conversations.value, remote)
+      recoveryStatus.value = {
+        ...recoveryStatus.value,
+        scanning: false,
+        availableConversations: result.recoveredConversations,
+        availableMessages: result.recoveredMessages,
+      }
+    } catch (error) {
+      recoveryStatus.value = {
+        ...recoveryStatus.value,
+        scanning: false,
+        error: getErrorMessage(error, '检查历史记录失败。'),
+      }
+    }
+  }
+
+  async function recoverHistory(): Promise<void> {
+    if (!hasUtools()) return
+    recoveryStatus.value = { ...recoveryStatus.value, scanning: true, error: null }
+    try {
+      const remote = await loadRemoteConversations()
+      const result = mergeRecoveredConversations(conversations.value, remote)
+      const previousSizes = new Map(conversations.value.map((item) => [item.id, item.messages.length]))
+      for (const conversation of result.conversations) {
+        const previousSize = previousSizes.get(conversation.id)
+        if (previousSize === undefined || previousSize < conversation.messages.length) {
+          await saveLocalDoc(conversation)
+        }
+      }
+      conversations.value = sortConversations(result.conversations)
+      recoveryStatus.value = {
+        scanning: false,
+        availableConversations: 0,
+        availableMessages: 0,
+        recoveredConversations: result.recoveredConversations,
+        recoveredMessages: result.recoveredMessages,
+        error: null,
+      }
+    } catch (error) {
+      recoveryStatus.value = {
+        ...recoveryStatus.value,
+        scanning: false,
+        error: getErrorMessage(error, '恢复历史记录失败。'),
+      }
+    }
+  }
+
   function saveSettingsAction(): Promise<void> {
     return settingsActions.saveSettingsAction()
   }
@@ -380,6 +441,8 @@ export function useChatApp() {
     openSettings: settingsActions.openSettings,
     pendingAttachments,
     pluginEnterSignal: hostLifecycle.enterSignal,
+    recoverHistory,
+    recoveryStatus,
     retryLastAssistantMessage: replyLifecycle.retry,
     retryableAssistantMessageId,
     thinkingLevel,

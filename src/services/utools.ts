@@ -125,6 +125,12 @@ export async function deleteConversation(conversation: ConversationDoc): Promise
     await removeRemoteDoc(conversation._id)
   }
 }
+export async function loadRemoteConversations(): Promise<ConversationDoc[]> {
+  if (!hasUtools()) {
+    return []
+  }
+  return (await loadAllRemoteDocs(CONVERSATION_PREFIX)) as ConversationDoc[]
+}
 
 async function loadStoredSettingsDoc(
   source: 'local' | 'remote',

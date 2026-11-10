@@ -10,6 +10,7 @@ import SettingsMemorySection from './SettingsMemorySection.vue'
 import type { UsageStatistics } from '../services/usageStatistics'
 import type { SettingsForm } from '../types/chat'
 import type { MemoryFact, MemoryStatus } from '../types/memory'
+import type { ConversationRecoveryState } from '../services/conversationRecovery'
 import type { SettingsEdit, SettingsSectionId } from '../types/settingsPanel'
 
 const props = defineProps<{
@@ -18,6 +19,7 @@ const props = defineProps<{
   memoryFacts?: MemoryFact[]
   memoryStatus?: MemoryStatus | null
   open: boolean
+  recovery?: ConversationRecoveryState | null
   saving: boolean
   settings: SettingsForm
   statistics?: UsageStatistics | null
@@ -30,6 +32,7 @@ const emit = defineEmits<{
   memoryClear: []
   memoryForget: [id: string]
   memoryPin: [id: string]
+  recover: []
   save: []
 }>()
 
@@ -152,9 +155,11 @@ const { handleModalKeydown } = useModalFocus({
             />
             <SettingsConversationSection
               v-else-if="activeSection === 'conversation'"
+              :recovery="props.recovery"
               :saving="props.saving"
               :settings="props.settings"
               @edit="emit('edit', $event)"
+              @recover="emit('recover')"
             />
             <SettingsProvidersSection
               v-else-if="activeSection === 'providers'"
