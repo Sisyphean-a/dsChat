@@ -127,6 +127,22 @@ export function useChatApp() {
     resolveActiveSettings: () => getActiveProviderSettings(settings.value),
   })
   watch(() => settings.value.memory.enabled, () => memory.applySettings())
+  const pendingMemoryTurns = computed(() => {
+    const conversationId = activeConversationId.value
+    if (!conversationId) return 0
+    const conversation = conversations.value.find((item) => item.id === conversationId)
+    if (!conversation) return 0
+    const observedId = memory.observed.value[conversationId]
+    const index = observedId
+      ? conversation.messages.findIndex((message) => message.id === observedId)
+      : -1
+    return conversation.messages.slice(index + 1).filter((message) => message.role === 'user').length
+  })
+  async function observeMemoryNow(): Promise<void> {
+    const conversationId = activeConversationId.value
+    if (!conversationId) return
+    await memory.observeTurn(conversationId, { force: true })
+  }
 
   const replyLifecycle = createChatAppProduction({
     onProviderUsage(provider, usage) {
@@ -440,6 +456,8 @@ export function useChatApp() {
     modelOptions,
     openSettings: settingsActions.openSettings,
     pendingAttachments,
+    pendingMemoryTurns,
+    observeMemoryNow,
     pluginEnterSignal: hostLifecycle.enterSignal,
     recoverHistory,
     recoveryStatus,

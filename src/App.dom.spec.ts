@@ -70,6 +70,8 @@ vi.mock('./composables/useChatApp', () => ({
     },
     modelOptions: computed(() => []),
     openSettings: vi.fn(),
+    observeMemoryNow: vi.fn(),
+    pendingMemoryTurns: computed(() => 0),
     pendingAttachments: ref([]),
     pluginEnterSignal,
     recoverHistory: vi.fn(),

@@ -7,6 +7,7 @@ import type { SettingsEdit } from '../types/settingsPanel'
 
 const props = defineProps<{
   facts: MemoryFact[]
+  pendingTurns: number
   settings: SettingsForm
   status: MemoryStatus | null
 }>()
@@ -15,6 +16,7 @@ const emit = defineEmits<{
   clear: []
   edit: [edit: SettingsEdit]
   forget: [id: string]
+  observeNow: []
   pin: [id: string]
 }>()
 
@@ -34,20 +36,23 @@ const storageLabel = computed(() => {
 })
 const lastObservedLabel = computed(() => {
   if (!props.status?.lastObservedAt) return '尚未抽取'
-  return new Date(props.status.lastObservedAt).toLocaleString('zh-CN')
+  const time = new Date(props.status.lastObservedAt).toLocaleString('zh-CN')
+  const count = props.status.lastObservedCount
+  return count === null || count === undefined ? time : `${time} · ${count} 条`
 })
+const pendingLabel = computed(() => {
+  if (props.pendingTurns > 0) return `待抽取 ${props.pendingTurns} 轮`
+  return props.status?.lastObservedAt ? '已抽取完，继续聊会重新累计' : '待抽取 0 轮'
+})
+
+function setEnabled(enabled: boolean): void {
+  if (enabled === props.settings.memory.enabled) return
+  emit('edit', { domain: 'memory', action: 'toggle', enabled })
+}
 
 function updateInterval(event: Event): void {
   const value = Number((event.target as HTMLSelectElement).value)
   emit('edit', { domain: 'memory', action: 'updateObserveEveryTurns', value })
-}
-
-function toggleEnabled(): void {
-  emit('edit', {
-    domain: 'memory',
-    action: 'toggle',
-    enabled: !props.settings.memory.enabled,
-  })
 }
 
 function clearAll(): void {
@@ -66,38 +71,57 @@ function clearAll(): void {
       <article class="setting-card wide-card">
         <div class="setting-card-head split-head">
           <h4>长期记忆</h4>
-          <button type="button" class="ghost-button" @click="toggleEnabled">
-            {{ props.settings.memory.enabled ? '已开启' : '已关闭' }}
-          </button>
+          <div class="pill-control memory-toggle" role="group" aria-label="长期记忆开关">
+            <button type="button" :class="{ active: props.settings.memory.enabled }" @click="setEnabled(true)">
+              开启
+            </button>
+            <button type="button" :class="{ active: !props.settings.memory.enabled }" @click="setEnabled(false)">
+              关闭
+            </button>
+          </div>
         </div>
         <p class="field-hint">
-          开启后，每聊 {{ props.settings.memory.observeEveryTurns }} 轮会从对话里提炼值得长期记住的信息；下次提问时自动挑相关的几条放进提示词。
+          开启后，每聊 {{ props.settings.memory.observeEveryTurns }} 轮会从对话里提炼值得长期记住的信息；下次提问时自动挑相关的几条放进提示词。轮数按会话独立累计，回复成功结束后才计数。
         </p>
-        <label class="field-label" for="memory-interval">抽取间隔</label>
-        <select
-          id="memory-interval"
-          class="text-input"
-          :value="props.settings.memory.observeEveryTurns"
-          @change="updateInterval"
-        >
-          <option v-for="option in MEMORY_OBSERVE_INTERVAL_OPTIONS" :key="option" :value="option">
-            每 {{ option }} 轮
-          </option>
-        </select>
+        <label class="field-shell memory-interval-field">
+          <span>抽取间隔</span>
+          <select
+            :value="props.settings.memory.observeEveryTurns"
+            @change="updateInterval"
+          >
+            <option v-for="option in MEMORY_OBSERVE_INTERVAL_OPTIONS" :key="option" :value="option">
+              每 {{ option }} 轮
+            </option>
+          </select>
+        </label>
         <dl class="memory-meta">
           <div><dt>存储</dt><dd>{{ storageLabel }}</dd></div>
           <div><dt>已记住</dt><dd>{{ props.status?.factCount ?? 0 }} 条</dd></div>
+          <div><dt>本会话</dt><dd>{{ pendingLabel }}</dd></div>
           <div><dt>上次抽取</dt><dd>{{ lastObservedLabel }}</dd></div>
         </dl>
         <p v-if="props.status?.lastError" class="settings-save-error" role="alert">
           上次抽取失败：{{ props.status.lastError }}
         </p>
+        <p v-else-if="props.status?.lastObservedAt && props.status.lastObservedCount === 0" class="field-hint">
+          上次抽取没有发现可长期记住的信息。试试直接说一句：“记住：我用 VSCode 写前端，回答先给结论”，再点下方按钮。
+        </p>
+        <div class="memory-actions">
+          <button
+            type="button"
+            class="primary-action"
+            :disabled="props.pendingTurns === 0 || props.status?.observing"
+            @click="emit('observeNow')"
+          >
+            {{ props.status?.observing ? '正在抽取…' : '立即抽取当前会话' }}
+          </button>
+        </div>
       </article>
 
       <article class="setting-card wide-card">
         <div class="setting-card-head split-head">
           <h4>记住的事</h4>
-          <button v-if="props.facts.length" type="button" class="ghost-button" @click="clearAll">
+          <button v-if="props.facts.length" type="button" class="danger-text" @click="clearAll">
             清空
           </button>
         </div>
@@ -111,10 +135,12 @@ function clearAll(): void {
               <span class="memory-text">{{ fact.text }}</span>
             </div>
             <div class="memory-item-actions">
-              <button type="button" class="ghost-button" @click="emit('pin', fact.id)">
+              <button type="button" class="capability-toggle" @click="emit('pin', fact.id)">
                 {{ fact.pinned ? '取消钉住' : '钉住' }}
               </button>
-              <button type="button" class="ghost-button" @click="emit('forget', fact.id)">移除</button>
+              <button type="button" class="capability-toggle" @click="emit('forget', fact.id)">
+                移除
+              </button>
             </div>
           </li>
         </ul>
@@ -127,21 +153,43 @@ function clearAll(): void {
 </template>
 
 <style scoped>
-.memory-meta {
-  display: grid;
-  gap: 6px;
-  margin: 12px 0 0;
-  font-size: 12px;
+.memory-toggle {
+  flex: none;
+  width: auto;
 }
 
-.memory-meta div {
+.memory-interval-field {
+  max-width: 220px;
+}
+
+.memory-toggle button {
+  min-width: 52px;
+  padding: 5px 10px;
+  font-size: 0.74rem;
+}
+
+.memory-actions {
+  margin-top: 14px;
   display: flex;
   gap: 8px;
 }
 
+.memory-meta {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.memory-meta div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+}
+
 .memory-meta dt {
   color: var(--text-muted);
-  min-width: 64px;
 }
 
 .memory-meta dd {
@@ -151,7 +199,7 @@ function clearAll(): void {
 
 .memory-list {
   list-style: none;
-  margin: 12px 0 0;
+  margin: 14px 0 0;
   padding: 0;
   display: grid;
   gap: 8px;
@@ -162,27 +210,30 @@ function clearAll(): void {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 10px;
-  border: 1px solid var(--border-soft);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
   border-radius: 8px;
+  background: var(--bg-soft);
 }
 
 .memory-item-main {
   display: flex;
+  align-items: baseline;
   gap: 8px;
   min-width: 0;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 0.82rem;
+  line-height: 1.55;
 }
 
 .memory-kind {
   flex: none;
-  padding: 0 6px;
+  padding: 1px 6px;
   border-radius: 4px;
-  background: var(--surface-muted);
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 20px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.5;
 }
 
 .memory-text {

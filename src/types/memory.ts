@@ -73,6 +73,7 @@ export interface MemoryStatus {
   location: string
   factCount: number
   lastObservedAt: number | null
+  lastObservedCount: number | null
   lastError: string | null
   observing: boolean
 }

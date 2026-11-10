@@ -17,6 +17,7 @@ const props = defineProps<{
   error?: string | null
   isBrowserMode: boolean
   memoryFacts?: MemoryFact[]
+  memoryPendingTurns?: number
   memoryStatus?: MemoryStatus | null
   open: boolean
   recovery?: ConversationRecoveryState | null
@@ -31,6 +32,7 @@ const emit = defineEmits<{
   edit: [edit: SettingsEdit]
   memoryClear: []
   memoryForget: [id: string]
+  memoryObserveNow: []
   memoryPin: [id: string]
   recover: []
   save: []
@@ -180,11 +182,13 @@ const { handleModalKeydown } = useModalFocus({
             <SettingsMemorySection
               v-else
               :facts="props.memoryFacts ?? []"
+              :pending-turns="props.memoryPendingTurns ?? 0"
               :settings="props.settings"
               :status="props.memoryStatus ?? null"
               @clear="emit('memoryClear')"
               @edit="emit('edit', $event)"
               @forget="emit('memoryForget', $event)"
+              @observe-now="emit('memoryObserveNow')"
               @pin="emit('memoryPin', $event)"
             />
           </main>

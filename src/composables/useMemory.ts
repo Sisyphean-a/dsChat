@@ -26,9 +26,10 @@ export interface MemoryStoreOptions {
 export interface MemoryStore {
   status: Ref<MemoryStatus>
   facts: Ref<MemoryFact[]>
+  observed: Ref<Record<string, string>>
   initialize(): Promise<void>
   buildPromptSection(query: string): Promise<string>
-  observeTurn(conversationId: string): Promise<void>
+  observeTurn(conversationId: string, options?: { force?: boolean }): Promise<void>
   listFacts(): MemoryFact[]
   forgetFact(id: string): Promise<void>
   togglePin(id: string): Promise<void>
@@ -49,13 +50,18 @@ export function createMemoryStore(options: MemoryStoreOptions): MemoryStore {
     location: storage.location,
     factCount: 0,
     lastObservedAt: null,
+    lastObservedCount: null,
     lastError: null,
     observing: false,
   })
   let state: MemoryState = emptyState(now())
   let initialization: Promise<void> | null = null
   const facts = ref<MemoryFact[]>([])
+  const observed = ref<Record<string, string>>({})
 
+  function syncObserved(): void {
+    observed.value = { ...state.observed }
+  }
   function syncFacts(): void {
     facts.value = activeFacts(state.facts).sort((a, b) => b.updatedAt - a.updatedAt)
     status.value.factCount = facts.value.length
@@ -76,6 +82,7 @@ export function createMemoryStore(options: MemoryStoreOptions): MemoryStore {
       }
       applySettings()
       syncFacts()
+      syncObserved()
     })()
     return initialization
   }
@@ -91,6 +98,7 @@ export function createMemoryStore(options: MemoryStoreOptions): MemoryStore {
     await storage.writeState(state)
     await storage.backup(state)
     syncFacts()
+    syncObserved()
   }
 
   async function buildPromptSection(query: string): Promise<string> {
@@ -110,7 +118,10 @@ export function createMemoryStore(options: MemoryStoreOptions): MemoryStore {
     return renderMemorySection(selected)
   }
 
-  async function observeTurn(conversationId: string): Promise<void> {
+  async function observeTurn(
+    conversationId: string,
+    observeOptions: { force?: boolean } = {},
+  ): Promise<void> {
     if (!options.settings.value.memory.enabled) return
     await initialize()
     const conversation = options.conversations.value.find((item) => item.id === conversationId)
@@ -120,7 +131,8 @@ export function createMemoryStore(options: MemoryStoreOptions): MemoryStore {
     )
     const pending = messagesSince(messages, state.observed[conversationId])
     const userMessages = pending.filter((message) => message.role === 'user')
-    if (userMessages.length < options.settings.value.memory.observeEveryTurns) return
+    if (!userMessages.length) return
+    if (!observeOptions.force && userMessages.length < options.settings.value.memory.observeEveryTurns) return
     const lastMessage = pending.at(-1)
     if (!lastMessage) return
 
@@ -154,7 +166,9 @@ export function createMemoryStore(options: MemoryStoreOptions): MemoryStore {
         updatedAt: now(),
       }
       await storage.writeState(state)
+      syncObserved()
       status.value.lastObservedAt = now()
+      status.value.lastObservedCount = candidates.length
     } catch (error) {
       status.value.lastError = error instanceof Error && error.message.trim()
         ? error.message
@@ -192,6 +206,7 @@ export function createMemoryStore(options: MemoryStoreOptions): MemoryStore {
   return {
     status,
     facts,
+    observed,
     initialize,
     buildPromptSection,
     observeTurn,

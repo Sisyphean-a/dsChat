@@ -12,6 +12,7 @@ dist
 dist-ssr
 package
 *.local
+.tmp
 .codegraph
 
 # Editor directories and files

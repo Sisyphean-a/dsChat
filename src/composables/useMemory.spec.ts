@@ -156,6 +156,23 @@ describe('memory store', () => {
     expect(getState()?.observed.c1).toBeUndefined()
   })
 
+  it('强制抽取不受间隔限制', async () => {
+    const { storage, events } = createStorage()
+    const { completion } = createCompletion('{"memories":[]}')
+    const { options } = createOptions({
+      completion,
+      storage,
+      messages: [message('user', '记住我用 VSCode', 0), message('assistant', '好', 1)],
+      observeEveryTurns: 6,
+    })
+    const store = createMemoryStore(options)
+
+    await store.observeTurn('c1', { force: true })
+
+    expect(events).toHaveLength(0)
+    expect(store.observed.value.c1).toBe('m-1')
+  })
+
   it('检索命中后渲染进提示词', async () => {
     const { storage } = createStorage()
     const { completion } = createCompletion(JSON.stringify({
